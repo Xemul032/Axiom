@@ -13,10 +13,10 @@
 
     // Создание кнопки
     const button = document.createElement('button');
-    button.innerHTML = 'Проверить12';
+    button.innerHTML = 'Проверить';
     button.style.width = '100px';
-    button.style.height = '35px';
-    button.style.borderRadius = '10%';
+    button.style.height = '45x';
+    button.style.borderRadius = '15%';
     button.style.backgroundColor = 'grey';
     button.style.color = 'white';
     button.style.fontSize = '16px';
