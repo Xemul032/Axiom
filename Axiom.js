@@ -17,7 +17,7 @@
     button.style.width = '100px';
     button.style.height = '25x';
     button.style.borderRadius = '10%';
-    button.style.backgroundColor = 'grey';
+    button.style.backgroundColor = 'green';
     button.style.color = 'white';
     button.style.fontSize = '16px';
     button.style.cursor = 'pointer';
