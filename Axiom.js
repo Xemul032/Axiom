@@ -13,7 +13,7 @@
 
     // Создание кнопки
     const button = document.createElement('button');
-    button.innerHTML = 'Проверить1';
+    button.innerHTML = 'Проверить12';
     button.style.width = '100px';
     button.style.height = '35px';
     button.style.borderRadius = '10%';
