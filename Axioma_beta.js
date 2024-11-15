@@ -137,11 +137,11 @@
                 }
 
              // Проверка условий 0 мм сквозная
-                const trimSize1 = document.getElementById('TrimSize') ? parseInt(document.getElementById('TrimSize').value) : null;
-                if (trimSize1 === 0) {
-                    messages.push(`Вы уверены, что вылет в ${getOrderName(i)} ноль?`);
+             //   const trimSize1 = document.getElementById('TrimSize') ? parseInt(document.getElementById('TrimSize').value) : null;
+             //   if (trimSize1 === 0) {
+             //       messages.push(`Вы уверены, что вылет в ${getOrderName(i)} ноль?`);
 
-                }
+             //   }
                 // Проверка условий для карточек и ламинации
                 const cifraLayoutType = document.getElementById('CifraLayoutType');
                 if (foundOlod && cifraLayoutType && cifraLayoutType.value !== '2') {
