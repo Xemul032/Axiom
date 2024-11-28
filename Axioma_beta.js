@@ -90,8 +90,14 @@
 
 
 
-
-
+    
+    const new4Style = document.createElement('style');
+            new4Style.type = "text/css"
+            let new4Styles = `#Doc > div > table:nth-child(6) > tbody > tr > td:nth-child(1) > button.btn.btn-default.btn-lg {
+            margin-left: 500px;
+            }`;
+            new4Style.appendChild(document.createTextNode(new4Styles));
+            document.head.appendChild(new4Style);
 
 
 
@@ -113,11 +119,10 @@
             }
     }
 
-document.querySelector("#Tirazh")
+
         let messages = [];
 
         // Проверка значения в input id="ProdName" и "Tirazh"
-        
         const prodName = document.getElementById('ProdName') ? document.getElementById('ProdName').value : '';
         // const tirazh = document.getElementById('Tirazh') ? parseInt(document.getElementById('Tirazh').value) : 0;
         let tirazhAll =document.getElementById('ProductTirazh').value
