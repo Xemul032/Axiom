@@ -113,10 +113,11 @@
             }
     }
 
-
+document.querySelector("#Tirazh")
         let messages = [];
 
         // Проверка значения в input id="ProdName" и "Tirazh"
+        
         const prodName = document.getElementById('ProdName') ? document.getElementById('ProdName').value : '';
         // const tirazh = document.getElementById('Tirazh') ? parseInt(document.getElementById('Tirazh').value) : 0;
         let tirazhAll =document.getElementById('ProductTirazh').value
