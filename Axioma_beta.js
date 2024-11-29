@@ -1,5 +1,5 @@
 // ==UserScript==
-// @name         Проверка заказа 4.0
+// @name         Проверка заказа 4.1
 // @namespace    http://tampermonkey.net/
 // @version      1.6
 // @description
@@ -385,11 +385,11 @@ document.addEventListener('keydown', function(event) {
 });
 
 
-    const newStyle = document.createElement('style');
-    newStyle.type = "text/css"
-    let newStyles = `#Doc > div > table:nth-child(6) > tbody > tr > td:nth-child(1) > button.btn.btn-success.btn-lg {display: none}`;
-    newStyle.appendChild(document.createTextNode(newStyles));
-    document.head.appendChild(newStyle);
+    // const newStyle = document.createElement('style');
+    // newStyle.type = "text/css"
+    // let newStyles = `#Doc > div > table:nth-child(6) > tbody > tr > td:nth-child(1) > button.btn.btn-success.btn-lg {display: none}`;
+    // newStyle.appendChild(document.createTextNode(newStyles));
+    // document.head.appendChild(newStyle);
 
 
     // Функция для отображения сообщения о смене даты
@@ -470,6 +470,7 @@ document.addEventListener('keydown', function(event) {
     // Функция для проверки наличия текста на странице каждые 1 секунду
     function checkForText() {
         const searchText = 'Лак для офсета';
+        const searchText2 = 'Видов:';
         const pageContent = document.body.innerText;
         // Создаем цикл проверки по ордерам
 
@@ -478,16 +479,16 @@ document.addEventListener('keydown', function(event) {
 
 
 
-        if (pageContent.includes(searchText)) {
+        if (pageContent.includes(searchText) && pageContent.includes(searchText2)) {
             orderCheckButton.style.display = 'block'; // Показываем кнопку
-
-        } else {
-            orderCheckButton.style.display = 'none'; // Скрываем кнопку
             const new3Style = document.createElement('style');
             new3Style.type = "text/css"
             let new3Styles = `#Doc > div > table:nth-child(6) > tbody > tr > td:nth-child(1) > button.btn.btn-success.btn-lg {display: none}`;
             new3Style.appendChild(document.createTextNode(new3Styles));
             document.head.appendChild(new3Style);
+        } else {
+            orderCheckButton.style.display = 'none'; // Скрываем кнопку
+            
 
         }
     }
