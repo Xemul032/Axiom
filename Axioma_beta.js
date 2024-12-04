@@ -473,7 +473,7 @@
         const paperType = orderElem.querySelector(
           "#PaperType_chosen .chosen-single span"
         );
-        if (paperType && !paperType.innerText.includes("амоклей")) {
+        if (paperType && !paperType.innerText.includes("амокле")) {
           messages.push(
             `В ${getOrderName(
               i
