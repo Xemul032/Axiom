@@ -1,5 +1,5 @@
 // ==UserScript==
-// @name         Проверка заказа 5.4
+// @name         Проверка заказа 5.4.1
 // @namespace    http://tampermonkey.net/
 // @version      1.6
 // @description
@@ -1083,7 +1083,7 @@
   const colorCheckBtn = document.createElement("div");
   colorCheckBtn.style.position = "fixed";
   colorCheckBtn.style.top = "10%";
-  colorCheckBtn.style.left = "15%";
+  colorCheckBtn.style.left = "55%";
   colorCheckBtn.style.width = "100vw";
   colorCheckBtn.style.zIndex = "5000";
   colorCheckBtn.style.height = "100vh";
@@ -1095,7 +1095,7 @@
   setTimeout(() => {
     colorCheck = false;
   }, 100000);
-
+  
   function checkForcolorCheck() {
     const searchText1 = "Менеджер";
     const searchText2 = "Орбита";
@@ -1105,10 +1105,10 @@
     const searchText6 = "Запустить в работу";
     const searchText7 = "РЕКЛАМА";
     const bodyText = document.body.innerText;
-
-
-
-
+    
+    
+    
+    
     if (
       bodyText.includes(
         searchText1 &&
@@ -1116,7 +1116,7 @@
           searchText3 &&
           searchText4 &&
           searchText5 &&
-          searchText6
+          searchText6 
       )
     ) {
       document.body.appendChild(colorCheckBtn);
@@ -1128,7 +1128,7 @@
         colorCheckBtn.style.display = "block";
         const header1 = document.querySelectorAll(
           "#Summary > table > tbody > tr > td:nth-child(1) > div.formblock > table:nth-child(1) > tbody > tr > td:nth-child(3) > nobr > h4 > span"
-
+          
         );
 
         colorCheckBtn.addEventListener("click", function () {
@@ -1141,17 +1141,17 @@
               phraseFound = true;
             }
           });
-
+         
           // Выполняем действие при наличии фразы
           if (phraseFound) {
             // Здесь можно выполнить какое-то действие, например, вывести сообщение или изменить стиль элемента
             console.log("Фраза найдена!");
           } else if (!phraseFound){
-
+            
             if (colorCheck === false) {
               console.log("Фраза не найдена.");
               showCenterMessage('В данном заказе не установлена операция "ПОПАСТЬ В ЦВЕТ", в таком случае - никаких гарантий по цвету - нет!!!')
-
+              
               colorCheck = true;
             }
           }
@@ -1160,7 +1160,7 @@
     } else {
       count1 = 0;
       colorCheck = false;
-
+      
     }
   }
 
