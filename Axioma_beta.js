@@ -1,5 +1,5 @@
 // ==UserScript==
-// @name         Проверка заказа 5.3
+// @name         Проверка заказа 5.4
 // @namespace    http://tampermonkey.net/
 // @version      1.6
 // @description
@@ -34,13 +34,12 @@
   loaderContainer.style.transform = "translate(-50%, -50%)";
   loaderContainer.style.padding = "15px 40px";
   loaderContainer.style.zIndex = "10000";
-  loaderContainer.style.width = "500px"
-  loaderContainer.style.height = "500px"
+  loaderContainer.style.width = "500px";
+  loaderContainer.style.height = "500px";
 
-  let messageHTML = `<img src="https://raw.githubusercontent.com/Xemul032/Axiom/refs/heads/main/logo_newyear1.png" width="200px" height="107px"/> <br/> <br/> <h3>Готовим калькулятор...</h3>`;
+  let messageHTML = `<img src="https://raw.githubusercontent.com/Xemul032/Axiom/refs/heads/main/logo_newyear1.png" width="250px" height="134px"/> <br/> <br/> <h3>Готовим калькулятор...</h3>`;
 
   loaderContainer.innerHTML = messageHTML;
-
 
   // Переменная для хранения начального значения даты
   let initialDateReadyValue = null;
@@ -63,7 +62,7 @@
       );
       for (let k = 0; k < editBtn.length; k++) {
         editBtn[k].addEventListener("click", function () {
-          choosenCalc = null
+          choosenCalc = null;
           document.body.appendChild(blurOverlay);
           document.body.appendChild(loaderContainer);
 
@@ -137,7 +136,6 @@
                 document.querySelector(
                   `#CheckAllTech > div:nth-child(12) > label > input[type=checkbox]`
                 ).checked = true;
-
               }, 500);
             } else {
               closeBtnId = null;
@@ -249,7 +247,6 @@
     let new4Styles = `${closeBtnId} {margin-left: 500px;}`;
     new4Style.appendChild(document.createTextNode(new4Styles));
     document.head.appendChild(new4Style);
-
   }, 100);
 
   function checkForTextAndDate() {
@@ -555,6 +552,47 @@
             )} делается фольгирование. Оно ложится только на софттач ламинацию!`
           );
         }
+        // Проверка на количество листов для скрепки
+        let sumDensity = 0;
+        let paperSum = 0;
+        let paperType2 = document.querySelectorAll(
+          "#PaperType_chosen .chosen-single span"
+        );
+        let productPostpress = document.querySelector("#ProductPostpress");
+        let productZKList = productPostpress
+          .querySelector("#PostpressList")
+          .getElementsByTagName("tr");
+        if (productZKList.length >= 0) {
+          for (let j = 0; j < productZKList.length; j++) {
+            if (productZKList[j].innerText.includes("Скрепка")) {
+              console.log(paperType2);
+              if (paperType2.length === 1) {
+                let paperName = paperType2[0].innerText;
+                let density = Number(paperName.split(",").pop());
+                sumDensity += density;
+              } else {
+                let paperName = paperType2[1].innerText;
+                let density = Number(paperName.split(",").pop());
+                sumDensity += density;
+              }
+            }
+          }
+        }
+
+        const trs = productPostpress.querySelectorAll("tr");
+        for (let i = 0; i < trs.length; i++) {
+          const tdText = trs[i].innerText.toLowerCase();
+          if (tdText.includes("листоподбор")) {
+            const tds = trs[i].querySelectorAll("td");
+            paperSum = Number(tds[1].innerHTML);
+            break; // выходим из цикла после нахождения первого совпадения
+          }
+        }
+        if (sumDensity * paperSum > 2400) {
+          messages.push(
+            `Слишком толстый блок для скрепки! Обратитесь к технологу!`
+          );
+        }
 
         // Проверка на операции ZK
         let postpressList = orderElem.querySelector("#PostpressList");
@@ -686,6 +724,7 @@
           behavior: "smooth",
         });
       }
+
       let ordersArray = [];
       let prevArray = [];
       const currentArray = JSON.stringify(ordersArray);
@@ -798,6 +837,47 @@
             )} делается фольгирование. Оно ложится только на софттач ламинацию!`
           );
         }
+      }
+      // Проверка на количество листов для скрепки
+      let sumDensity = 0;
+      let paperSum = 0;
+      let paperType2 = document.querySelectorAll(
+        "#PaperType_chosen .chosen-single span"
+      );
+      let productPostpress = document.querySelector("#ProductPostpress");
+      let productZKList = productPostpress
+        .querySelector("#PostpressList")
+        .getElementsByTagName("tr");
+      if (productZKList.length >= 0) {
+        for (let j = 0; j < productZKList.length; j++) {
+          if (productZKList[j].innerText.includes("Скрепка")) {
+            console.log(paperType2);
+            if (paperType2.length === 1) {
+              let paperName = paperType2[0].innerText;
+              let density = Number(paperName.split(",").pop());
+              sumDensity += density;
+            } else {
+              let paperName = paperType2[1].innerText;
+              let density = Number(paperName.split(",").pop());
+              sumDensity += density;
+            }
+          }
+        }
+      }
+
+      const trs = productPostpress.querySelectorAll("tr");
+      for (let i = 0; i < trs.length; i++) {
+        const tdText = trs[i].innerText.toLowerCase();
+        if (tdText.includes("листоподбор")) {
+          const tds = trs[i].querySelectorAll("td");
+          paperSum = Number(tds[1].innerHTML);
+          break; // выходим из цикла после нахождения первого совпадения
+        }
+      }
+      if (sumDensity * paperSum > 2400) {
+        messages.push(
+          `Слишком толстый блок для скрепки! Обратитесь к технологу!`
+        );
       }
     }
 
@@ -955,8 +1035,12 @@
       'img[src="img/calc/blocknot_blok.png"]'
     );
     const sostav = document.getElementById("CifraLayoutType");
-    const perekid = document.querySelector('img[src="img/calc/calendar_wall.png"]')
-    const blokn = document.querySelector('img[src="img/calc/blocknot_top.png"]')
+    const perekid = document.querySelector(
+      'img[src="img/calc/calendar_wall.png"]'
+    );
+    const blokn = document.querySelector(
+      'img[src="img/calc/blocknot_top.png"]'
+    );
 
     // Создаем цикл проверки по ордерам
 
@@ -972,7 +1056,7 @@
         let new3Styles = `${choosenCalcId} {display: none}`;
         new3Style.appendChild(document.createTextNode(new3Styles));
         document.head.appendChild(new3Style);
-      }else {
+      } else {
         orderCheckButton.style.display = "none"; // Показываем кнопку
         const new3Style = document.createElement("style");
         new3Style.type = "text/css";
@@ -982,11 +1066,11 @@
       }
     } else {
       orderCheckButton.style.display = "none"; // Показываем кнопку
-        const new3Style = document.createElement("style");
-        new3Style.type = "text/css";
-        let new3Styles = `${choosenCalcId} {display: inline-block}`;
-        new3Style.appendChild(document.createTextNode(new3Styles));
-        document.head.appendChild(new3Style);
+      const new3Style = document.createElement("style");
+      new3Style.type = "text/css";
+      let new3Styles = `${choosenCalcId} {display: inline-block}`;
+      new3Style.appendChild(document.createTextNode(new3Styles));
+      document.head.appendChild(new3Style);
     }
   }
 
@@ -995,11 +1079,106 @@
     return `Ордер №${index + 1}`;
   }
 
+  // Создаем проверку по вопросу "Попасть в цвет"
+  const colorCheckBtn = document.createElement("div");
+  colorCheckBtn.style.position = "fixed";
+  colorCheckBtn.style.top = "10%";
+  colorCheckBtn.style.left = "15%";
+  colorCheckBtn.style.width = "100vw";
+  colorCheckBtn.style.zIndex = "5000";
+  colorCheckBtn.style.height = "100vh";
+  colorCheckBtn.style.backgroundColor = "transparent";
+  colorCheckBtn.style.display = "block";
+  let colorCheck = false;
+  let count1 = 0;
+  let phraseFound1 = false;
+  setTimeout(() => {
+    colorCheck = false;
+  }, 100000);
+
+  function checkForcolorCheck() {
+    const searchText1 = "Менеджер";
+    const searchText2 = "Орбита";
+    const searchText3 = "Контактное лицо";
+    const searchText4 = "Плательщик";
+    const searchText5 = "Комментарий для бухгалтерии";
+    const searchText6 = "Запустить в работу";
+    const searchText7 = "РЕКЛАМА";
+    const bodyText = document.body.innerText;
+
+
+
+
+    if (
+      bodyText.includes(
+        searchText1 &&
+          searchText2 &&
+          searchText3 &&
+          searchText4 &&
+          searchText5 &&
+          searchText6
+      )
+    ) {
+      document.body.appendChild(colorCheckBtn);
+
+      colorCheck = true;
+
+      if (colorCheck === true && count1 < 1) {
+        count1++;
+        colorCheckBtn.style.display = "block";
+        const header1 = document.querySelectorAll(
+          "#Summary > table > tbody > tr > td:nth-child(1) > div.formblock > table:nth-child(1) > tbody > tr > td:nth-child(3) > nobr > h4 > span"
+
+        );
+
+        colorCheckBtn.addEventListener("click", function () {
+          colorCheckBtn.style.display = "none";
+          colorCheck = false;
+          let phraseFound = false;
+          // Проверяем наличие фразы "Попасть в цвет"
+          header1.forEach((e) => {
+            if ((e.textContent.includes("Попасть в цвет")) || (e.textContent.includes("РЕКЛАМА"))) {
+              phraseFound = true;
+            }
+          });
+
+          // Выполняем действие при наличии фразы
+          if (phraseFound) {
+            // Здесь можно выполнить какое-то действие, например, вывести сообщение или изменить стиль элемента
+            console.log("Фраза найдена!");
+          } else if (!phraseFound){
+
+            if (colorCheck === false) {
+              console.log("Фраза не найдена.");
+              showCenterMessage('В данном заказе не установлена операция "ПОПАСТЬ В ЦВЕТ", в таком случае - никаких гарантий по цвету - нет!!!')
+
+              colorCheck = true;
+            }
+          }
+        });
+      }
+    } else {
+      count1 = 0;
+      colorCheck = false;
+
+    }
+  }
+
   // Запускаем проверку при загрузке страницы
   window.addEventListener("load", checkForTextAndDate);
   setInterval(checkForText, 500); // Проверка наличия текста каждую секунду
   setInterval(checkForTextAndDate, 1000); // Проверка даты каждые 2 секунды
+  setInterval(checkForcolorCheck, 1000);
+  setInterval(() => {
+    count = 0;
 
+    checkForcolorCheck();
+  }, 5000);
+  setInterval(() => {
+    count1 = 0;
+    colorCheck = false;
+
+  }, 100000);
   // Сбрасываем значение даты каждые 10 секунд
   setInterval(() => {
     initialDateReadyValue = null;
