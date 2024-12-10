@@ -1087,7 +1087,7 @@
   colorCheckBtn.style.width = "100vw";
   colorCheckBtn.style.zIndex = "5000";
   colorCheckBtn.style.height = "100vh";
-  colorCheckBtn.style.backgroundColor = "red";
+  colorCheckBtn.style.backgroundColor = "transparent";
   colorCheckBtn.style.display = "none";
   document.body.appendChild(colorCheckBtn);
   let colorCheck = false;
