@@ -1,5 +1,5 @@
 // ==UserScript==
-// @name         Проверка заказа 5.4.1
+// @name         Проверка заказа 5.4.2
 // @namespace    http://tampermonkey.net/
 // @version      1.6
 // @description
@@ -674,7 +674,7 @@
           const paperType = orderElem.querySelector(
             "#PaperType_chosen .chosen-single span"
           );
-          if (paperType && !paperType.innerText.includes("амоклей")) {
+          if (paperType && !paperType.innerText.includes("амокле")) {
             messages.push(
               `В ${getOrderName(
                 i
@@ -1087,15 +1087,16 @@
   colorCheckBtn.style.width = "100vw";
   colorCheckBtn.style.zIndex = "5000";
   colorCheckBtn.style.height = "100vh";
-  colorCheckBtn.style.backgroundColor = "transparent";
-  colorCheckBtn.style.display = "block";
+  colorCheckBtn.style.backgroundColor = "red";
+  colorCheckBtn.style.display = "none";
+  document.body.appendChild(colorCheckBtn);
   let colorCheck = false;
   let count1 = 0;
   let phraseFound1 = false;
   setTimeout(() => {
     colorCheck = false;
   }, 100000);
-  
+
   function checkForcolorCheck() {
     const searchText1 = "Менеджер";
     const searchText2 = "Орбита";
@@ -1105,9 +1106,6 @@
     const searchText6 = "Запустить в работу";
     const searchText7 = "РЕКЛАМА";
     const bodyText = document.body.innerText;
-    
-    
-    
     
     if (
       bodyText.includes(
@@ -1119,7 +1117,7 @@
           searchText6 
       )
     ) {
-      document.body.appendChild(colorCheckBtn);
+      
 
       colorCheck = true;
 
@@ -1128,7 +1126,6 @@
         colorCheckBtn.style.display = "block";
         const header1 = document.querySelectorAll(
           "#Summary > table > tbody > tr > td:nth-child(1) > div.formblock > table:nth-child(1) > tbody > tr > td:nth-child(3) > nobr > h4 > span"
-          
         );
 
         colorCheckBtn.addEventListener("click", function () {
@@ -1137,21 +1134,25 @@
           let phraseFound = false;
           // Проверяем наличие фразы "Попасть в цвет"
           header1.forEach((e) => {
-            if ((e.textContent.includes("Попасть в цвет")) || (e.textContent.includes("РЕКЛАМА"))) {
+            if (
+              e.textContent.includes("Попасть в цвет") ||
+              e.textContent.includes("РЕКЛАМА")
+            ) {
               phraseFound = true;
             }
           });
-         
+
           // Выполняем действие при наличии фразы
           if (phraseFound) {
             // Здесь можно выполнить какое-то действие, например, вывести сообщение или изменить стиль элемента
             console.log("Фраза найдена!");
-          } else if (!phraseFound){
-            
+          } else if (!phraseFound) {
             if (colorCheck === false) {
               console.log("Фраза не найдена.");
-              showCenterMessage('В данном заказе не установлена операция "ПОПАСТЬ В ЦВЕТ", в таком случае - никаких гарантий по цвету - нет!!!')
-              
+              showCenterMessage(
+                'В данном заказе не установлена операция "ПОПАСТЬ В ЦВЕТ", в таком случае - никаких гарантий по цвету - нет!!!'
+              );
+
               colorCheck = true;
             }
           }
@@ -1160,7 +1161,8 @@
     } else {
       count1 = 0;
       colorCheck = false;
-      
+  colorCheckBtn.style.display = "none";
+
     }
   }
 
@@ -1168,16 +1170,15 @@
   window.addEventListener("load", checkForTextAndDate);
   setInterval(checkForText, 500); // Проверка наличия текста каждую секунду
   setInterval(checkForTextAndDate, 1000); // Проверка даты каждые 2 секунды
-  setInterval(checkForcolorCheck, 1000);
+  setInterval(checkForcolorCheck, 100);
   setInterval(() => {
     count = 0;
 
     checkForcolorCheck();
-  }, 5000);
+  }, 1000);
   setInterval(() => {
     count1 = 0;
     colorCheck = false;
-
   }, 100000);
   // Сбрасываем значение даты каждые 10 секунд
   setInterval(() => {
