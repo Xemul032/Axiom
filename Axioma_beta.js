@@ -674,7 +674,7 @@
           const paperType = orderElem.querySelector(
             "#PaperType_chosen .chosen-single span"
           );
-          if (paperType && !paperType.innerText.includes("амокле")) {
+          if (paperType && !paperType.innerText.includes("амокл")) {
             messages.push(
               `В ${getOrderName(
                 i
@@ -1096,7 +1096,7 @@
   setTimeout(() => {
     colorCheck = false;
   }, 100000);
-
+  let colorBtnClick = false;
   function checkForcolorCheck() {
     const searchText1 = "Менеджер";
     const searchText2 = "Орбита";
@@ -1106,7 +1106,10 @@
     const searchText6 = "Запустить в работу";
     const searchText7 = "РЕКЛАМА";
     const bodyText = document.body.innerText;
-    
+    const header1 = document.querySelectorAll(
+      "#Summary > table > tbody > tr > td:nth-child(1) > div.formblock > table:nth-child(1) > tbody > tr > td:nth-child(3) > nobr > h4 > span"
+    );
+
     if (
       bodyText.includes(
         searchText1 &&
@@ -1114,24 +1117,20 @@
           searchText3 &&
           searchText4 &&
           searchText5 &&
-          searchText6 
+          searchText6
       )
     ) {
-      
-
       colorCheck = true;
-
+      let phraseFound = false;
       if (colorCheck === true && count1 < 1) {
         count1++;
         colorCheckBtn.style.display = "block";
-        const header1 = document.querySelectorAll(
-          "#Summary > table > tbody > tr > td:nth-child(1) > div.formblock > table:nth-child(1) > tbody > tr > td:nth-child(3) > nobr > h4 > span"
-        );
 
         colorCheckBtn.addEventListener("click", function () {
+          colorBtnClick = true;
+
           colorCheckBtn.style.display = "none";
-          colorCheck = false;
-          let phraseFound = false;
+
           // Проверяем наличие фразы "Попасть в цвет"
           header1.forEach((e) => {
             if (
@@ -1141,28 +1140,37 @@
               phraseFound = true;
             }
           });
+          if (colorBtnClick === true && phraseFound === false) {
+            colorCheck = false;
+            phraseFound = true;
+            count = 0;
+            colorBtnClick = false;
+            console.log("Фраза не найдена.");
+            showCenterMessage(
+              'В данном заказе не установлена операция "ПОПАСТЬ В ЦВЕТ", в таком случае - никаких гарантий по цвету - нет!!!'
+            );
 
-          // Выполняем действие при наличии фразы
-          if (phraseFound) {
-            // Здесь можно выполнить какое-то действие, например, вывести сообщение или изменить стиль элемента
+            // Выполняем действие при наличии фразы
+            // if (phraseFound == true) {
+            //   // Здесь можно выполнить какое-то действие, например, вывести сообщение или изменить стиль элемента
+            //
+            // } else {
+
+            //   phraseFound = false;
+
+            //   colorCheck = true;
+            // }
+          } else {
             console.log("Фраза найдена!");
-          } else if (!phraseFound) {
-            if (colorCheck === false) {
-              console.log("Фраза не найдена.");
-              showCenterMessage(
-                'В данном заказе не установлена операция "ПОПАСТЬ В ЦВЕТ", в таком случае - никаких гарантий по цвету - нет!!!'
-              );
-
-              colorCheck = true;
-            }
+            phraseFound = false;
           }
         });
       }
     } else {
       count1 = 0;
       colorCheck = false;
-  colorCheckBtn.style.display = "none";
-
+      colorBtnClick = false;
+      colorCheckBtn.style.display = "none";
     }
   }
 
@@ -1178,11 +1186,11 @@
   }, 1000);
   setInterval(() => {
     count1 = 0;
-    colorCheck = false;
   }, 100000);
   // Сбрасываем значение даты каждые 10 секунд
   setInterval(() => {
     initialDateReadyValue = null;
     checkForText = null;
+    colorBtnClick = false;
   }, 1000);
 })();
