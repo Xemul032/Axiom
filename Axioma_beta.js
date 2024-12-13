@@ -214,30 +214,30 @@
           ) {
             closeBtnId = null;
             choosenCalcId = null;
-          } else if (choosenCalc === 7) {
-            closeBtnId = null;
-            choosenCalcId = null;
-            setTimeout(() => {
-              document.querySelector(
-                `#CheckAllTech > div:nth-child(1) > label > input[type=checkbox]`
-              ).checked = false;
-              document.querySelector(
-                `#CheckAllTech > div:nth-child(2) > label > input[type=checkbox]`
-              ).checked = false;
-              document.querySelector(
-                `#CheckAllTech > div:nth-child(3) > label > input[type=checkbox]`
-              ).checked = false;
-              document.querySelector(
-                `#CheckAllTech > div:nth-child(4) > label > input[type=checkbox]`
-              ).checked = false;
-              document.querySelector(
-                `#CheckAllTech > div:nth-child(5) > label > input[type=checkbox]`
-              ).checked = false;
-              document.querySelector(
-                `#CheckAllTech > div:nth-child(12) > label > input[type=checkbox]`
-              ).checked = true;
-            }, 500);
-          }
+          } // else if (choosenCalc === 7) {
+           // closeBtnId = null;
+           // choosenCalcId = null;
+           // setTimeout(() => {
+            //  document.querySelector(
+             //   `#CheckAllTech > div:nth-child(1) > label > input[type=checkbox]`
+            //  ).checked = false;
+            //  document.querySelector(
+             //   `#CheckAllTech > div:nth-child(2) > label > input[type=checkbox]`
+             // ).checked = false;
+             // document.querySelector(
+             //   `#CheckAllTech > div:nth-child(3) > label > input[type=checkbox]`
+            //  ).checked = false;
+            //  document.querySelector(
+             //   `#CheckAllTech > div:nth-child(4) > label > input[type=checkbox]`
+            //  ).checked = false;
+             // document.querySelector(
+            //    `#CheckAllTech > div:nth-child(5) > label > input[type=checkbox]`
+           //   ).checked = false;
+            //  document.querySelector(
+            //    `#CheckAllTech > div:nth-child(12) > label > input[type=checkbox]`
+           //   ).checked = true;
+           // }, 500);
+         // }
         });
       }
     }
