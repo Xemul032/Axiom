@@ -1,5 +1,5 @@
 // ==UserScript==
-// @name         Проверка заказа 5.4.3
+// @name         Проверка заказа 5.4.3.1
 // @namespace    http://tampermonkey.net/
 // @version      1.6
 // @description
@@ -598,9 +598,9 @@
             if (!isInteger(lQuantity)) {
               console.log("Сюда ннна");
               messages.push(
-                `В ${getOrderName(
+                `в ${getOrderName(
                   i
-                )} люверсы указаны неверно! Удалите их из этого ордера и перенесите в нижнюю постпечать`
+                )} не целое число - убирай епрст и перекидывай на общую постпечать !`
               );
             } else {
               console.log("Число целое - от*ебись");
@@ -1135,6 +1135,7 @@
   function getOrderName(index) {
     return `Ордер №${index + 1}`;
   }
+  let counter = 0;
 
   // Создаем проверку по вопросу "Попасть в цвет"
   const colorCheckBtn = document.createElement("div");
@@ -1170,13 +1171,30 @@
     const timeReserve = document.querySelector(
       "#Summary > table > tbody > tr > td:nth-child(1) > table > tbody:nth-child(3) > tr:nth-child(9) > td.PlanBlock > span"
     );
+    let text;
     if (timeToReady && timeReserve) {
       if (
         timeReserve.innerHTML.includes("Расчетная дата сдачи заказа") === false
       ) {
         timeToReady.value = "21:30";
         timeReserve.innerHTML = "отгрузка на следующий день";
+      } 
+      else if (timeReserve.innerHTML.includes("Расчетная дата сдачи заказа") === true  && counter === 0){
+        // Получаем текст
+        text = timeReserve.innerText;
+        
+        
+        // Удаляем последние 4 символа
+        text = text.substring(0, text.length - 7);
+        console.log(text);
+        timeReserve.innerText = text;
+        counter = 1;
+        
+        // // Заменяем текст в элементе
+        
       }
+    } else {
+      counter = 0;
     }
 
     if (
@@ -1255,6 +1273,7 @@
   }, 1000);
   setInterval(() => {
     count1 = 0;
+    counter = 0;
   }, 100000);
   // Сбрасываем значение даты каждые 10 секунд
   setInterval(() => {
