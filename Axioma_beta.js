@@ -1,5 +1,5 @@
 // ==UserScript==
-// @name         Проверка заказа 5.4.2
+// @name         Проверка заказа 5.4.3
 // @namespace    http://tampermonkey.net/
 // @version      1.6
 // @description
@@ -117,26 +117,27 @@
             } else if (convert) {
               closeBtnId = null;
               choosenCalcId = null;
-              setTimeout(() => {
-                document.querySelector(
-                  `#CheckAllTech > div:nth-child(1) > label > input[type=checkbox]`
-                ).checked = false;
-                document.querySelector(
-                  `#CheckAllTech > div:nth-child(2) > label > input[type=checkbox]`
-                ).checked = false;
-                document.querySelector(
-                  `#CheckAllTech > div:nth-child(3) > label > input[type=checkbox]`
-                ).checked = false;
-                document.querySelector(
-                  `#CheckAllTech > div:nth-child(4) > label > input[type=checkbox]`
-                ).checked = false;
-                document.querySelector(
-                  `#CheckAllTech > div:nth-child(5) > label > input[type=checkbox]`
-                ).checked = false;
-                document.querySelector(
-                  `#CheckAllTech > div:nth-child(12) > label > input[type=checkbox]`
-                ).checked = true;
-              }, 500);
+              // setTimeout(() => {
+              //   document.querySelector(
+              //     `#CheckAllTech > div:nth-child(1) > label > input[type=checkbox]`
+              //   ).checked = false;
+              //   document.querySelector(
+              //     `#CheckAllTech > div:nth-child(2) > label > input[type=checkbox]`
+              //   ).checked = false;
+              //   document.querySelector(
+              //     `#CheckAllTech > div:nth-child(3) > label > input[type=checkbox]`
+              //   ).checked = false;
+              //   document.querySelector(
+              //     `#CheckAllTech > div:nth-child(4) > label > input[type=checkbox]`
+              //   ).checked = false;
+              //   document.querySelector(
+              //     `#CheckAllTech > div:nth-child(5) > label > input[type=checkbox]`
+              //   ).checked = false;
+              //   document.querySelector(
+              //     `#CheckAllTech > div:nth-child(12) > label > input[type=checkbox]`
+              //   ).checked = true;
+
+              // }, 500);
             } else {
               closeBtnId = null;
               choosenCalcId = null;
@@ -214,30 +215,30 @@
           ) {
             closeBtnId = null;
             choosenCalcId = null;
-          } // else if (choosenCalc === 7) {
-           // closeBtnId = null;
-           // choosenCalcId = null;
-           // setTimeout(() => {
-            //  document.querySelector(
-             //   `#CheckAllTech > div:nth-child(1) > label > input[type=checkbox]`
-            //  ).checked = false;
-            //  document.querySelector(
-             //   `#CheckAllTech > div:nth-child(2) > label > input[type=checkbox]`
-             // ).checked = false;
-             // document.querySelector(
-             //   `#CheckAllTech > div:nth-child(3) > label > input[type=checkbox]`
-            //  ).checked = false;
-            //  document.querySelector(
-             //   `#CheckAllTech > div:nth-child(4) > label > input[type=checkbox]`
-            //  ).checked = false;
-             // document.querySelector(
-            //    `#CheckAllTech > div:nth-child(5) > label > input[type=checkbox]`
-           //   ).checked = false;
-            //  document.querySelector(
-            //    `#CheckAllTech > div:nth-child(12) > label > input[type=checkbox]`
-           //   ).checked = true;
-           // }, 500);
-         // }
+          } else if (choosenCalc === 7) {
+            closeBtnId = null;
+            choosenCalcId = null;
+            // setTimeout(() => {
+            //   document.querySelector(
+            //     `#CheckAllTech > div:nth-child(1) > label > input[type=checkbox]`
+            //   ).checked = false;
+            //   document.querySelector(
+            //     `#CheckAllTech > div:nth-child(2) > label > input[type=checkbox]`
+            //   ).checked = false;
+            //   document.querySelector(
+            //     `#CheckAllTech > div:nth-child(3) > label > input[type=checkbox]`
+            //   ).checked = false;
+            //   document.querySelector(
+            //     `#CheckAllTech > div:nth-child(4) > label > input[type=checkbox]`
+            //   ).checked = false;
+            //   document.querySelector(
+            //     `#CheckAllTech > div:nth-child(5) > label > input[type=checkbox]`
+            //   ).checked = false;
+            //   document.querySelector(
+            //     `#CheckAllTech > div:nth-child(12) > label > input[type=checkbox]`
+            //   ).checked = true;
+            // }, 500);
+          }
         });
       }
     }
@@ -578,6 +579,34 @@
             }
           }
         }
+        //Проверка на люверс
+        function isInteger(num) {
+          return num % 1 === 0;
+        }
+        const postpressList1 = document.querySelector("#PostpressList");
+        const ltrs = postpressList1.querySelectorAll("tr");
+        console.log(ltrs);
+
+        ltrs.forEach((elem) => {
+          if (elem.innerText.includes("Люверс") === true) {
+            console.log("я нашел люверс в ордере");
+
+            console.log(elem);
+            let lQuantity = elem.querySelector("#Quantity").value;
+            console.log(lQuantity);
+
+            if (!isInteger(lQuantity)) {
+              console.log("Сюда ннна");
+              messages.push(
+                `В ${getOrderName(
+                  i
+                )} люверсы указаны неверно! Удалите их из этого ордера и перенесите в нижнюю постпечать`
+              );
+            } else {
+              console.log("Число целое - от*ебись");
+            }
+          }
+        });
 
         const trs = productPostpress.querySelectorAll("tr");
         for (let i = 0; i < trs.length; i++) {
@@ -674,7 +703,7 @@
           const paperType = orderElem.querySelector(
             "#PaperType_chosen .chosen-single span"
           );
-          if (paperType && !paperType.innerText.includes("амокл")) {
+          if (paperType && !paperType.innerText.includes("амокле")) {
             messages.push(
               `В ${getOrderName(
                 i
@@ -864,6 +893,34 @@
           }
         }
       }
+
+      //Проверка на люверс
+      function isInteger(num) {
+        return num % 1 === 0;
+      }
+      const postpressList1 = document.querySelector("#PostpressList");
+      const ltrs = postpressList1.querySelectorAll("tr");
+      console.log(ltrs);
+
+      ltrs.forEach((elem) => {
+        if (elem.innerText.includes("Люверс") === true) {
+          console.log("я нашел люверс в ордере");
+
+          console.log(elem);
+          let lQuantity = elem.querySelector("#Quantity").value;
+          console.log(lQuantity);
+
+          if (!isInteger(lQuantity)) {
+            messages.push(
+              `в ${getOrderName(
+                i
+              )} не целое число - убирай епрст и перекидывай на общую постпечать !`
+            );
+          } else {
+            console.log("Число целое - от*ебись");
+          }
+        }
+      });
 
       const trs = productPostpress.querySelectorAll("tr");
       for (let i = 0; i < trs.length; i++) {
@@ -1109,6 +1166,18 @@
     const header1 = document.querySelectorAll(
       "#Summary > table > tbody > tr > td:nth-child(1) > div.formblock > table:nth-child(1) > tbody > tr > td:nth-child(3) > nobr > h4 > span"
     );
+    const timeToReady = document.querySelector("#PlanReady");
+    const timeReserve = document.querySelector(
+      "#Summary > table > tbody > tr > td:nth-child(1) > table > tbody:nth-child(3) > tr:nth-child(9) > td.PlanBlock > span"
+    );
+    if (timeToReady && timeReserve) {
+      if (
+        timeReserve.innerHTML.includes("Расчетная дата сдачи заказа") === false
+      ) {
+        timeToReady.value = "21:30";
+        timeReserve.innerHTML = "отгрузка на следующий день";
+      }
+    }
 
     if (
       bodyText.includes(
