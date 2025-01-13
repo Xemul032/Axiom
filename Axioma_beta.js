@@ -1,5 +1,5 @@
 // ==UserScript==
-// @name         Проверка заказа 6.0.2
+// @name         Проверка заказа 6.0.4
 // @namespace    http://tampermonkey.net/
 // @version      1.6
 // @description
@@ -633,7 +633,7 @@
               messages.push(
                 `в ${getOrderName(
                   i
-                )} указано не целое число в постпечатной операции "Люверс". Переместите лювер в нижнюю постпечать!`
+                )} указано не целочисленное количество люверсов! Переместите операцию люверсов в нижнюю постпечать!`
               );
             } else {
               console.log("Число целое - от*ебись");
@@ -1687,7 +1687,19 @@
         calcCheck = 0;
       }
     }, 100);
-    if (statusIconCalc !== null && calcCheck === 0 && statusNotToCheck1 === null&& statusNotToCheck2 === null&& statusNotToCheck3 === null&& statusNotToCheck4 === null&& statusNotToCheck5 === null&& statusNotToCheck6 === null&& statusNotToCheck7 === null&& statusNotToCheck8 === null&& statusNotToCheck9 === null) {
+    if (
+      statusIconCalc !== null &&
+      calcCheck === 0 &&
+      statusNotToCheck1 === null &&
+      statusNotToCheck2 === null &&
+      statusNotToCheck3 === null &&
+      statusNotToCheck4 === null &&
+      statusNotToCheck5 === null &&
+      statusNotToCheck6 === null &&
+      statusNotToCheck7 === null &&
+      statusNotToCheck8 === null &&
+      statusNotToCheck9 === null
+    ) {
       calcCheck = 1;
       let orders = document.querySelectorAll(
         "#Summary > table > tbody > tr > td:nth-child(1) > .formblock"
@@ -1708,9 +1720,15 @@
         let needToOtherValue = 0;
 
         if (needToOther) {
-          needCountValue = Number(needCount.innerText.replace(/\s/g, ""));
-          stockRemainValue = Number(stockRemain.innerText.replace(/\s/g, ""));
-          needToOtherValue = Number(needToOther.innerText.replace(/\s/g, ""));
+          needCountValue = Number(
+            needCount.innerText.replace(/\s|\&nbsp;/g, "")
+          );
+          stockRemainValue = Number(
+            stockRemain.innerText.replace(/\s|\&nbsp;/g, "")
+          );
+          needToOtherValue = Number(
+            needToOther.innerText.replace(/\s|\&nbsp;/g, "")
+          );
           console.log(stockRemainValue);
 
           if (
@@ -1718,7 +1736,10 @@
             needCountValue + needToOtherValue + 50 <= stockRemainValue
           ) {
             console.log(`в ордере № ${index + 1} Бумаги хватает`);
-          } else {
+          } else if (
+            stockRemainValue <= 0 ||
+            needCountValue + needToOtherValue + 50 > stockRemainValue
+          ) {
             console.log(`в ордере № ${index + 1} Бумаги нет блэт`);
             if (btnsgroup2 !== null) {
               btnsgroup2.style.display = "none";
@@ -1730,11 +1751,18 @@
             ); // Показываем сообщение в центре экрана
           }
         } else {
-          needCountValue = Number(needCount.innerText.replace(/\s/g, ""));
-          stockRemainValue = Number(stockRemain.innerText.replace(/\s/g, ""));
+          needCountValue = Number(
+            needCount.innerText.replace(/\s|\&nbsp;/g, "")
+          );
+          stockRemainValue = Number(
+            stockRemain.innerText.replace(/\s|\&nbsp;/g, "")
+          );
           if (stockRemainValue > 0 && needCountValue + 50 <= stockRemainValue) {
             console.log(`в ордере № ${index + 1} Бумаги хватает`);
-          } else {
+          } else if (
+            stockRemainValue <= 0 ||
+            needCountValue + 50 > stockRemainValue
+          ) {
             console.log(`в ордере № ${index + 1} Бумаги нет блэт`);
             if (btnsgroup2 !== null) {
               btnsgroup2.style.display = "none";
@@ -1747,7 +1775,19 @@
           }
         }
       });
-    } else if (statusIconCalcWFiles !== null && calcCheck === 0 && statusNotToCheck1 === null&& statusNotToCheck2 === null&& statusNotToCheck3 === null&& statusNotToCheck4 === null&& statusNotToCheck5 === null&& statusNotToCheck6 === null&& statusNotToCheck7 === null&& statusNotToCheck8 === null&& statusNotToCheck9 === null) {
+    } else if (
+      statusIconCalcWFiles !== null &&
+      calcCheck === 0 &&
+      statusNotToCheck1 === null &&
+      statusNotToCheck2 === null &&
+      statusNotToCheck3 === null &&
+      statusNotToCheck4 === null &&
+      statusNotToCheck5 === null &&
+      statusNotToCheck6 === null &&
+      statusNotToCheck7 === null &&
+      statusNotToCheck8 === null &&
+      statusNotToCheck9 === null
+    ) {
       calcCheck = 1;
       let orders = document.querySelectorAll(
         "#Summary > table > tbody > tr > td:nth-child(1) > .formblock"
@@ -1768,15 +1808,24 @@
         let needToOtherValue = 0;
 
         if (needToOther) {
-          needCountValue = Number(needCount.innerText.replace(/\s/g, ""));
-          stockRemainValue = Number(stockRemain.innerText.replace(/\s/g, ""));
-          needToOtherValue = Number(needToOther.innerText.replace(/\s/g, ""));
+          needCountValue = Number(
+            needCount.innerText.replace(/\s|\&nbsp;/g, "")
+          );
+          stockRemainValue = Number(
+            stockRemain.innerText.replace(/\s|\&nbsp;/g, "")
+          );
+          needToOtherValue = Number(
+            needToOther.innerText.replace(/\s|\&nbsp;/g, "")
+          );
           if (
             stockRemainValue > 0 &&
             needCountValue + needToOtherValue + 50 <= stockRemainValue
           ) {
             console.log(`в ордере № ${index + 1} Бумаги хватает`);
-          } else {
+          } else if (
+            stockRemainValue <= 0 ||
+            needCountValue + needToOtherValue + 50 > stockRemainValue
+          ) {
             console.log(`в ордере № ${index + 1} Бумаги нет блэт`);
             btnToWorkWFiles.style.display = "none";
             if (btnsgroup1 !== null) {
@@ -1790,13 +1839,26 @@
                 index + 1
               }. Замените бумагу или свяжитесь с ответственным за остатки бумаги для запуска заказа в работу`
             ); // Показываем сообщение в центре экрана
-            needCountValue = Number(needCount.innerText.replace(/\s/g, ""));
-            stockRemainValue = Number(stockRemain.innerText.replace(/\s/g, ""));
+            needCountValue = Number(
+              needCount.innerText.replace(/\s|\&nbsp;/g, "")
+            );
+            stockRemainValue = Number(
+              stockRemain.innerText.replace(/\s|\&nbsp;/g, "")
+            );
           }
         } else {
+          needCountValue = Number(
+            needCount.innerText.replace(/\s|\&nbsp;/g, "")
+          );
+          stockRemainValue = Number(
+            stockRemain.innerText.replace(/\s|\&nbsp;/g, "")
+          );
           if (stockRemainValue > 0 && needCountValue + 50 <= stockRemainValue) {
             console.log(`в ордере № ${index + 1} Бумаги хватает`);
-          } else {
+          } else if (
+            stockRemainValue <= 0 ||
+            needCountValue + 50 > stockRemainValue
+          ) {
             console.log(`в ордере № ${index + 1} Бумаги нет блэт`);
             btnToWorkWFiles.style.display = "none";
             if (btnsgroup1 !== null) {
@@ -1813,7 +1875,19 @@
           }
         }
       });
-    } else if (statusIconNoFiles !== 0 && calcCheck === 0 && statusNotToCheck1 === null&& statusNotToCheck2 === null&& statusNotToCheck3 === null&& statusNotToCheck4 === null&& statusNotToCheck5 === null&& statusNotToCheck6 === null&& statusNotToCheck7 === null&& statusNotToCheck8 === null&& statusNotToCheck9 === null) {
+    } else if (
+      statusIconNoFiles !== 0 &&
+      calcCheck === 0 &&
+      statusNotToCheck1 === null &&
+      statusNotToCheck2 === null &&
+      statusNotToCheck3 === null &&
+      statusNotToCheck4 === null &&
+      statusNotToCheck5 === null &&
+      statusNotToCheck6 === null &&
+      statusNotToCheck7 === null &&
+      statusNotToCheck8 === null &&
+      statusNotToCheck9 === null
+    ) {
       calcCheck = 1;
       let orders = document.querySelectorAll(
         "#Summary > table > tbody > tr > td:nth-child(1) > .formblock"
@@ -1834,15 +1908,24 @@
         let needToOtherValue = 0;
 
         if (needToOther) {
-          needCountValue = Number(needCount.innerText.replace(/\s/g, ""));
-          stockRemainValue = Number(stockRemain.innerText.replace(/\s/g, ""));
-          needToOtherValue = Number(needToOther.innerText.replace(/\s/g, ""));
+          needCountValue = Number(
+            needCount.innerText.replace(/\s|\&nbsp;/g, "")
+          );
+          stockRemainValue = Number(
+            stockRemain.innerText.replace(/\s|\&nbsp;/g, "")
+          );
+          needToOtherValue = Number(
+            needToOther.innerText.replace(/\s|\&nbsp;/g, "")
+          );
           if (
             stockRemainValue > 0 &&
             needCountValue + needToOtherValue + 50 <= stockRemainValue
           ) {
             console.log(`в ордере № ${index + 1} Бумаги хватает`);
-          } else {
+          } else if (
+            stockRemainValue <= 0 ||
+            needCountValue + needToOtherValue + 50 > stockRemainValue
+          ) {
             console.log(`в ордере № ${index + 1} Бумаги нет блэт`);
             newFilesGet.style.display = "none";
             showCenterMessage(
@@ -1852,12 +1935,25 @@
             ); // Показываем сообщение в центре экрана
           }
         } else {
+          needCountValue = Number(
+            needCount.innerText.replace(/\s|\&nbsp;/g, "")
+          );
+          stockRemainValue = Number(
+            stockRemain.innerText.replace(/\s|\&nbsp;/g, "")
+          );
           if (stockRemainValue > 0 && needCountValue + 50 <= stockRemainValue) {
             console.log(`в ордере № ${index + 1} Бумаги хватает`);
-          } else {
+          } else if (
+            stockRemainValue <= 0 ||
+            needCountValue + 50 > stockRemainValue
+          ) {
             console.log(`в ордере № ${index + 1} Бумаги нет блэт`);
-            needCountValue = Number(needCount.innerText.replace(/\s/g, ""));
-            stockRemainValue = Number(stockRemain.innerText.replace(/\s/g, ""));
+            needCountValue = Number(
+              needCount.innerText.replace(/\s|\&nbsp;/g, "")
+            );
+            stockRemainValue = Number(
+              stockRemain.innerText.replace(/\s|\&nbsp;/g, "")
+            );
             newFilesGet.style.display = "none";
             showCenterMessage(
               `Не хватает бумаги для ордера №${
