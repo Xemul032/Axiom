@@ -1,5 +1,5 @@
 // ==UserScript==
-// @name         Проверка заказа 6.0.4
+// @name         Проверка заказа 6.0.7
 // @namespace    http://tampermonkey.net/
 // @version      1.6
 // @description
@@ -633,7 +633,7 @@
               messages.push(
                 `в ${getOrderName(
                   i
-                )} указано не целочисленное количество люверсов! Переместите операцию люверсов в нижнюю постпечать!`
+                )} не целое число - убирай епрст и перекидывай на общую постпечать !`
               );
             } else {
               console.log("Число целое - от*ебись");
@@ -1163,38 +1163,35 @@
       document.head.appendChild(new3Style);
     }
   }
-  function parseCustomDate(dateString) {
-    const months = {
-      января: 0,
-      февраля: 1,
-      марта: 2,
-      апреля: 3,
-      мая: 4,
-      июня: 5,
-      июля: 6,
-      августа: 7,
-      сентября: 8,
-      октября: 9,
-      ноября: 10,
-      декабря: 11,
-    };
+  // function parseCustomDate(dateString) {
+  //   const months = {
+  //     января: 0,
+  //     февраля: 1,
+  //     марта: 2,
+  //     апреля: 3,
+  //     мая: 4,
+  //     июня: 5,
+  //     июля: 6,
+  //     августа: 7,
+  //     сентября: 8,
+  //     октября: 9,
+  //     ноября: 10,
+  //     декабря: 11,
+  //   };
+  //   const regex = /(\d{2}) (\w+) (\d{4}) (\d{2}):(\d{2})/;
+  //   const match = dateString.match(regex);
+  //   if (!match) {
+  //     return new Date("Invalid Date"); // Если формат не подходит
+  //   }
 
-    const regex = /(\d{2}) (\w+) (\d{4}) (\d{2}):(\d{2})/;
-    const match = dateString.match(regex);
+  //   const [_, day, month, year, hours, minutes] = match;
 
-    if (!match) {
-      return new Date("Invalid Date"); // Если формат не подходит
-    }
-
-    const [_, day, month, year, hours, minutes] = match;
-
-    const monthIndex = months[month.toLowerCase()];
-    if (monthIndex === undefined) {
-      return new Date("Invalid Date"); // Если месяц не распознан
-    }
-
-    return new Date(year, monthIndex, day, hours, minutes);
-  }
+  //   const monthIndex = months[month.toLowerCase()];
+  //   if (monthIndex === undefined) {
+  //     return new Date("Invalid Date"); // Если месяц не распознан
+  //   }
+  //   return new Date(year, monthIndex, day, hours, minutes);
+  // }
 
   // Функция для получения названия заказа по индексу
   function getOrderName(index) {
@@ -1234,118 +1231,102 @@
       "#Summary > table > tbody > tr > td:nth-child(1) > div.formblock > table:nth-child(1) > tbody > tr > td:nth-child(3) > nobr > h4 > span"
     );
 
-    const DateReady = document.querySelector(
-      "#Summary > table > tbody > tr > td:nth-child(1) > table > tbody:nth-child(3) > tr:nth-child(9) > td.PlanBlock > span.DateReady"
-    );
-    const DateReady1 = document.querySelector(
-      "#Summary > table > tbody > tr > td:nth-child(1) > table > tbody:nth-child(3) > tr:nth-child(9) > td.PlanBlock > span.DateReady"
-    );
-    const calcDate = document.querySelector(
-      "#History > table:nth-child(1) > tbody > tr:nth-child(2) > td.right.bold > nobr"
-    );
-    const reCalcDate = document.querySelector(
-      "#Summary > table > tbody > tr > td:nth-child(1) > table > tbody:nth-child(3) > tr:nth-child(9) > td.PlanBlock > button"
-    );
-    const loadingDate = document.querySelector(
-      "#Summary > table > tbody > tr > td:nth-child(1) > table > tbody:nth-child(3) > tr:nth-child(9) > td.PlanBlock"
-    );
+    // if (
+    //   DateReady &&
+    //   bodyText.includes(searchText5) &&
+    //   DateReady.classList.contains("changed") == false
+    // ) {
+    //   DateReady.classList.add("changed");
+    //   let DateReady1 = DateReady.innerText;
 
-    if (
-      DateReady &&
-      bodyText.includes(searchText5) &&
-      DateReady.classList.contains("changed") == false
-    ) {
-      DateReady.classList.add("changed");
-      let DateReady1 = DateReady.innerText;
+    //   // function addOneDay(dateString) {
+    //   //   const daysOfWeek = [
+    //   //     "Воскресенье",
+    //   //     "Понедельник",
+    //   //     "Вторник",
+    //   //     "Среда",
+    //   //     "Четверг",
+    //   //     "Пятница",
+    //   //     "Суббота",
+    //   //   ];
+    //   //   const months = [
+    //   //     "января",
+    //   //     "февраля",
+    //   //     "марта",
+    //   //     "апреля",
+    //   //     "мая",
+    //   //     "июня",
+    //   //     "июля",
+    //   //     "августа",
+    //   //     "сентября",
+    //   //     "октября",
+    //   //     "ноября",
+    //   //     "декабря",
+    //   //   ];
 
-      // function addOneDay(dateString) {
-      //   const daysOfWeek = [
-      //     "Воскресенье",
-      //     "Понедельник",
-      //     "Вторник",
-      //     "Среда",
-      //     "Четверг",
-      //     "Пятница",
-      //     "Суббота",
-      //   ];
-      //   const months = [
-      //     "января",
-      //     "февраля",
-      //     "марта",
-      //     "апреля",
-      //     "мая",
-      //     "июня",
-      //     "июля",
-      //     "августа",
-      //     "сентября",
-      //     "октября",
-      //     "ноября",
-      //     "декабря",
-      //   ];
+    //   //   let date;
 
-      //   let date;
+    //   //   // Определяем формат даты и парсим
+    //   //   if (/\d{2}\/\d{2}\/\d{4}/.test(dateString)) {
+    //   //     // Формат: "Суббота, 21/12/2024"
+    //   //     const [, day, month, year] = dateString.match(
+    //   //       /(\d{2})\/(\d{2})\/(\d{4})/
+    //   //     );
+    //   //     date = new Date(`${year}-${month}-${day}`);
+    //   //   } else {
+    //   //     // Формат: "Суббота, 21 декабря 2024"
+    //   //     const [, day, monthName, year] = dateString.match(
+    //   //       /(\d{1,2})\s([а-яё]+)\s(\d{4})/i
+    //   //     );
+    //   //     const monthIndex = months.indexOf(monthName);
+    //   //     if (monthIndex === -1) {
+    //   //       throw new Error("Неверный формат даты");
+    //   //     }
+    //   //     date = new Date(year, monthIndex, day);
+    //   //   }
 
-      //   // Определяем формат даты и парсим
-      //   if (/\d{2}\/\d{2}\/\d{4}/.test(dateString)) {
-      //     // Формат: "Суббота, 21/12/2024"
-      //     const [, day, month, year] = dateString.match(
-      //       /(\d{2})\/(\d{2})\/(\d{4})/
-      //     );
-      //     date = new Date(`${year}-${month}-${day}`);
-      //   } else {
-      //     // Формат: "Суббота, 21 декабря 2024"
-      //     const [, day, monthName, year] = dateString.match(
-      //       /(\d{1,2})\s([а-яё]+)\s(\d{4})/i
-      //     );
-      //     const monthIndex = months.indexOf(monthName);
-      //     if (monthIndex === -1) {
-      //       throw new Error("Неверный формат даты");
-      //     }
-      //     date = new Date(year, monthIndex, day);
-      //   }
+    //   //   // Добавляем 1 день
+    //   //   date.setDate(date.getDate() + 1);
 
-      //   // Добавляем 1 день
-      //   date.setDate(date.getDate() + 1);
+    //   //   // Формируем обновленный день недели
+    //   //   const dayOfWeek = daysOfWeek[date.getDay()];
 
-      //   // Формируем обновленный день недели
-      //   const dayOfWeek = daysOfWeek[date.getDay()];
+    //   //   // Формируем выходные строки для двух форматов
+    //   //   const formattedDate1 = `${dayOfWeek}, ${String(date.getDate()).padStart(
+    //   //     2,
+    //   //     "0"
+    //   //   )}/${String(date.getMonth() + 1).padStart(
+    //   //     2,
+    //   //     "0"
+    //   //   )}/${date.getFullYear()}`;
+    //   //   const formattedDate2 = `${dayOfWeek}, ${date.getDate()} ${
+    //   //     months[date.getMonth()]
+    //   //   } ${date.getFullYear()}`;
 
-      //   // Формируем выходные строки для двух форматов
-      //   const formattedDate1 = `${dayOfWeek}, ${String(date.getDate()).padStart(
-      //     2,
-      //     "0"
-      //   )}/${String(date.getMonth() + 1).padStart(
-      //     2,
-      //     "0"
-      //   )}/${date.getFullYear()}`;
-      //   const formattedDate2 = `${dayOfWeek}, ${date.getDate()} ${
-      //     months[date.getMonth()]
-      //   } ${date.getFullYear()}`;
+    //   //   return { formattedDate1, formattedDate2 };
+    //   // }
 
-      //   return { formattedDate1, formattedDate2 };
-      // }
+    //   // DateReady.innerText = addOneDay(DateReady1).formattedDate1;
 
-      // DateReady.innerText = addOneDay(DateReady1).formattedDate1;
+    //   // Пример использования
 
-      // Пример использования
+    //   // const observer = new MutationObserver((mutationsList, observer) => {
+    //   //   for (let mutation of mutationsList) {
+    //   //     if (
+    //   //       mutation.type === "attributes" &&
+    //   //       !loadingDate.classList.contains("LoadingContent")
+    //   //     ) {
+    //   //       DateReady.innerText = addOneDay(DateReady1).formattedDate1;
 
-      const observer = new MutationObserver((mutationsList, observer) => {
-        for (let mutation of mutationsList) {
-          if (
-            mutation.type === "attributes" &&
-            !loadingDate.classList.contains("LoadingContent")
-          ) {
-            DateReady.innerText = addOneDay(DateReady1).formattedDate1;
+    //   //       // observer.disconnect(); // Прекращаем наблюдение после изменения
+    //   //       break;
+    //   //     }
+    //   //   }
+    //   // });
 
-            // observer.disconnect(); // Прекращаем наблюдение после изменения
-            break;
-          }
-        }
-      });
-
-      // Настроим наблюдатель за кнопкой
-      observer.observe(loadingDate, { attributes: true });
-    }
+    //   // Настроим наблюдатель за кнопкой
+    //   observer.observe(loadingDate, { attributes: true });
+    // }
 
     // const currentDate = new Date();
 
@@ -1978,12 +1959,236 @@
     }
   }, 1000);
 
+  // const DateReady = document.querySelector(
+  //   "#Summary > table > tbody > tr > td:nth-child(1) > table > tbody:nth-child(3) > tr:nth-child(9) > td.PlanBlock > span.DateReady"
+  // );
+  // const DateReady1 = document.querySelector(
+  //   "#Summary > table > tbody > tr > td:nth-child(1) > table > tbody:nth-child(3) > tr:nth-child(9) > td.PlanBlock > span.DateReady"
+  // );
+  // const calcDate = document.querySelector(
+  //   "#History > table:nth-child(1) > tbody > tr:nth-child(2) > td.right.bold > nobr"
+  // );
+  // const reCalcDate = document.querySelector(
+  //   "#Summary > table > tbody > tr > td:nth-child(1) > table > tbody:nth-child(3) > tr:nth-child(9) > td.PlanBlock > button"
+  // );
+  // const loadingDate = document.querySelector(
+  //   "#Summary > table > tbody > tr > td:nth-child(1) > table > tbody:nth-child(3) > tr:nth-child(9) > td.PlanBlock"
+  // );
+
+  // Функция для преобразования строки в дату и изменения её на следующий день
+  let datecheck = 0;
+  let datecheck1 = 0;
+  function addOneDay() {
+    const dateInCalc = document.querySelector(
+      "#result > div > div > table > tbody > tr:nth-child(2) > td:nth-child(2) > table > tbody > tr:nth-child(11) > td.right > b"
+    );
+    const dateInProduct = document.querySelector('#UtCalcResult > table:nth-child(1) > tbody > tr:nth-child(3) > td:nth-child(2)')
+    if (document.getElementById("result") !== null && datecheck === 0 || document.getElementById("UtCalcResult") !== null && datecheck === 0) {
+      function updateDate(dateString) {
+        const months = {
+          января: 0,
+          февраля: 1,
+          марта: 2,
+          апреля: 3,
+          мая: 4,
+          июня: 5,
+          июля: 6,
+          августа: 7,
+          сентября: 8,
+          октября: 9,
+          ноября: 10,
+          декабря: 11,
+        };
+
+        // Разделяем строку на части
+        const [day, monthName] = dateString.split(" ");
+        const dayNumber = parseInt(day, 10);
+        const monthNumber = months[monthName];
+
+        // Проверяем, что месяц корректный
+        if (monthNumber === undefined) {
+          throw new Error("Некорректный формат месяца: " + monthName);
+        }
+
+        // Создаем объект Date и добавляем один день
+        const currentDate = new Date(2025, monthNumber, dayNumber); // Год указан для примера
+        currentDate.setDate(currentDate.getDate() + 1);
+
+        // Формируем новую строку с датой
+        const newDay = currentDate.getDate();
+        const newMonthName = Object.keys(months).find(
+          (key) => months[key] === currentDate.getMonth()
+        );
+
+        return `${newDay} ${newMonthName}`;
+      }
+      if (datecheck === 0 && document.getElementById("result") !== null) {
+        const oldDate = dateInCalc.innerHTML.trim();
+        const newDate = updateDate(oldDate);
+        dateInCalc.innerHTML = newDate; // Обновляем текст в блоке
+        datecheck = 1;
+      }else if (datecheck === 0 && document.getElementById("UtCalcResult") !== null){
+        const oldDate = dateInProduct.innerHTML.trim();
+        const newDate = updateDate(oldDate);
+        dateInProduct.innerHTML = newDate; // Обновляем текст в блоке
+        datecheck = 1;
+      }
+    } else if (document.getElementById("result") == null && document.getElementById("UtCalcResult") == null) {
+      datecheck = 0;
+    }
+    const links = document.body.querySelectorAll("a");
+    links.forEach((elem)=>{
+      elem.addEventListener("click", ()=>{
+        setTimeout(() => {
+          datecheck = 0;
+        }, 200);
+      })
+    })
+
+    const dateInOrder = document.querySelector(
+      "#Summary > table > tbody > tr > td:nth-child(1) > table > tbody:nth-child(3) > tr:nth-child(9) > td.PlanBlock"
+    );
+    if (dateInOrder) {
+      function updateDateInElement(selector) {
+        // Находим элемент
+
+        if (!dateInOrder) {
+          console.error("Элемент не найден");
+          return;
+        }
+
+        // Получаем текст элемента
+        const text = dateInOrder.textContent;
+
+        // Регулярное выражение для извлечения даты
+        const dateMatch = text.match(
+          /(\d{1,2}) (января|февраля|марта|апреля|мая|июня|июля|августа|сентября|октября|ноября|декабря) (\d{4}) (\d{2}):(\d{2})/
+        );
+        if (!dateMatch) {
+          return;
+        }
+
+        // Словарь для преобразования названий месяцев в номера
+        const months = {
+          января: 0,
+          февраля: 1,
+          марта: 2,
+          апреля: 3,
+          мая: 4,
+          июня: 5,
+          июля: 6,
+          августа: 7,
+          сентября: 8,
+          октября: 9,
+          ноября: 10,
+          декабря: 11,
+        };
+
+        // Извлекаем части даты
+        const day = parseInt(dateMatch[1], 10);
+        const month = months[dateMatch[2]];
+        const year = parseInt(dateMatch[3], 10);
+
+        // Создаем объект даты
+        const date = new Date(year, month, day);
+
+        // Добавляем 1 день
+        date.setDate(date.getDate() + 1);
+
+        // Устанавливаем время на 21:30
+        date.setHours(21, 30, 0, 0);
+
+        // Форматируем дату для отображения
+        const updatedDate = date.toLocaleString("ru-RU", {
+          year: "numeric",
+          month: "long",
+          day: "numeric",
+          hour: "2-digit",
+          minute: "2-digit",
+        });
+
+        // Обновляем текст в элементе
+        dateInOrder.textContent = `Расчетная дата сдачи заказа: ${updatedDate}`;
+      }
+
+      // Обновляем дату в элементе с классом .textDate
+      updateDateInElement(
+        "#Summary > table > tbody > tr > td:nth-child(1) > table > tbody:nth-child(3) > tr:nth-child(9) > td.PlanBlock"
+      );
+    }
+
+    const dateForWorkOrder = document.querySelector(
+      "#Summary > table > tbody > tr > td:nth-child(1) > table > tbody:nth-child(3) > tr:nth-child(9) > td.PlanBlock > span.DateReady"
+    );
+
+    if (dateForWorkOrder) {
+
+      // Сопоставление дней недели
+      const daysOfWeek = [
+        "Воскресенье",
+        "Понедельник",
+        "Вторник",
+        "Среда",
+        "Четверг",
+        "Пятница",
+        "Суббота",
+      ];
+
+      // Функция для добавления одного дня
+      function addOneDayToDate() {
+        if (!dateForWorkOrder) {
+          return;
+        }
+
+        // Извлекаем текст из элемента
+        const dateText = dateForWorkOrder.textContent.trim();
+
+        // Разделяем текст для извлечения даты
+        const [, datePart] = dateText.split(",").map((part) => part.trim());
+
+        // Преобразуем дату в объект Date
+        const [day, month, year] = datePart.split("/").map(Number);
+        const currentDate = new Date(year, month - 1, day);
+
+        // Добавляем 1 день
+        currentDate.setDate(currentDate.getDate() + 1);
+
+        // Форматируем новую дату
+        const newDayOfWeek = daysOfWeek[currentDate.getDay()];
+        const newDatePart = `${currentDate
+          .getDate()
+          .toString()
+          .padStart(2, "0")}/${(currentDate.getMonth() + 1)
+          .toString()
+          .padStart(2, "0")}/${currentDate.getFullYear()}`;
+        const newDateText = `${newDayOfWeek}, ${newDatePart}`;
+
+        // Обновляем содержимое элемента
+
+        dateForWorkOrder.textContent = newDateText;
+      }
+
+      // Запускаем функцию
+      if (datecheck1 === 0){
+        addOneDayToDate();
+        datecheck1 = 1;
+      }
+
+
+
+
+    } else if (dateForWorkOrder == null) {
+      datecheck1 = 0;
+    }
+  }
+
   // Запускаем проверку при загрузке страницы
   window.addEventListener("load", checkForTextAndDate);
   setInterval(checkForText, 500); // Проверка наличия текста каждую секунду
   setInterval(checkForTextAndDate, 1000); // Проверка даты каждые 2 секунды
   setInterval(checkForcolorCheck, 100);
   setInterval(checkingClients, 100);
+  setInterval(addOneDay, 100);
   setInterval(() => {
     count = 0;
 
@@ -1999,3 +2204,5 @@
     colorBtnClick = false;
   }, 1000);
 })();
+
+
