@@ -1,5 +1,5 @@
 // ==UserScript==
-// @name         Проверка заказа 6.0.7
+// @name         Проверка заказа 6.0.8
 // @namespace    http://tampermonkey.net/
 // @version      1.6
 // @description
@@ -1473,7 +1473,7 @@
   checkingClientsBtn.style.width = "100vw";
   checkingClientsBtn.style.zIndex = "5000";
   checkingClientsBtn.style.height = "10%";
-  checkingClientsBtn.style.backgroundColor = "transparent";
+  checkingClientsBtn.style.backgroundColor = "red";
   checkingClientsBtn.style.display = "none";
   document.body.appendChild(checkingClientsBtn);
   let checkingClientsBtnClick = false;
@@ -2181,6 +2181,107 @@
       datecheck1 = 0;
     }
   }
+  setInterval(() => {
+    const orderListLoading = document.querySelectorAll('#ManagerList > div > div.ax-table-body > table > tbody > tr')
+  if (orderListLoading && orderListLoading.length <= 1){
+    dateListUpdate = 0;
+  }
+  }, 10);
+
+  let dateListUpdate = 0;
+  function addDateOnOrderList() {
+    const dateColumn = document.querySelector('#ManagerList > div > div.ax-table-body > table > thead > tr:nth-child(1) > th:nth-child(11) > span')
+
+    if (dateColumn !== null && dateListUpdate === 0){
+      function updateDates(selector) {
+        dateListUpdate = 1;
+        const dateBlocks = document.querySelectorAll(selector);
+
+        dateBlocks.forEach(dateBlock => {
+          const dateText = dateBlock.textContent.trim();
+
+          // Регулярное выражение для определения формата даты
+          const fullDateRegex = /^\d{4}, \d{2} [а-яё]+ \d{2}:\d{2}$/i;
+          const shortDateRegex = /^\d{2} [а-яё]+ \d{2}:\d{2}$/i;
+
+          let newDate;
+
+          if (fullDateRegex.test(dateText)) {
+            // Формат: "2024, 30 дек 16:57"
+            newDate = parseFullDate(dateText);
+          } else if (shortDateRegex.test(dateText)) {
+            // Формат: "16 янв 09:35"
+            newDate = parseShortDate(dateText);
+          } else {
+            // console.error("Неверный формат даты:", dateText);
+            return;
+          }
+
+          // Увеличиваем дату на 1 день и устанавливаем фиксированное время 10:00
+          newDate.setDate(newDate.getDate() + 1);
+          newDate.setHours(10, 0, 0, 0);
+
+          // Обновляем текст в нужном формате
+          const updatedText = formatDate(newDate, dateText.includes(","));
+          dateBlock.textContent = updatedText;
+        });
+      }
+
+      function parseFullDate(dateText) {
+        // "2024, 30 дек 16:57" -> Date
+        const [year, rest] = dateText.split(", ");
+        const [day, month, time] = rest.split(" ");
+        const [hours, minutes] = time.split(":");
+        const monthIndex = getMonthIndex(month);
+
+        return new Date(year, monthIndex, day, hours, minutes);
+      }
+
+      function parseShortDate(dateText) {
+        // "16 янв 09:35" -> Date
+        const [day, month, time] = dateText.split(" ");
+        const [hours, minutes] = time.split(":");
+        const currentYear = new Date().getFullYear();
+        const monthIndex = getMonthIndex(month);
+
+        return new Date(currentYear, monthIndex, day, hours, minutes);
+      }
+
+      function formatDate(date, includeYear) {
+        const day = String(date.getDate()).padStart(2, "0");
+        const month = getMonthName(date.getMonth());
+        const time = `${String(date.getHours()).padStart(2, "0")}:${String(date.getMinutes()).padStart(2, "0")}`;
+
+        if (includeYear) {
+          return `${date.getFullYear()}, ${day} ${month} ${time}`;
+        } else {
+          return `${day} ${month} ${time}`;
+        }
+      }
+
+      function getMonthIndex(monthName) {
+        const months = [
+          "янв", "фев", "мар", "апр", "май", "июн",
+          "июл", "авг", "сен", "окт", "ноя", "дек"
+        ];
+        return months.indexOf(monthName.toLowerCase());
+      }
+
+      function getMonthName(monthIndex) {
+        const months = [
+          "янв", "фев", "мар", "апр", "май", "июн",
+          "июл", "авг", "сен", "окт", "ноя", "дек"
+        ];
+        return months[monthIndex];
+      }
+
+      // Пример использования:
+      updateDates('#ManagerList > div > div.ax-table-body > table > tbody > tr > td.nobreak > span');
+
+    } else if(dateColumn == null){
+      dateListUpdate = 0;
+    }
+  }
 
   // Запускаем проверку при загрузке страницы
   window.addEventListener("load", checkForTextAndDate);
@@ -2189,6 +2290,7 @@
   setInterval(checkForcolorCheck, 100);
   setInterval(checkingClients, 100);
   setInterval(addOneDay, 100);
+  setInterval(addDateOnOrderList, 100);
   setInterval(() => {
     count = 0;
 
