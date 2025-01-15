@@ -1074,7 +1074,7 @@
   }
 
   // Функция для отображения сообщений
-  function showMessages(messages) {
+function showMessages(messages) {
     const blurOverlay = document.createElement("div");
     blurOverlay.style.position = "fixed";
     blurOverlay.style.top = "0";
@@ -1097,22 +1097,29 @@
     messageContainer.style.zIndex = "10000";
     messageContainer.style.borderRadius = "10px";
 
+    // Сначала добавляем только текст сообщения
     let messageHTML = "<b>" + messages.join("</b><br><b>") + "</b><br><br>";
-    messageHTML +=
-      '<button id="closeMessage" style="width: 80px; height: 30px; margin: 0 auto; display: block; background: linear-gradient(to bottom, #5BB75B, #429742); border: none; color: white; cursor: pointer; border-radius: 5px;">Ок</button>';
+    messageHTML += '<div id="buttonContainer" style="opacity: 0; transition: opacity 1s;">' +
+        '<button id="closeMessage" style="width: 80px; height: 30px; margin: 0 auto; display: block; background: linear-gradient(to bottom, #5BB75B, #429742); border: none; color: white; cursor: pointer; border-radius: 5px;">Ок</button>' +
+        '</div>';
 
     messageContainer.innerHTML = messageHTML;
     document.body.appendChild(messageContainer);
 
-    document
-      .getElementById("closeMessage")
-      .addEventListener("click", function () {
-        document.body.removeChild(messageContainer);
-        document.body.removeChild(blurOverlay);
-        initialDateReadyValue = null;
-      });
-  }
+    // Показываем кнопку через 2 секунды
+    setTimeout(() => {
+        const buttonContainer = document.getElementById('buttonContainer');
+        buttonContainer.style.opacity = '1';
+    }, 500);
 
+    document
+        .getElementById("closeMessage")
+        .addEventListener("click", function () {
+            document.body.removeChild(messageContainer);
+            document.body.removeChild(blurOverlay);
+            initialDateReadyValue = null;
+        });
+}
   // Функция для проверки наличия текста на странице каждые 1 секунду
   function checkForText() {
     const searchText = "Лак для офсета";
