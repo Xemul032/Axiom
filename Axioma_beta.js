@@ -2096,7 +2096,7 @@
         date.setDate(date.getDate() + 1);
 
         // Устанавливаем время на 21:30
-        date.setHours(21, 30, 0, 0);
+        date.setHours(10, 0, 0, 0);
 
         // Форматируем дату для отображения
         const updatedDate = date.toLocaleString("ru-RU", {
