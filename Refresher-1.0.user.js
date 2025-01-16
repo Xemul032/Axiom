@@ -19,7 +19,7 @@
         const seconds = now.getSeconds();
 
         // Если время 22:00:00, обновляем страницу
-        if (hours === 11 && minutes === 40 && seconds === 0) {
+        if (hours === 11 && minutes === 45 && seconds === 0) {
             location.reload();
         }
     }
@@ -28,5 +28,5 @@
     setInterval(checkTime, 1000);
 
     // Выводим сообщение в консоль для подтверждения работы скрипта
-    console.log('Отсчёт пошёл');
+    console.log('Отсчёт пошёл1');
 })();
