@@ -19,7 +19,7 @@
         const seconds = now.getSeconds();
 
         // Если время 22:00:00, обновляем страницу
-        if (hours === 11 && minutes === 22 && seconds === 0) {
+        if (hours === 11 && minutes === 35 && seconds === 0) {
             location.reload();
         }
     }
