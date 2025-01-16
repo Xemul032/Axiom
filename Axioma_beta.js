@@ -22,8 +22,8 @@
   blurOverlay.style.backdropFilter = "blur(5px)";
   blurOverlay.style.zIndex = "9998";
   let blur = false;
-console.log(`Всё работает =)`);
-  
+  console.log(`Всё работает =)`);
+
   const loaderContainer = document.createElement("div");
   loaderContainer.style.position = "fixed";
   loaderContainer.style.top = "50%";
@@ -1075,7 +1075,7 @@ console.log(`Всё работает =)`);
   }
 
   // Функция для отображения сообщений
-function showMessages(messages) {
+  function showMessages(messages) {
     const blurOverlay = document.createElement("div");
     blurOverlay.style.position = "fixed";
     blurOverlay.style.top = "0";
@@ -1098,29 +1098,22 @@ function showMessages(messages) {
     messageContainer.style.zIndex = "10000";
     messageContainer.style.borderRadius = "10px";
 
-    // Сначала добавляем только текст сообщения
     let messageHTML = "<b>" + messages.join("</b><br><b>") + "</b><br><br>";
-    messageHTML += '<div id="buttonContainer" style="opacity: 0; transition: opacity 1s;">' +
-        '<button id="closeMessage" style="width: 80px; height: 30px; margin: 0 auto; display: block; background: linear-gradient(to bottom, #5BB75B, #429742); border: none; color: white; cursor: pointer; border-radius: 5px;">Ок</button>' +
-        '</div>';
+    messageHTML +=
+      '<button id="closeMessage" style="width: 80px; height: 30px; margin: 0 auto; display: block; background: linear-gradient(to bottom, #5BB75B, #429742); border: none; color: white; cursor: pointer; border-radius: 5px;">Ок</button>';
 
     messageContainer.innerHTML = messageHTML;
     document.body.appendChild(messageContainer);
 
-    // Показываем кнопку через 2 секунды
-    setTimeout(() => {
-        const buttonContainer = document.getElementById('buttonContainer');
-        buttonContainer.style.opacity = '1';
-    }, 500);
-
     document
-        .getElementById("closeMessage")
-        .addEventListener("click", function () {
-            document.body.removeChild(messageContainer);
-            document.body.removeChild(blurOverlay);
-            initialDateReadyValue = null;
-        });
-}
+      .getElementById("closeMessage")
+      .addEventListener("click", function () {
+        document.body.removeChild(messageContainer);
+        document.body.removeChild(blurOverlay);
+        initialDateReadyValue = null;
+      });
+  }
+
   // Функция для проверки наличия текста на странице каждые 1 секунду
   function checkForText() {
     const searchText = "Лак для офсета";
@@ -2130,7 +2123,7 @@ function showMessages(messages) {
     );
 
     if (dateForWorkOrder) {
-
+      
       // Сопоставление дней недели
       const daysOfWeek = [
         "Воскресенье",
@@ -2147,7 +2140,7 @@ function showMessages(messages) {
         if (!dateForWorkOrder) {
           return;
         }
-
+        
         // Извлекаем текст из элемента
         const dateText = dateForWorkOrder.textContent.trim();
 
@@ -2181,39 +2174,39 @@ function showMessages(messages) {
         addOneDayToDate();
         datecheck1 = 1;
       }
-
-
-
-
+      
+        
+        
+      
     } else if (dateForWorkOrder == null) {
       datecheck1 = 0;
     }
   }
   setInterval(() => {
-    const orderListLoading = document.querySelectorAll('#ManagerList > div > div.ax-table-body > table > tbody > tr')
+    const orderListLoading = document.querySelectorAll('#ManagerList > div > div.ax-table-body > table > tbody > tr > td')
   if (orderListLoading && orderListLoading.length <= 1){
     dateListUpdate = 0;
   }
   }, 10);
-
+  
   let dateListUpdate = 0;
   function addDateOnOrderList() {
     const dateColumn = document.querySelector('#ManagerList > div > div.ax-table-body > table > thead > tr:nth-child(1) > th:nth-child(11) > span')
-
+    
     if (dateColumn !== null && dateListUpdate === 0){
       function updateDates(selector) {
         dateListUpdate = 1;
         const dateBlocks = document.querySelectorAll(selector);
-
+      
         dateBlocks.forEach(dateBlock => {
           const dateText = dateBlock.textContent.trim();
-
+      
           // Регулярное выражение для определения формата даты
           const fullDateRegex = /^\d{4}, \d{2} [а-яё]+ \d{2}:\d{2}$/i;
           const shortDateRegex = /^\d{2} [а-яё]+ \d{2}:\d{2}$/i;
-
+      
           let newDate;
-
+      
           if (fullDateRegex.test(dateText)) {
             // Формат: "2024, 30 дек 16:57"
             newDate = parseFullDate(dateText);
@@ -2224,49 +2217,49 @@ function showMessages(messages) {
             // console.error("Неверный формат даты:", dateText);
             return;
           }
-
+      
           // Увеличиваем дату на 1 день и устанавливаем фиксированное время 10:00
           newDate.setDate(newDate.getDate() + 1);
           newDate.setHours(10, 0, 0, 0);
-
+      
           // Обновляем текст в нужном формате
           const updatedText = formatDate(newDate, dateText.includes(","));
           dateBlock.textContent = updatedText;
         });
       }
-
+      
       function parseFullDate(dateText) {
         // "2024, 30 дек 16:57" -> Date
         const [year, rest] = dateText.split(", ");
         const [day, month, time] = rest.split(" ");
         const [hours, minutes] = time.split(":");
         const monthIndex = getMonthIndex(month);
-
+      
         return new Date(year, monthIndex, day, hours, minutes);
       }
-
+      
       function parseShortDate(dateText) {
         // "16 янв 09:35" -> Date
         const [day, month, time] = dateText.split(" ");
         const [hours, minutes] = time.split(":");
         const currentYear = new Date().getFullYear();
         const monthIndex = getMonthIndex(month);
-
+      
         return new Date(currentYear, monthIndex, day, hours, minutes);
       }
-
+      
       function formatDate(date, includeYear) {
         const day = String(date.getDate()).padStart(2, "0");
         const month = getMonthName(date.getMonth());
         const time = `${String(date.getHours()).padStart(2, "0")}:${String(date.getMinutes()).padStart(2, "0")}`;
-
+      
         if (includeYear) {
           return `${date.getFullYear()}, ${day} ${month} ${time}`;
         } else {
           return `${day} ${month} ${time}`;
         }
       }
-
+      
       function getMonthIndex(monthName) {
         const months = [
           "янв", "фев", "мар", "апр", "май", "июн",
@@ -2274,7 +2267,7 @@ function showMessages(messages) {
         ];
         return months.indexOf(monthName.toLowerCase());
       }
-
+      
       function getMonthName(monthIndex) {
         const months = [
           "янв", "фев", "мар", "апр", "май", "июн",
@@ -2282,10 +2275,10 @@ function showMessages(messages) {
         ];
         return months[monthIndex];
       }
-
+      
       // Пример использования:
       updateDates('#ManagerList > div > div.ax-table-body > table > tbody > tr > td.nobreak > span');
-
+                 
     } else if(dateColumn == null){
       dateListUpdate = 0;
     }
@@ -2297,8 +2290,8 @@ function showMessages(messages) {
   setInterval(checkForTextAndDate, 1000); // Проверка даты каждые 2 секунды
   setInterval(checkForcolorCheck, 100);
   setInterval(checkingClients, 100);
-  setInterval(addOneDay, 100);
-  setInterval(addDateOnOrderList, 100);
+  setInterval(addOneDay, 1);
+  setInterval(addDateOnOrderList, 1);
   setInterval(() => {
     count = 0;
 
