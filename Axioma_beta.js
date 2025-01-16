@@ -1,5 +1,5 @@
 // ==UserScript==
-// @name         Проверка заказа 6.0.8
+// @name         Проверка заказа 6.0.9
 // @namespace    http://tampermonkey.net/
 // @version      1.6
 // @description
@@ -2187,7 +2187,7 @@
   if (orderListLoading && orderListLoading.length <= 1){
     dateListUpdate = 0;
   }
-  }, 10);
+  }, 1);
   
   let dateListUpdate = 0;
   function addDateOnOrderList() {
