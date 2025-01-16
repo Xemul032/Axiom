@@ -22,7 +22,8 @@
   blurOverlay.style.backdropFilter = "blur(5px)";
   blurOverlay.style.zIndex = "9998";
   let blur = false;
-
+console.log(`Всё работает =)`);
+  
   const loaderContainer = document.createElement("div");
   loaderContainer.style.position = "fixed";
   loaderContainer.style.top = "50%";
