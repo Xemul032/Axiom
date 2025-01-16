@@ -28,5 +28,5 @@
     setInterval(checkTime, 1000);
 
     // Выводим сообщение в консоль для подтверждения работы скрипта
-    console.log('SimPrint Auto Refresh скрипт активирован');
+    console.log('Отсчёт пошёл');
 })();
