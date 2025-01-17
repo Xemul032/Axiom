@@ -1,5 +1,5 @@
 // ==UserScript==
-// @name         Проверка заказа 6.0.9
+// @name         Проверка заказа 7.0
 // @namespace    http://tampermonkey.net/
 // @version      1.6
 // @description
@@ -1983,8 +1983,13 @@
     const dateInCalc = document.querySelector(
       "#result > div > div > table > tbody > tr:nth-child(2) > td:nth-child(2) > table > tbody > tr:nth-child(11) > td.right > b"
     );
-    const dateInProduct = document.querySelector('#UtCalcResult > table:nth-child(1) > tbody > tr:nth-child(3) > td:nth-child(2)')
-    if (document.getElementById("result") !== null && datecheck === 0 || document.getElementById("UtCalcResult") !== null && datecheck === 0) {
+    const dateInProduct = document.querySelector(
+      "#UtCalcResult > table:nth-child(1) > tbody > tr:nth-child(3) > td:nth-child(2)"
+    );
+    if (
+      (document.getElementById("result") !== null && datecheck === 0) ||
+      (document.getElementById("UtCalcResult") !== null && datecheck === 0)
+    ) {
       function updateDate(dateString) {
         const months = {
           января: 0,
@@ -2028,23 +2033,29 @@
         const newDate = updateDate(oldDate);
         dateInCalc.innerHTML = newDate; // Обновляем текст в блоке
         datecheck = 1;
-      }else if (datecheck === 0 && document.getElementById("UtCalcResult") !== null){
+      } else if (
+        datecheck === 0 &&
+        document.getElementById("UtCalcResult") !== null
+      ) {
         const oldDate = dateInProduct.innerHTML.trim();
         const newDate = updateDate(oldDate);
         dateInProduct.innerHTML = newDate; // Обновляем текст в блоке
         datecheck = 1;
       }
-    } else if (document.getElementById("result") == null && document.getElementById("UtCalcResult") == null) {
+    } else if (
+      document.getElementById("result") == null &&
+      document.getElementById("UtCalcResult") == null
+    ) {
       datecheck = 0;
     }
     const links = document.body.querySelectorAll("a");
-    links.forEach((elem)=>{
-      elem.addEventListener("click", ()=>{
+    links.forEach((elem) => {
+      elem.addEventListener("click", () => {
         setTimeout(() => {
           datecheck = 0;
         }, 200);
-      })
-    })
+      });
+    });
 
     const dateInOrder = document.querySelector(
       "#Summary > table > tbody > tr > td:nth-child(1) > table > tbody:nth-child(3) > tr:nth-child(9) > td.PlanBlock"
@@ -2123,7 +2134,6 @@
     );
 
     if (dateForWorkOrder) {
-      
       // Сопоставление дней недели
       const daysOfWeek = [
         "Воскресенье",
@@ -2140,7 +2150,7 @@
         if (!dateForWorkOrder) {
           return;
         }
-        
+
         // Извлекаем текст из элемента
         const dateText = dateForWorkOrder.textContent.trim();
 
@@ -2170,43 +2180,43 @@
       }
 
       // Запускаем функцию
-      if (datecheck1 === 0){
+      if (datecheck1 === 0) {
         addOneDayToDate();
         datecheck1 = 1;
       }
-      
-        
-        
-      
     } else if (dateForWorkOrder == null) {
       datecheck1 = 0;
     }
   }
   setInterval(() => {
-    const orderListLoading = document.querySelectorAll('#ManagerList > div > div.ax-table-body > table > tbody > tr > td')
-  if (orderListLoading && orderListLoading.length <= 1){
-    dateListUpdate = 0;
-  }
+    const orderListLoading = document.querySelectorAll(
+      "#ManagerList > div > div.ax-table-body > table > tbody > tr > td"
+    );
+    if (orderListLoading && orderListLoading.length <= 1) {
+      dateListUpdate = 0;
+    }
   }, 1);
-  
+
   let dateListUpdate = 0;
   function addDateOnOrderList() {
-    const dateColumn = document.querySelector('#ManagerList > div > div.ax-table-body > table > thead > tr:nth-child(1) > th:nth-child(11) > span')
-    
-    if (dateColumn !== null && dateListUpdate === 0){
+    const dateColumn = document.querySelector(
+      "#ManagerList > div > div.ax-table-body > table > thead > tr:nth-child(1) > th:nth-child(11) > span"
+    );
+
+    if (dateColumn !== null && dateListUpdate === 0) {
       function updateDates(selector) {
         dateListUpdate = 1;
         const dateBlocks = document.querySelectorAll(selector);
-      
-        dateBlocks.forEach(dateBlock => {
+
+        dateBlocks.forEach((dateBlock) => {
           const dateText = dateBlock.textContent.trim();
-      
+
           // Регулярное выражение для определения формата даты
           const fullDateRegex = /^\d{4}, \d{2} [а-яё]+ \d{2}:\d{2}$/i;
           const shortDateRegex = /^\d{2} [а-яё]+ \d{2}:\d{2}$/i;
-      
+
           let newDate;
-      
+
           if (fullDateRegex.test(dateText)) {
             // Формат: "2024, 30 дек 16:57"
             newDate = parseFullDate(dateText);
@@ -2217,71 +2227,174 @@
             // console.error("Неверный формат даты:", dateText);
             return;
           }
-      
+
           // Увеличиваем дату на 1 день и устанавливаем фиксированное время 10:00
           newDate.setDate(newDate.getDate() + 1);
           newDate.setHours(10, 0, 0, 0);
-      
+
           // Обновляем текст в нужном формате
           const updatedText = formatDate(newDate, dateText.includes(","));
           dateBlock.textContent = updatedText;
         });
       }
-      
+
       function parseFullDate(dateText) {
         // "2024, 30 дек 16:57" -> Date
         const [year, rest] = dateText.split(", ");
         const [day, month, time] = rest.split(" ");
         const [hours, minutes] = time.split(":");
         const monthIndex = getMonthIndex(month);
-      
+
         return new Date(year, monthIndex, day, hours, minutes);
       }
-      
+
       function parseShortDate(dateText) {
         // "16 янв 09:35" -> Date
         const [day, month, time] = dateText.split(" ");
         const [hours, minutes] = time.split(":");
         const currentYear = new Date().getFullYear();
         const monthIndex = getMonthIndex(month);
-      
+
         return new Date(currentYear, monthIndex, day, hours, minutes);
       }
-      
+
       function formatDate(date, includeYear) {
         const day = String(date.getDate()).padStart(2, "0");
         const month = getMonthName(date.getMonth());
-        const time = `${String(date.getHours()).padStart(2, "0")}:${String(date.getMinutes()).padStart(2, "0")}`;
-      
+        const time = `${String(date.getHours()).padStart(2, "0")}:${String(
+          date.getMinutes()
+        ).padStart(2, "0")}`;
+
         if (includeYear) {
           return `${date.getFullYear()}, ${day} ${month} ${time}`;
         } else {
           return `${day} ${month} ${time}`;
         }
       }
-      
+
       function getMonthIndex(monthName) {
         const months = [
-          "янв", "фев", "мар", "апр", "май", "июн",
-          "июл", "авг", "сен", "окт", "ноя", "дек"
+          "янв",
+          "фев",
+          "мар",
+          "апр",
+          "май",
+          "июн",
+          "июл",
+          "авг",
+          "сен",
+          "окт",
+          "ноя",
+          "дек",
         ];
         return months.indexOf(monthName.toLowerCase());
       }
-      
+
       function getMonthName(monthIndex) {
         const months = [
-          "янв", "фев", "мар", "апр", "май", "июн",
-          "июл", "авг", "сен", "окт", "ноя", "дек"
+          "янв",
+          "фев",
+          "мар",
+          "апр",
+          "май",
+          "июн",
+          "июл",
+          "авг",
+          "сен",
+          "окт",
+          "ноя",
+          "дек",
         ];
         return months[monthIndex];
       }
-      
+
       // Пример использования:
-      updateDates('#ManagerList > div > div.ax-table-body > table > tbody > tr > td.nobreak > span');
-                 
-    } else if(dateColumn == null){
+      updateDates(
+        "#ManagerList > div > div.ax-table-body > table > tbody > tr > td.nobreak > span"
+      );
+    } else if (dateColumn == null) {
       dateListUpdate = 0;
     }
+  }
+  let prepressCheck = 0;
+  function hideDropzone() {
+    const searchText = "Номенклатура";
+    const searchText1 = "Номенклатура по умолчанию";
+    const bodyText = document.body.innerText;
+    const statusNotToCheck1 = document.querySelector(
+      '#Top > form > div > div > div > span:nth-child(2) > span.StatusIcon > img[src="img/status/status-files.png"]'
+    );
+    const statusNotToCheck2 = document.querySelector(
+      '#Top > form > div > div > div > span:nth-child(2) > span.StatusIcon > img[src="img/status/status-prepress-check.png"]'
+    );
+    const ordersHistory = document.querySelectorAll('.formblock')
+    const fullWindow = document.querySelector("#Doc");
+    if(fullWindow.classList.contains("LoadingContent") === true) {
+      prepressCheck = 0;
+    }
+    ordersHistory.forEach((elem)=>{
+      if (
+        bodyText.includes(searchText || bodyText.includes(searchText1)) &&
+        (statusNotToCheck1 !== null || statusNotToCheck2 !== null)
+      ) {
+        const selector =
+          "#History > div > table.table.table-hover.table-condensed.table-bordered > tbody > tr:nth-child(3) > td:nth-child(3)";
+
+        const selector1 =
+
+          "#History > div > table.table.table-hover.table-condensed.table-bordered > tbody > tr:nth-child(2) > td:nth-child(3)";
+
+
+        // Селекторы элементов для скрытия
+        const buttonSelector =
+          "#Summary > table > tbody > tr > td:nth-child(2) > table > tbody > tr:nth-child(1)";
+        const dropzoneSelector = "#Dropzone";
+        const newFiles =
+          "#Summary > table > tbody > tr > td:nth-child(2) > table > tbody > tr.TimeFilesInfo > td.right > button";
+
+        const element = elem.querySelector(selector);
+        const element1 = elem.querySelector(selector1);
+        const buttonElement = document.querySelector(buttonSelector);
+        const dropzoneElement = document.querySelector(dropzoneSelector);
+        const newFilesElem = document.querySelector(newFiles);
+
+
+        if (
+          (element && element.textContent.trim()) && prepressCheck === 0 ||
+          (element1 && element1.textContent.trim() && prepressCheck === 0)
+        ) {
+          console.log("Проверил:", element1.textContent.trim());
+          console.log("Смонтировал:", element.textContent.trim());
+
+          // Создание элемента <div class="prepress">
+          const prepressElement = document.createElement("div");
+          prepressElement.style.backgroundColor = "orange"
+          prepressElement.style.fontSize = "25px"
+          prepressElement.style.fontWeight = "700"
+          prepressElement.style.color = "#ffffff"
+          prepressElement.style.textAlign = "center"
+          prepressElement.style.textTransform = "uppercase"
+          prepressElement.textContent = "Идет препресс - изменение файлов невозможно!";
+
+
+            // Замена элемента form.dropzone на новый элемент
+          dropzoneElement.parentNode.replaceChild(prepressElement, dropzoneElement);
+          prepressCheck = 1;
+
+
+
+
+
+          // Скрываем кнопку и поле dropzone
+          buttonElement.style.display = "none";
+          // dropzoneElement.style.display = "none";
+          newFilesElem.style.display = "none";
+        }
+      }else {
+        prepressCheck = 0;
+      }
+    })
+
   }
 
   // Запускаем проверку при загрузке страницы
@@ -2292,6 +2405,7 @@
   setInterval(checkingClients, 100);
   setInterval(addOneDay, 0);
   setInterval(addDateOnOrderList, 0);
+  setInterval(hideDropzone, 200);
   setInterval(() => {
     count = 0;
 
@@ -2307,5 +2421,3 @@
     colorBtnClick = false;
   }, 1000);
 })();
-
-
