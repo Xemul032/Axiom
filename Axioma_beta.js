@@ -2290,8 +2290,8 @@
   setInterval(checkForTextAndDate, 1000); // Проверка даты каждые 2 секунды
   setInterval(checkForcolorCheck, 100);
   setInterval(checkingClients, 100);
-  setInterval(addOneDay, 1);
-  setInterval(addDateOnOrderList, 1);
+  setInterval(addOneDay, 0);
+  setInterval(addDateOnOrderList, 0);
   setInterval(() => {
     count = 0;
 
