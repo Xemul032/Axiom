@@ -2188,24 +2188,27 @@
       datecheck1 = 0;
     }
   }
-  setInterval(() => {
-    const orderListLoading = document.querySelectorAll(
-      "#ManagerList > div > div.ax-table-body > table > tbody > tr > td"
-    );
-    if (orderListLoading && orderListLoading.length <= 1) {
-      dateListUpdate = 0;
-    }
-  }, 1);
 
-  let dateListUpdate = 0;
+
+  let dateListUpdate1 = 0;
+
+
+
   function addDateOnOrderList() {
     const dateColumn = document.querySelector(
       "#ManagerList > div > div.ax-table-body > table > thead > tr:nth-child(1) > th:nth-child(11) > span"
     );
-
-    if (dateColumn !== null && dateListUpdate === 0) {
+    setInterval(() => {
+      const orderListLoading = document.querySelectorAll(
+        "#ManagerList > div > div.ax-table-body > table > tbody > tr > td"
+      );
+      if (orderListLoading && orderListLoading.length <= 1) {
+        dateListUpdate1 = 0;
+      }
+    }, 0);
+    if (dateColumn !== null && dateListUpdate1 === 0) {
       function updateDates(selector) {
-        dateListUpdate = 1;
+        dateListUpdate1 = 1;
         const dateBlocks = document.querySelectorAll(selector);
 
         dateBlocks.forEach((dateBlock) => {
@@ -2313,7 +2316,7 @@
         "#ManagerList > div > div.ax-table-body > table > tbody > tr > td.nobreak > span"
       );
     } else if (dateColumn == null) {
-      dateListUpdate = 0;
+      dateListUpdate1 = 0;
     }
   }
   let prepressCheck = 0;
@@ -2363,6 +2366,8 @@
           (element && element.textContent.trim()) && prepressCheck === 0 ||
           (element1 && element1.textContent.trim() && prepressCheck === 0)
         ) {
+          console.log("Проверил:", element1.textContent.trim());
+          console.log("Смонтировал:", element.textContent.trim());
 
           // Создание элемента <div class="prepress">
           const prepressElement = document.createElement("div");
@@ -2387,7 +2392,6 @@
           buttonElement.style.display = "none";
           // dropzoneElement.style.display = "none";
           newFilesElem.style.display = "none";
-          console.clear;
         }
       }else {
         prepressCheck = 0;
