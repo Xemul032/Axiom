@@ -22,7 +22,7 @@
   blurOverlay.style.backdropFilter = "blur(5px)";
   blurOverlay.style.zIndex = "9998";
   let blur = false;
-  console.log(`Всё работает как надо! `);
+  console.log(`Всё работает =P`);
 
   const loaderContainer = document.createElement("div");
   loaderContainer.style.position = "fixed";
@@ -272,6 +272,8 @@
       //         initialDateReadyValue = null; // Сбрасываем начальное значение, если поле пустое
       //     }
       // }
+      const orderLogs =  document.querySelector("#TopButtons > div.btn-group.btn-group-sm.dropdown.open > ul > li:nth-child(2) > a")
+        if (orderLogs){ orderLogs.style.display='none'}
       const input = document.getElementById("DateReady");
       const input2 = document.querySelector(
         "#Summary > table > tbody > tr > td:nth-child(1) > table > tbody:nth-child(3) > tr:nth-child(9) > td.PlanBlock > span.DateReady"
@@ -1986,6 +1988,10 @@
     const dateInProduct = document.querySelector(
       "#UtCalcResult > table:nth-child(1) > tbody > tr:nth-child(3) > td:nth-child(2)"
     );
+    const calcDateLine = document.querySelector('#result > div > div > table > tbody > tr:nth-child(2) > td:nth-child(2) > table > tbody > tr:nth-child(11)')
+    if(calcDateLine){
+      calcDateLine.style.display = "none"
+    }
     if (
       (document.getElementById("result") !== null && datecheck === 0) ||
       (document.getElementById("UtCalcResult") !== null && datecheck === 0)
@@ -2029,9 +2035,9 @@
         return `${newDay} ${newMonthName}`;
       }
       if (datecheck === 0 && document.getElementById("result") !== null) {
-        const oldDate = dateInCalc.innerHTML.trim();
-        const newDate = updateDate(oldDate);
-        dateInCalc.innerHTML = newDate; // Обновляем текст в блоке
+        // const oldDate = dateInCalc.innerHTML.trim();
+        // const newDate = updateDate(oldDate);
+        // dateInCalc.innerHTML = newDate; // Обновляем текст в блоке
         datecheck = 1;
       } else if (
         datecheck === 0 &&
@@ -2042,6 +2048,13 @@
         dateInProduct.innerHTML = newDate; // Обновляем текст в блоке
         datecheck = 1;
       }
+      // dateInCalc.innerHTML = "Расчитается после"
+
+      // Создание элемента <div class="prepress">
+
+
+
+
     } else if (
       document.getElementById("result") == null &&
       document.getElementById("UtCalcResult") == null
@@ -2056,6 +2069,11 @@
         }, 200);
       });
     });
+
+    // Выбираем все дочерние элементы первого уровня у div
+
+
+
 
     const dateInOrder = document.querySelector(
       "#Summary > table > tbody > tr > td:nth-child(1) > table > tbody:nth-child(3) > tr:nth-child(9) > td.PlanBlock"
@@ -2189,10 +2207,7 @@
     }
   }
 
-
   let dateListUpdate1 = 0;
-
-
 
   function addDateOnOrderList() {
     const dateColumn = document.querySelector(
@@ -2330,12 +2345,12 @@
     const statusNotToCheck2 = document.querySelector(
       '#Top > form > div > div > div > span:nth-child(2) > span.StatusIcon > img[src="img/status/status-prepress-check.png"]'
     );
-    const ordersHistory = document.querySelectorAll('.formblock')
+    const ordersHistory = document.querySelectorAll(".formblock");
     const fullWindow = document.querySelector("#Doc");
-    if(fullWindow.classList.contains("LoadingContent") === true) {
+    if (fullWindow.classList.contains("LoadingContent") === true) {
       prepressCheck = 0;
     }
-    ordersHistory.forEach((elem)=>{
+    ordersHistory.forEach((elem) => {
       if (
         bodyText.includes(searchText || bodyText.includes(searchText1)) &&
         (statusNotToCheck1 !== null || statusNotToCheck2 !== null)
@@ -2344,9 +2359,7 @@
           "#History > div > table.table.table-hover.table-condensed.table-bordered > tbody > tr:nth-child(3) > td:nth-child(3)";
 
         const selector1 =
-
           "#History > div > table.table.table-hover.table-condensed.table-bordered > tbody > tr:nth-child(2) > td:nth-child(3)";
-
 
         // Селекторы элементов для скрытия
         const buttonSelector =
@@ -2361,9 +2374,8 @@
         const dropzoneElement = document.querySelector(dropzoneSelector);
         const newFilesElem = document.querySelector(newFiles);
 
-
         if (
-          (element && element.textContent.trim()) && prepressCheck === 0 ||
+          (element && element.textContent.trim() && prepressCheck === 0) ||
           (element1 && element1.textContent.trim() && prepressCheck === 0)
         ) {
           console.log("Проверил:", element1.textContent.trim());
@@ -2371,39 +2383,37 @@
 
           // Создание элемента <div class="prepress">
           const prepressElement = document.createElement("div");
-          prepressElement.style.backgroundColor = "orange"
-          prepressElement.style.fontSize = "25px"
-          prepressElement.style.fontWeight = "700"
-          prepressElement.style.color = "#ffffff"
-          prepressElement.style.textAlign = "center"
-          prepressElement.style.textTransform = "uppercase"
-          prepressElement.textContent = "Идет препресс - изменение файлов невозможно!";
+          prepressElement.style.backgroundColor = "orange";
+          prepressElement.style.fontSize = "25px";
+          prepressElement.style.fontWeight = "700";
+          prepressElement.style.color = "#ffffff";
+          prepressElement.style.textAlign = "center";
+          prepressElement.style.textTransform = "uppercase";
+          prepressElement.textContent =
+            "Идет препресс - изменение файлов невозможно!";
 
-
-            // Замена элемента form.dropzone на новый элемент
-          dropzoneElement.parentNode.replaceChild(prepressElement, dropzoneElement);
+          // Замена элемента form.dropzone на новый элемент
+          dropzoneElement.parentNode.replaceChild(
+            prepressElement,
+            dropzoneElement
+          );
           prepressCheck = 1;
-
-
-
-
 
           // Скрываем кнопку и поле dropzone
           buttonElement.style.display = "none";
           // dropzoneElement.style.display = "none";
           newFilesElem.style.display = "none";
         }
-      }else {
+      } else {
         prepressCheck = 0;
       }
-    })
-
+    });
   }
 
   // Запускаем проверку при загрузке страницы
   window.addEventListener("load", checkForTextAndDate);
   setInterval(checkForText, 500); // Проверка наличия текста каждую секунду
-  setInterval(checkForTextAndDate, 1000); // Проверка даты каждые 2 секунды
+  setInterval(checkForTextAndDate, 10); // Проверка даты каждые 2 секунды
   setInterval(checkForcolorCheck, 100);
   setInterval(checkingClients, 100);
   setInterval(addOneDay, 0);
