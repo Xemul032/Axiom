@@ -2413,7 +2413,7 @@
   // Запускаем проверку при загрузке страницы
   window.addEventListener("load", checkForTextAndDate);
   setInterval(checkForText, 500); // Проверка наличия текста каждую секунду
-  setInterval(checkForTextAndDate, 10); // Проверка даты каждые 2 секунды
+  setInterval(checkForTextAndDate, 1000); // Проверка даты каждые 2 секунды
   setInterval(checkForcolorCheck, 100);
   setInterval(checkingClients, 100);
   setInterval(addOneDay, 0);
