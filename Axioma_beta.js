@@ -1476,7 +1476,7 @@
   checkingClientsBtn.style.width = "100vw";
   checkingClientsBtn.style.zIndex = "5000";
   checkingClientsBtn.style.height = "10%";
-  checkingClientsBtn.style.backgroundColor = "transparent";
+  checkingClientsBtn.style.backgroundColor = "red";
   checkingClientsBtn.style.display = "none";
   document.body.appendChild(checkingClientsBtn);
   let checkingClientsBtnClick = false;
@@ -2347,13 +2347,14 @@
     );
     const ordersHistory = document.querySelectorAll(".formblock");
     const fullWindow = document.querySelector("#Doc");
+    const stop = document.querySelector("#Top > form > div > div > div > span:nth-child(2) > span.StopIcon > img")
     if (fullWindow.classList.contains("LoadingContent") === true) {
       prepressCheck = 0;
     }
     ordersHistory.forEach((elem) => {
       if (
         bodyText.includes(searchText || bodyText.includes(searchText1)) &&
-        (statusNotToCheck1 !== null || statusNotToCheck2 !== null)
+        (statusNotToCheck1 !== null || statusNotToCheck2 !== null) && stop === null
       ) {
         const selector =
           "#History > div > table.table.table-hover.table-condensed.table-bordered > tbody > tr:nth-child(3) > td:nth-child(3)";
@@ -2375,7 +2376,7 @@
         const newFilesElem = document.querySelector(newFiles);
 
         if (
-          (element && element.textContent.trim() && prepressCheck === 0) ||
+          (element && element.textContent.trim() && prepressCheck === 0 ) ||
           (element1 && element1.textContent.trim() && prepressCheck === 0)
         ) {
           console.log("Проверил:", element1.textContent.trim());
