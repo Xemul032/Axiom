@@ -1476,7 +1476,7 @@
   checkingClientsBtn.style.width = "100vw";
   checkingClientsBtn.style.zIndex = "5000";
   checkingClientsBtn.style.height = "10%";
-  checkingClientsBtn.style.backgroundColor = "red";
+  checkingClientsBtn.style.backgroundColor = "transparent";
   checkingClientsBtn.style.display = "none";
   document.body.appendChild(checkingClientsBtn);
   let checkingClientsBtnClick = false;
