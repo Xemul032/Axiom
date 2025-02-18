@@ -1,5 +1,5 @@
 // ==UserScript==
-// @name         Проверка заказа 7.0
+// @name         Проверка заказа 7.1
 // @namespace    http://tampermonkey.net/
 // @version      1.6
 // @description
@@ -118,27 +118,7 @@
             } else if (convert) {
               closeBtnId = null;
               choosenCalcId = null;
-              // setTimeout(() => {
-              //   document.querySelector(
-              //     `#CheckAllTech > div:nth-child(1) > label > input[type=checkbox]`
-              //   ).checked = false;
-              //   document.querySelector(
-              //     `#CheckAllTech > div:nth-child(2) > label > input[type=checkbox]`
-              //   ).checked = false;
-              //   document.querySelector(
-              //     `#CheckAllTech > div:nth-child(3) > label > input[type=checkbox]`
-              //   ).checked = false;
-              //   document.querySelector(
-              //     `#CheckAllTech > div:nth-child(4) > label > input[type=checkbox]`
-              //   ).checked = false;
-              //   document.querySelector(
-              //     `#CheckAllTech > div:nth-child(5) > label > input[type=checkbox]`
-              //   ).checked = false;
-              //   document.querySelector(
-              //     `#CheckAllTech > div:nth-child(12) > label > input[type=checkbox]`
-              //   ).checked = true;
 
-              // }, 500);
             } else {
               closeBtnId = null;
               choosenCalcId = null;
@@ -147,15 +127,7 @@
         });
       }
     }
-    // if(resultCals){
-    //   let resultCalsCount = [];
-    // const children1 = resultCals.children;
-    // for (let i = 0; i < children1.length; i++) {
-    //   if (children1[i]) {
-    //     resultCalsCount.push(children1[i]);
-    //   }
-    // }
-    // }
+
 
     if (choosenCalcParent) {
       for (let i = 0; i < 9; i++) {
@@ -219,26 +191,7 @@
           } else if (choosenCalc === 7) {
             closeBtnId = null;
             choosenCalcId = null;
-            // setTimeout(() => {
-            //   document.querySelector(
-            //     `#CheckAllTech > div:nth-child(1) > label > input[type=checkbox]`
-            //   ).checked = false;
-            //   document.querySelector(
-            //     `#CheckAllTech > div:nth-child(2) > label > input[type=checkbox]`
-            //   ).checked = false;
-            //   document.querySelector(
-            //     `#CheckAllTech > div:nth-child(3) > label > input[type=checkbox]`
-            //   ).checked = false;
-            //   document.querySelector(
-            //     `#CheckAllTech > div:nth-child(4) > label > input[type=checkbox]`
-            //   ).checked = false;
-            //   document.querySelector(
-            //     `#CheckAllTech > div:nth-child(5) > label > input[type=checkbox]`
-            //   ).checked = false;
-            //   document.querySelector(
-            //     `#CheckAllTech > div:nth-child(12) > label > input[type=checkbox]`
-            //   ).checked = true;
-            // }, 500);
+
           }
         });
       }
@@ -257,21 +210,7 @@
     const bodyText = document.body.innerText;
 
     if (bodyText.includes(searchText) && !bodyText.includes(searchText1)) {
-      // if (dateReadyInput) {
-      //     const dateReadyValue = dateReadyInput.value;
 
-      //     // Устанавливаем начальное значение только если есть валидные данные
-      //     if (dateReadyValue) {
-      //         if (initialDateReadyValue === null) {
-      //             initialDateReadyValue = dateReadyValue;  // Сохраняем текущее значение
-      //         } else if (initialDateReadyValue !== dateReadyValue) {
-      //             showCenterMessage('Дата сдачи заказа изменилась!'); // Показываем сообщение в центре экрана
-      //             initialDateReadyValue = dateReadyValue; // Обновляем значение
-      //         }
-      //     } else {
-      //         initialDateReadyValue = null; // Сбрасываем начальное значение, если поле пустое
-      //     }
-      // }
       const orderLogs =  document.querySelector("#TopButtons > div.btn-group.btn-group-sm.dropdown.open > ul > li:nth-child(2) > a")
         if (orderLogs){ orderLogs.style.display='none'}
       const input = document.getElementById("DateReady");
@@ -950,7 +889,7 @@
             messages.push(
               `в ${getOrderName(
                 i
-              )} не целое число - убирай епрст и перекидывай на общую постпечать !`
+              )} люверсы указаны неверно! Переместите их в нижнюю постпечать!`
             );
           } else {
             console.log("Число целое - от*ебись");
@@ -977,11 +916,7 @@
     // Вывод сообщений
     if (messages.length === 0) {
       messages.push("Всё в порядке!");
-      // const new2Style = document.createElement('style');
-      // new2Style.type = "text/css"
-      // let new2Styles = `#Doc > div > table:nth-child(6) > tbody > tr > td:nth-child(1) > button.btn.btn-success.btn-lg {display: inline-block}`;
-      // new2Style.appendChild(document.createTextNode(new2Styles));
-      // document.head.appendChild(new2Style);
+
       console.log(choosenCalcId);
 
       let calcButton = document.querySelector(choosenCalcId);
@@ -1026,11 +961,7 @@
     }
   });
 
-  // const newStyle = document.createElement('style');
-  // newStyle.type = "text/css"
-  // let newStyles = `#Doc > div > table:nth-child(6) > tbody > tr > td:nth-child(1) > button.btn.btn-success.btn-lg {display: none}`;
-  // newStyle.appendChild(document.createTextNode(newStyles));
-  // document.head.appendChild(newStyle);
+
 
   // Функция для отображения сообщения о смене даты
 
@@ -1166,35 +1097,7 @@
       document.head.appendChild(new3Style);
     }
   }
-  // function parseCustomDate(dateString) {
-  //   const months = {
-  //     января: 0,
-  //     февраля: 1,
-  //     марта: 2,
-  //     апреля: 3,
-  //     мая: 4,
-  //     июня: 5,
-  //     июля: 6,
-  //     августа: 7,
-  //     сентября: 8,
-  //     октября: 9,
-  //     ноября: 10,
-  //     декабря: 11,
-  //   };
-  //   const regex = /(\d{2}) (\w+) (\d{4}) (\d{2}):(\d{2})/;
-  //   const match = dateString.match(regex);
-  //   if (!match) {
-  //     return new Date("Invalid Date"); // Если формат не подходит
-  //   }
 
-  //   const [_, day, month, year, hours, minutes] = match;
-
-  //   const monthIndex = months[month.toLowerCase()];
-  //   if (monthIndex === undefined) {
-  //     return new Date("Invalid Date"); // Если месяц не распознан
-  //   }
-  //   return new Date(year, monthIndex, day, hours, minutes);
-  // }
 
   // Функция для получения названия заказа по индексу
   function getOrderName(index) {
@@ -1234,177 +1137,7 @@
       "#Summary > table > tbody > tr > td:nth-child(1) > div.formblock > table:nth-child(1) > tbody > tr > td:nth-child(3) > nobr > h4 > span"
     );
 
-    // if (
-    //   DateReady &&
-    //   bodyText.includes(searchText5) &&
-    //   DateReady.classList.contains("changed") == false
-    // ) {
-    //   DateReady.classList.add("changed");
-    //   let DateReady1 = DateReady.innerText;
 
-    //   // function addOneDay(dateString) {
-    //   //   const daysOfWeek = [
-    //   //     "Воскресенье",
-    //   //     "Понедельник",
-    //   //     "Вторник",
-    //   //     "Среда",
-    //   //     "Четверг",
-    //   //     "Пятница",
-    //   //     "Суббота",
-    //   //   ];
-    //   //   const months = [
-    //   //     "января",
-    //   //     "февраля",
-    //   //     "марта",
-    //   //     "апреля",
-    //   //     "мая",
-    //   //     "июня",
-    //   //     "июля",
-    //   //     "августа",
-    //   //     "сентября",
-    //   //     "октября",
-    //   //     "ноября",
-    //   //     "декабря",
-    //   //   ];
-
-    //   //   let date;
-
-    //   //   // Определяем формат даты и парсим
-    //   //   if (/\d{2}\/\d{2}\/\d{4}/.test(dateString)) {
-    //   //     // Формат: "Суббота, 21/12/2024"
-    //   //     const [, day, month, year] = dateString.match(
-    //   //       /(\d{2})\/(\d{2})\/(\d{4})/
-    //   //     );
-    //   //     date = new Date(`${year}-${month}-${day}`);
-    //   //   } else {
-    //   //     // Формат: "Суббота, 21 декабря 2024"
-    //   //     const [, day, monthName, year] = dateString.match(
-    //   //       /(\d{1,2})\s([а-яё]+)\s(\d{4})/i
-    //   //     );
-    //   //     const monthIndex = months.indexOf(monthName);
-    //   //     if (monthIndex === -1) {
-    //   //       throw new Error("Неверный формат даты");
-    //   //     }
-    //   //     date = new Date(year, monthIndex, day);
-    //   //   }
-
-    //   //   // Добавляем 1 день
-    //   //   date.setDate(date.getDate() + 1);
-
-    //   //   // Формируем обновленный день недели
-    //   //   const dayOfWeek = daysOfWeek[date.getDay()];
-
-    //   //   // Формируем выходные строки для двух форматов
-    //   //   const formattedDate1 = `${dayOfWeek}, ${String(date.getDate()).padStart(
-    //   //     2,
-    //   //     "0"
-    //   //   )}/${String(date.getMonth() + 1).padStart(
-    //   //     2,
-    //   //     "0"
-    //   //   )}/${date.getFullYear()}`;
-    //   //   const formattedDate2 = `${dayOfWeek}, ${date.getDate()} ${
-    //   //     months[date.getMonth()]
-    //   //   } ${date.getFullYear()}`;
-
-    //   //   return { formattedDate1, formattedDate2 };
-    //   // }
-
-    //   // DateReady.innerText = addOneDay(DateReady1).formattedDate1;
-
-    //   // Пример использования
-
-    //   // const observer = new MutationObserver((mutationsList, observer) => {
-    //   //   for (let mutation of mutationsList) {
-    //   //     if (
-    //   //       mutation.type === "attributes" &&
-    //   //       !loadingDate.classList.contains("LoadingContent")
-    //   //     ) {
-    //   //       DateReady.innerText = addOneDay(DateReady1).formattedDate1;
-
-    //   //       // observer.disconnect(); // Прекращаем наблюдение после изменения
-    //   //       break;
-    //   //     }
-    //   //   }
-    //   // });
-
-    //   // Настроим наблюдатель за кнопкой
-    //   observer.observe(loadingDate, { attributes: true });
-    // }
-
-    // const currentDate = new Date();
-
-    // let text;
-    // if (timeToReady && timeReserve) {
-    //   timeReserve.style.fontWeight = "700";
-    //   timeReserve.style.color = "red";
-    //   if (
-    //     timeReserve.innerHTML.includes("Расчетная дата сдачи заказа") === false
-    //   ) {
-    //     // timeToReady.value = "21:30";
-    //     timeReserve.innerHTML = "ОТГРУЗКА НА СЛЕДУЮЩИЙ ДЕНЬ!";
-    //   } else if (
-    //     timeReserve.innerHTML.includes("Расчетная дата сдачи заказа") ===
-    //       true &&
-    //     counter === 0
-    //   ) {
-    //     // Получаем текст
-
-    //     text = timeReserve.innerText;
-    //     let calcDateText = calcDate.innerText;
-    //     // Исходная строка с датой
-
-    //     // Разделение строки на массив подстрок
-    //     const parts = calcDateText.split(" ");
-
-    //     // Извлечение дня, месяца и года из массива
-    //     const day = parts[0];
-    //     const monthString = parts[1];
-    //     const year = parts[2];
-    //     const months = {
-    //       января: 1,
-    //       февраля: 2,
-    //       марта: 3,
-    //       апреля: 4,
-    //       мая: 5,
-    //       июня: 6,
-    //       июля: 7,
-    //       августа: 8,
-    //       сентября: 9,
-    //       октября: 10,
-    //       ноября: 11,
-    //       декабря: 12,
-    //     };
-    //     const month = months[monthString.toLowerCase()];
-    //     // Создание новой даты
-    //     const newDate = `${year}/${month < 10 ? `0${month}` : month}/${day}`;
-    //     var nowDate = new Date();
-    //     var date1 =
-    //       nowDate.getFullYear() +
-    //       "/" +
-    //       (nowDate.getMonth() + 1) +
-    //       "/" +
-    //       nowDate.getDate();
-    //     console.log(date1);
-
-    //     // Вывод новой даты в нужном формате
-    //     console.log(newDate);
-    //     if (newDate === date1) {
-    //       console.log("Даты совпали");
-    //       text = text.substring(0, text.length - 7);
-    //       console.log(text);
-    //       timeReserve.innerText = `${text}  -  ОТГРУЗКА НА СЛЕДУЮЩИЙ ДЕНЬ!`;
-    //     } else {
-    //       console.log("Даты не совпали");
-    //       timeReserve.innerText =
-    //         "Расчетная дата сдачи заказа НЕИЗВЕСТНА - пересчитайте заказ";
-    //     }
-
-    //     counter = 1;
-
-    //   }
-    // } else {
-    //   counter = 0;
-    // }
 
     if (
       bodyText.includes(
@@ -1597,364 +1330,369 @@
     }
   }
   let calcCheck = 0;
-  setInterval(() => {
-    const statusIconCalc = document.querySelector(
-      '#Top > form > div > div > div > span:nth-child(2) > span.StatusIcon > img[src="img/status/status-calc.png"]'
-    );
-    const spinner = document.getElementsByClassName("spinner");
-    const statusIcon = document.querySelector(
-      "#Top > form > div > div > div > span:nth-child(2) > span.StatusIcon"
-    );
-    const statusIconCalcWFiles = document.querySelector(
-      '#Top > form > div > div > div > span:nth-child(2) > span.StatusIcon > img[src="img/status/status-calc-files.png"]'
-    );
-    const statusIconNoFiles = document.querySelector(
-      '#Top > form > div > div > div > span:nth-child(2) > span.StatusIcon > img[src="img/status/status-nofiles.png"]'
-    );
 
-    const statusNotToCheck1 = document.querySelector(
-      '#Top > form > div > div > div > span:nth-child(2) > span.StatusIcon > img[src="img/status/status-files.png"]'
-    );
-    const statusNotToCheck2 = document.querySelector(
-      '#Top > form > div > div > div > span:nth-child(2) > span.StatusIcon > img[src="img/status/status-prepress-check.png"]'
-    );
-    const statusNotToCheck3 = document.querySelector(
-      '#Top > form > div > div > div > span:nth-child(2) > span.StatusIcon > img[src="img/status/status-prepress-layout.png"]'
-    );
-    const statusNotToCheck4 = document.querySelector(
-      '#Top > form > div > div > div > span:nth-child(2) > span.StatusIcon > img[src="img/status/status-print.png"]'
-    );
-    const statusNotToCheck5 = document.querySelector(
-      '#Top > form > div > div > div > span:nth-child(2) > span.StatusIcon > img[src="img/status/status-postpress-ready.png"]'
-    );
-    const statusNotToCheck6 = document.querySelector(
-      '#Top > form > div > div > div > span:nth-child(2) > span.StatusIcon > img[src="img/status/status-pack.png"]'
-    );
-    const statusNotToCheck7 = document.querySelector(
-      '#Top > form > div > div > div > span:nth-child(2) > span.StatusIcon > img[src="img/status/status-pack-onmove.png"]'
-    );
-    const statusNotToCheck8 = document.querySelector(
-      '#Top > form > div > div > div > span:nth-child(2) > span.StatusIcon > img[src="img/status/status-pack-tomove.png"]'
-    );
-    const statusNotToCheck9 = document.querySelector(
-      '#Top > form > div > div > div > span:nth-child(2) > span.StatusIcon > img[src="img/status/status-close.png"]'
-    );
+  // Функция для подсчета нехватки бумаги
 
-    const btnsgroup1 = document.querySelector(
-      "#Summary > table > tbody > tr > td:nth-child(1) > div.right > div > button:nth-child(1)"
-    );
-    const btnsgroup2 = document.querySelector(
-      "#Summary > table > tbody > tr > td:nth-child(1) > div.right > div > button:nth-child(2)"
-    );
-    const btnToWorkWFiles = document.querySelector(
-      "#Summary > table > tbody > tr > td:nth-child(2) > table > tbody > tr.TimeFilesInfo > td.right > button"
-    );
-    const newFilesGet = document.querySelector(
-      "#Summary > table > tbody > tr > td:nth-child(2) > table > tbody > tr.TimeFilesInfo > td.right > button"
-    );
-    const fullWindow = document.querySelector("#Doc");
-    let anotherStatus = 0;
-    setInterval(() => {
-      if (
-        statusIconCalc !== null ||
-        statusIconCalcWFiles !== null ||
-        statusIconNoFiles !== null
-      ) {
-        if (fullWindow.classList.contains("LoadingContent") === true) {
-          calcCheck = 0;
-        }
-      }
-      if (
-        document.body.innerText.includes("Сохранить расчет") === true &&
-        spinner !== null
-      ) {
-        calcCheck = 0;
-      }
-    }, 100);
-    if (
-      statusIconCalc !== null &&
-      calcCheck === 0 &&
-      statusNotToCheck1 === null &&
-      statusNotToCheck2 === null &&
-      statusNotToCheck3 === null &&
-      statusNotToCheck4 === null &&
-      statusNotToCheck5 === null &&
-      statusNotToCheck6 === null &&
-      statusNotToCheck7 === null &&
-      statusNotToCheck8 === null &&
-      statusNotToCheck9 === null
-    ) {
-      calcCheck = 1;
-      let orders = document.querySelectorAll(
-        "#Summary > table > tbody > tr > td:nth-child(1) > .formblock"
-      );
+  // setInterval(() => {
+  //   const statusIconCalc = document.querySelector(
+  //     '#Top > form > div > div > div > span:nth-child(2) > span.StatusIcon > img[src="img/status/status-calc.png"]'
+  //   );
+  //   const spinner = document.getElementsByClassName("spinner");
+  //   const statusIcon = document.querySelector(
+  //     "#Top > form > div > div > div > span:nth-child(2) > span.StatusIcon"
+  //   );
+  //   const statusIconCalcWFiles = document.querySelector(
+  //     '#Top > form > div > div > div > span:nth-child(2) > span.StatusIcon > img[src="img/status/status-calc-files.png"]'
+  //   );
+  //   const statusIconNoFiles = document.querySelector(
+  //     '#Top > form > div > div > div > span:nth-child(2) > span.StatusIcon > img[src="img/status/status-nofiles.png"]'
+  //   );
 
-      orders.forEach((el, index) => {
-        let needCount = el.querySelector(
-          "table.inner > tbody > tr > td > table > tbody > tr > td.SkladBlock > table > tbody > tr:nth-child(1) > td.right.nobreak"
-        );
-        let stockRemain = el.querySelector(
-          "table.inner > tbody > tr > td > table > tbody > tr > td.SkladBlock > table > tbody > tr:nth-child(3) > td.right.nobreak"
-        );
-        let needToOther = el.querySelector(
-          "table.inner > tbody > tr > td > table > tbody > tr > td.SkladBlock > table > tbody > tr:nth-child(4) > td.right.nobreak"
-        );
-        let needCountValue = 0;
-        let stockRemainValue = 0;
-        let needToOtherValue = 0;
+  //   const statusNotToCheck1 = document.querySelector(
+  //     '#Top > form > div > div > div > span:nth-child(2) > span.StatusIcon > img[src="img/status/status-files.png"]'
+  //   );
+  //   const statusNotToCheck2 = document.querySelector(
+  //     '#Top > form > div > div > div > span:nth-child(2) > span.StatusIcon > img[src="img/status/status-prepress-check.png"]'
+  //   );
+  //   const statusNotToCheck3 = document.querySelector(
+  //     '#Top > form > div > div > div > span:nth-child(2) > span.StatusIcon > img[src="img/status/status-prepress-layout.png"]'
+  //   );
+  //   const statusNotToCheck4 = document.querySelector(
+  //     '#Top > form > div > div > div > span:nth-child(2) > span.StatusIcon > img[src="img/status/status-print.png"]'
+  //   );
+  //   const statusNotToCheck5 = document.querySelector(
+  //     '#Top > form > div > div > div > span:nth-child(2) > span.StatusIcon > img[src="img/status/status-postpress-ready.png"]'
+  //   );
+  //   const statusNotToCheck6 = document.querySelector(
+  //     '#Top > form > div > div > div > span:nth-child(2) > span.StatusIcon > img[src="img/status/status-pack.png"]'
+  //   );
+  //   const statusNotToCheck7 = document.querySelector(
+  //     '#Top > form > div > div > div > span:nth-child(2) > span.StatusIcon > img[src="img/status/status-pack-onmove.png"]'
+  //   );
+  //   const statusNotToCheck8 = document.querySelector(
+  //     '#Top > form > div > div > div > span:nth-child(2) > span.StatusIcon > img[src="img/status/status-pack-tomove.png"]'
+  //   );
+  //   const statusNotToCheck9 = document.querySelector(
+  //     '#Top > form > div > div > div > span:nth-child(2) > span.StatusIcon > img[src="img/status/status-close.png"]'
+  //   );
 
-        if (needToOther) {
-          needCountValue = Number(
-            needCount.innerText.replace(/\s|\&nbsp;/g, "")
-          );
-          stockRemainValue = Number(
-            stockRemain.innerText.replace(/\s|\&nbsp;/g, "")
-          );
-          needToOtherValue = Number(
-            needToOther.innerText.replace(/\s|\&nbsp;/g, "")
-          );
-          console.log(stockRemainValue);
+  //   const btnsgroup1 = document.querySelector(
+  //     "#Summary > table > tbody > tr > td:nth-child(1) > div.right > div > button:nth-child(1)"
+  //   );
+  //   const btnsgroup2 = document.querySelector(
+  //     "#Summary > table > tbody > tr > td:nth-child(1) > div.right > div > button:nth-child(2)"
+  //   );
+  //   const btnToWorkWFiles = document.querySelector(
+  //     "#Summary > table > tbody > tr > td:nth-child(2) > table > tbody > tr.TimeFilesInfo > td.right > button"
+  //   );
+  //   const newFilesGet = document.querySelector(
+  //     "#Summary > table > tbody > tr > td:nth-child(2) > table > tbody > tr.TimeFilesInfo > td.right > button"
+  //   );
+  //   const fullWindow = document.querySelector("#Doc");
+  //   let anotherStatus = 0;
 
-          if (
-            stockRemainValue > 0 &&
-            needCountValue + needToOtherValue + 50 <= stockRemainValue
-          ) {
-            console.log(`в ордере № ${index + 1} Бумаги хватает`);
-          } else if (
-            stockRemainValue <= 0 ||
-            needCountValue + needToOtherValue + 50 > stockRemainValue
-          ) {
-            console.log(`в ордере № ${index + 1} Бумаги нет блэт`);
-            if (btnsgroup2 !== null) {
-              btnsgroup2.style.display = "none";
-            }
-            showCenterMessage(
-              `Не хватает бумаги для ордера №${
-                index + 1
-              }. Замените бумагу или свяжитесь с ответственным за остатки бумаги для запуска заказа в работу`
-            ); // Показываем сообщение в центре экрана
-          }
-        } else {
-          needCountValue = Number(
-            needCount.innerText.replace(/\s|\&nbsp;/g, "")
-          );
-          stockRemainValue = Number(
-            stockRemain.innerText.replace(/\s|\&nbsp;/g, "")
-          );
-          if (stockRemainValue > 0 && needCountValue + 50 <= stockRemainValue) {
-            console.log(`в ордере № ${index + 1} Бумаги хватает`);
-          } else if (
-            stockRemainValue <= 0 ||
-            needCountValue + 50 > stockRemainValue
-          ) {
-            console.log(`в ордере № ${index + 1} Бумаги нет блэт`);
-            if (btnsgroup2 !== null) {
-              btnsgroup2.style.display = "none";
-            }
-            showCenterMessage(
-              `Не хватает бумаги для ордера №${
-                index + 1
-              }. Замените бумагу или свяжитесь с ответственным за остатки бумаги для запуска заказа в работу`
-            ); // Показываем сообщение в центре экрана
-          }
-        }
-      });
-    } else if (
-      statusIconCalcWFiles !== null &&
-      calcCheck === 0 &&
-      statusNotToCheck1 === null &&
-      statusNotToCheck2 === null &&
-      statusNotToCheck3 === null &&
-      statusNotToCheck4 === null &&
-      statusNotToCheck5 === null &&
-      statusNotToCheck6 === null &&
-      statusNotToCheck7 === null &&
-      statusNotToCheck8 === null &&
-      statusNotToCheck9 === null
-    ) {
-      calcCheck = 1;
-      let orders = document.querySelectorAll(
-        "#Summary > table > tbody > tr > td:nth-child(1) > .formblock"
-      );
 
-      orders.forEach((el, index) => {
-        let needCount = el.querySelector(
-          "table.inner > tbody > tr > td > table > tbody > tr > td.SkladBlock > table > tbody > tr:nth-child(1) > td.right.nobreak"
-        );
-        let stockRemain = el.querySelector(
-          "table.inner > tbody > tr > td > table > tbody > tr > td.SkladBlock > table > tbody > tr:nth-child(3) > td.right.nobreak"
-        );
-        let needToOther = el.querySelector(
-          "table.inner > tbody > tr > td > table > tbody > tr > td.SkladBlock > table > tbody > tr:nth-child(4) > td.right.nobreak"
-        );
-        let needCountValue = 0;
-        let stockRemainValue = 0;
-        let needToOtherValue = 0;
+  //   setInterval(() => {
+  //     if (
+  //       statusIconCalc !== null ||
+  //       statusIconCalcWFiles !== null ||
+  //       statusIconNoFiles !== null
+  //     ) {
+  //       if (fullWindow.classList.contains("LoadingContent") === true) {
+  //         calcCheck = 0;
+  //       }
+  //     }
+  //     if (
+  //       document.body.innerText.includes("Сохранить расчет") === true &&
+  //       spinner !== null
+  //     ) {
+  //       calcCheck = 0;
+  //     }
+  //   }, 100);
+  //   if (
+  //     statusIconCalc !== null &&
+  //     calcCheck === 0 &&
+  //     statusNotToCheck1 === null &&
+  //     statusNotToCheck2 === null &&
+  //     statusNotToCheck3 === null &&
+  //     statusNotToCheck4 === null &&
+  //     statusNotToCheck5 === null &&
+  //     statusNotToCheck6 === null &&
+  //     statusNotToCheck7 === null &&
+  //     statusNotToCheck8 === null &&
+  //     statusNotToCheck9 === null
+  //   ) {
+  //     calcCheck = 1;
+  //     let orders = document.querySelectorAll(
+  //       "#Summary > table > tbody > tr > td:nth-child(1) > .formblock"
+  //     );
 
-        if (needToOther) {
-          needCountValue = Number(
-            needCount.innerText.replace(/\s|\&nbsp;/g, "")
-          );
-          stockRemainValue = Number(
-            stockRemain.innerText.replace(/\s|\&nbsp;/g, "")
-          );
-          needToOtherValue = Number(
-            needToOther.innerText.replace(/\s|\&nbsp;/g, "")
-          );
-          if (
-            stockRemainValue > 0 &&
-            needCountValue + needToOtherValue + 50 <= stockRemainValue
-          ) {
-            console.log(`в ордере № ${index + 1} Бумаги хватает`);
-          } else if (
-            stockRemainValue <= 0 ||
-            needCountValue + needToOtherValue + 50 > stockRemainValue
-          ) {
-            console.log(`в ордере № ${index + 1} Бумаги нет блэт`);
-            btnToWorkWFiles.style.display = "none";
-            if (btnsgroup1 !== null) {
-              btnsgroup1.style.display = "none";
-            }
-            if (btnsgroup2 !== null) {
-              btnsgroup2.style.display = "none";
-            }
-            showCenterMessage(
-              `Не хватает бумаги для ордера №${
-                index + 1
-              }. Замените бумагу или свяжитесь с ответственным за остатки бумаги для запуска заказа в работу`
-            ); // Показываем сообщение в центре экрана
-            needCountValue = Number(
-              needCount.innerText.replace(/\s|\&nbsp;/g, "")
-            );
-            stockRemainValue = Number(
-              stockRemain.innerText.replace(/\s|\&nbsp;/g, "")
-            );
-          }
-        } else {
-          needCountValue = Number(
-            needCount.innerText.replace(/\s|\&nbsp;/g, "")
-          );
-          stockRemainValue = Number(
-            stockRemain.innerText.replace(/\s|\&nbsp;/g, "")
-          );
-          if (stockRemainValue > 0 && needCountValue + 50 <= stockRemainValue) {
-            console.log(`в ордере № ${index + 1} Бумаги хватает`);
-          } else if (
-            stockRemainValue <= 0 ||
-            needCountValue + 50 > stockRemainValue
-          ) {
-            console.log(`в ордере № ${index + 1} Бумаги нет блэт`);
-            btnToWorkWFiles.style.display = "none";
-            if (btnsgroup1 !== null) {
-              btnsgroup1.style.display = "none";
-            }
-            if (btnsgroup2 !== null) {
-              btnsgroup2.style.display = "none";
-            }
-            showCenterMessage(
-              `Не хватает бумаги для ордера №${
-                index + 1
-              }. Замените бумагу или свяжитесь с ответственным за остатки бумаги для запуска заказа в работу`
-            ); // Показываем сообщение в центре экрана
-          }
-        }
-      });
-    } else if (
-      statusIconNoFiles !== 0 &&
-      calcCheck === 0 &&
-      statusNotToCheck1 === null &&
-      statusNotToCheck2 === null &&
-      statusNotToCheck3 === null &&
-      statusNotToCheck4 === null &&
-      statusNotToCheck5 === null &&
-      statusNotToCheck6 === null &&
-      statusNotToCheck7 === null &&
-      statusNotToCheck8 === null &&
-      statusNotToCheck9 === null
-    ) {
-      calcCheck = 1;
-      let orders = document.querySelectorAll(
-        "#Summary > table > tbody > tr > td:nth-child(1) > .formblock"
-      );
+  //     orders.forEach((el, index) => {
+  //       let needCount = el.querySelector(
+  //         "table.inner > tbody > tr > td > table > tbody > tr > td.SkladBlock > table > tbody > tr:nth-child(1) > td.right.nobreak"
+  //       );
+  //       let stockRemain = el.querySelector(
+  //         "table.inner > tbody > tr > td > table > tbody > tr > td.SkladBlock > table > tbody > tr:nth-child(3) > td.right.nobreak"
+  //       );
+  //       let needToOther = el.querySelector(
+  //         "table.inner > tbody > tr > td > table > tbody > tr > td.SkladBlock > table > tbody > tr:nth-child(4) > td.right.nobreak"
+  //       );
+  //       let needCountValue = 0;
+  //       let stockRemainValue = 0;
+  //       let needToOtherValue = 0;
 
-      orders.forEach((el, index) => {
-        let needCount = el.querySelector(
-          "table.inner > tbody > tr > td > table > tbody > tr > td.SkladBlock > table > tbody > tr:nth-child(1) > td.right.nobreak"
-        );
-        let stockRemain = el.querySelector(
-          "table.inner > tbody > tr > td > table > tbody > tr > td.SkladBlock > table > tbody > tr:nth-child(3) > td.right.nobreak"
-        );
-        let needToOther = el.querySelector(
-          "table.inner > tbody > tr > td > table > tbody > tr > td.SkladBlock > table > tbody > tr:nth-child(4) > td.right.nobreak"
-        );
-        let needCountValue = 0;
-        let stockRemainValue = 0;
-        let needToOtherValue = 0;
+  //       if (needToOther) {
+  //         needCountValue = Number(
+  //           needCount.innerText.replace(/\s|\&nbsp;/g, "")
+  //         );
+  //         stockRemainValue = Number(
+  //           stockRemain.innerText.replace(/\s|\&nbsp;/g, "")
+  //         );
+  //         needToOtherValue = Number(
+  //           needToOther.innerText.replace(/\s|\&nbsp;/g, "")
+  //         );
+  //         console.log(stockRemainValue);
 
-        if (needToOther) {
-          needCountValue = Number(
-            needCount.innerText.replace(/\s|\&nbsp;/g, "")
-          );
-          stockRemainValue = Number(
-            stockRemain.innerText.replace(/\s|\&nbsp;/g, "")
-          );
-          needToOtherValue = Number(
-            needToOther.innerText.replace(/\s|\&nbsp;/g, "")
-          );
-          if (
-            stockRemainValue > 0 &&
-            needCountValue + needToOtherValue + 50 <= stockRemainValue
-          ) {
-            console.log(`в ордере № ${index + 1} Бумаги хватает`);
-          } else if (
-            stockRemainValue <= 0 ||
-            needCountValue + needToOtherValue + 50 > stockRemainValue
-          ) {
-            console.log(`в ордере № ${index + 1} Бумаги нет блэт`);
-            newFilesGet.style.display = "none";
-            showCenterMessage(
-              `Не хватает бумаги для ордера №${
-                index + 1
-              }. Замените бумагу или свяжитесь с ответственным за остатки бумаги для запуска заказа в работу`
-            ); // Показываем сообщение в центре экрана
-          }
-        } else {
-          needCountValue = Number(
-            needCount.innerText.replace(/\s|\&nbsp;/g, "")
-          );
-          stockRemainValue = Number(
-            stockRemain.innerText.replace(/\s|\&nbsp;/g, "")
-          );
-          if (stockRemainValue > 0 && needCountValue + 50 <= stockRemainValue) {
-            console.log(`в ордере № ${index + 1} Бумаги хватает`);
-          } else if (
-            stockRemainValue <= 0 ||
-            needCountValue + 50 > stockRemainValue
-          ) {
-            console.log(`в ордере № ${index + 1} Бумаги нет блэт`);
-            needCountValue = Number(
-              needCount.innerText.replace(/\s|\&nbsp;/g, "")
-            );
-            stockRemainValue = Number(
-              stockRemain.innerText.replace(/\s|\&nbsp;/g, "")
-            );
-            newFilesGet.style.display = "none";
-            showCenterMessage(
-              `Не хватает бумаги для ордера №${
-                index + 1
-              }. Замените бумагу или свяжитесь с ответственным за остатки бумаги для запуска заказа в работу`
-            ); // Показываем сообщение в центре экрана
-          }
-        }
-      });
-    } else if (
-      statusIconCalc === null &&
-      statusIconCalcWFiles === null &&
-      statusIconNoFiles === null
-    ) {
-      calcCheck = 0;
-    }
-  }, 2000);
+  //         if (
+  //           stockRemainValue > 0 &&
+  //           needCountValue + needToOtherValue + 50 <= stockRemainValue
+  //         ) {
+  //           console.log(`в ордере № ${index + 1} Бумаги хватает`);
+  //         } else if (
+  //           stockRemainValue <= 0 ||
+  //           needCountValue + needToOtherValue + 50 > stockRemainValue
+  //         ) {
+  //           console.log(`в ордере № ${index + 1} Бумаги нет блэт`);
+  //           if (btnsgroup2 !== null) {
+  //             btnsgroup2.style.display = "none";
+  //           }
+  //           showCenterMessage(
+  //             `Не хватает бумаги для ордера №${
+  //               index + 1
+  //             }. Замените бумагу или свяжитесь с ответственным за остатки бумаги для запуска заказа в работу`
+  //           ); // Показываем сообщение в центре экрана
+  //         }
+  //       } else {
+  //         needCountValue = Number(
+  //           needCount.innerText.replace(/\s|\&nbsp;/g, "")
+  //         );
+  //         stockRemainValue = Number(
+  //           stockRemain.innerText.replace(/\s|\&nbsp;/g, "")
+  //         );
+  //         if (stockRemainValue > 0 && needCountValue + 50 <= stockRemainValue) {
+  //           console.log(`в ордере № ${index + 1} Бумаги хватает`);
+  //         } else if (
+  //           stockRemainValue <= 0 ||
+  //           needCountValue + 50 > stockRemainValue
+  //         ) {
+  //           console.log(`в ордере № ${index + 1} Бумаги нет блэт`);
+  //           if (btnsgroup2 !== null) {
+  //             btnsgroup2.style.display = "none";
+  //           }
+  //           showCenterMessage(
+  //             `Не хватает бумаги для ордера №${
+  //               index + 1
+  //             }. Замените бумагу или свяжитесь с ответственным за остатки бумаги для запуска заказа в работу`
+  //           ); // Показываем сообщение в центре экрана
+  //         }
+  //       }
+  //     });
+  //   } else if (
+  //     statusIconCalcWFiles !== null &&
+  //     calcCheck === 0 &&
+  //     statusNotToCheck1 === null &&
+  //     statusNotToCheck2 === null &&
+  //     statusNotToCheck3 === null &&
+  //     statusNotToCheck4 === null &&
+  //     statusNotToCheck5 === null &&
+  //     statusNotToCheck6 === null &&
+  //     statusNotToCheck7 === null &&
+  //     statusNotToCheck8 === null &&
+  //     statusNotToCheck9 === null
+  //   ) {
+  //     calcCheck = 1;
+  //     let orders = document.querySelectorAll(
+  //       "#Summary > table > tbody > tr > td:nth-child(1) > .formblock"
+  //     );
+
+  //     orders.forEach((el, index) => {
+  //       let needCount = el.querySelector(
+  //         "table.inner > tbody > tr > td > table > tbody > tr > td.SkladBlock > table > tbody > tr:nth-child(1) > td.right.nobreak"
+  //       );
+  //       let stockRemain = el.querySelector(
+  //         "table.inner > tbody > tr > td > table > tbody > tr > td.SkladBlock > table > tbody > tr:nth-child(3) > td.right.nobreak"
+  //       );
+  //       let needToOther = el.querySelector(
+  //         "table.inner > tbody > tr > td > table > tbody > tr > td.SkladBlock > table > tbody > tr:nth-child(4) > td.right.nobreak"
+  //       );
+  //       let needCountValue = 0;
+  //       let stockRemainValue = 0;
+  //       let needToOtherValue = 0;
+
+  //       if (needToOther) {
+  //         needCountValue = Number(
+  //           needCount.innerText.replace(/\s|\&nbsp;/g, "")
+  //         );
+  //         stockRemainValue = Number(
+  //           stockRemain.innerText.replace(/\s|\&nbsp;/g, "")
+  //         );
+  //         needToOtherValue = Number(
+  //           needToOther.innerText.replace(/\s|\&nbsp;/g, "")
+  //         );
+  //         if (
+  //           stockRemainValue > 0 &&
+  //           needCountValue + needToOtherValue + 50 <= stockRemainValue
+  //         ) {
+  //           console.log(`в ордере № ${index + 1} Бумаги хватает`);
+  //         } else if (
+  //           stockRemainValue <= 0 ||
+  //           needCountValue + needToOtherValue + 50 > stockRemainValue
+  //         ) {
+  //           console.log(`в ордере № ${index + 1} Бумаги нет блэт`);
+  //           btnToWorkWFiles.style.display = "none";
+  //           if (btnsgroup1 !== null) {
+  //             btnsgroup1.style.display = "none";
+  //           }
+  //           if (btnsgroup2 !== null) {
+  //             btnsgroup2.style.display = "none";
+  //           }
+  //           showCenterMessage(
+  //             `Не хватает бумаги для ордера №${
+  //               index + 1
+  //             }. Замените бумагу или свяжитесь с ответственным за остатки бумаги для запуска заказа в работу`
+  //           ); // Показываем сообщение в центре экрана
+  //           needCountValue = Number(
+  //             needCount.innerText.replace(/\s|\&nbsp;/g, "")
+  //           );
+  //           stockRemainValue = Number(
+  //             stockRemain.innerText.replace(/\s|\&nbsp;/g, "")
+  //           );
+  //         }
+  //       } else {
+  //         needCountValue = Number(
+  //           needCount.innerText.replace(/\s|\&nbsp;/g, "")
+  //         );
+  //         stockRemainValue = Number(
+  //           stockRemain.innerText.replace(/\s|\&nbsp;/g, "")
+  //         );
+  //         if (stockRemainValue > 0 && needCountValue + 50 <= stockRemainValue) {
+  //           console.log(`в ордере № ${index + 1} Бумаги хватает`);
+  //         } else if (
+  //           stockRemainValue <= 0 ||
+  //           needCountValue + 50 > stockRemainValue
+  //         ) {
+  //           console.log(`в ордере № ${index + 1} Бумаги нет блэт`);
+  //           btnToWorkWFiles.style.display = "none";
+  //           if (btnsgroup1 !== null) {
+  //             btnsgroup1.style.display = "none";
+  //           }
+  //           if (btnsgroup2 !== null) {
+  //             btnsgroup2.style.display = "none";
+  //           }
+  //           showCenterMessage(
+  //             `Не хватает бумаги для ордера №${
+  //               index + 1
+  //             }. Замените бумагу или свяжитесь с ответственным за остатки бумаги для запуска заказа в работу`
+  //           ); // Показываем сообщение в центре экрана
+  //         }
+  //       }
+  //     });
+  //   } else if (
+  //     statusIconNoFiles !== 0 &&
+  //     calcCheck === 0 &&
+  //     statusNotToCheck1 === null &&
+  //     statusNotToCheck2 === null &&
+  //     statusNotToCheck3 === null &&
+  //     statusNotToCheck4 === null &&
+  //     statusNotToCheck5 === null &&
+  //     statusNotToCheck6 === null &&
+  //     statusNotToCheck7 === null &&
+  //     statusNotToCheck8 === null &&
+  //     statusNotToCheck9 === null
+  //   ) {
+  //     calcCheck = 1;
+  //     let orders = document.querySelectorAll(
+  //       "#Summary > table > tbody > tr > td:nth-child(1) > .formblock"
+  //     );
+
+  //     orders.forEach((el, index) => {
+  //       let needCount = el.querySelector(
+  //         "table.inner > tbody > tr > td > table > tbody > tr > td.SkladBlock > table > tbody > tr:nth-child(1) > td.right.nobreak"
+  //       );
+  //       let stockRemain = el.querySelector(
+  //         "table.inner > tbody > tr > td > table > tbody > tr > td.SkladBlock > table > tbody > tr:nth-child(3) > td.right.nobreak"
+  //       );
+  //       let needToOther = el.querySelector(
+  //         "table.inner > tbody > tr > td > table > tbody > tr > td.SkladBlock > table > tbody > tr:nth-child(4) > td.right.nobreak"
+  //       );
+  //       let needCountValue = 0;
+  //       let stockRemainValue = 0;
+  //       let needToOtherValue = 0;
+
+  //       if (needToOther) {
+  //         needCountValue = Number(
+  //           needCount.innerText.replace(/\s|\&nbsp;/g, "")
+  //         );
+  //         stockRemainValue = Number(
+  //           stockRemain.innerText.replace(/\s|\&nbsp;/g, "")
+  //         );
+  //         needToOtherValue = Number(
+  //           needToOther.innerText.replace(/\s|\&nbsp;/g, "")
+  //         );
+  //         if (
+  //           stockRemainValue > 0 &&
+  //           needCountValue + needToOtherValue + 50 <= stockRemainValue
+  //         ) {
+  //           console.log(`в ордере № ${index + 1} Бумаги хватает`);
+  //         } else if (
+  //           stockRemainValue <= 0 ||
+  //           needCountValue + needToOtherValue + 50 > stockRemainValue
+  //         ) {
+  //           console.log(`в ордере № ${index + 1} Бумаги нет блэт`);
+  //           newFilesGet.style.display = "none";
+  //           showCenterMessage(
+  //             `Не хватает бумаги для ордера №${
+  //               index + 1
+  //             }. Замените бумагу или свяжитесь с ответственным за остатки бумаги для запуска заказа в работу`
+  //           ); // Показываем сообщение в центре экрана
+  //         }
+  //       } else {
+  //         needCountValue = Number(
+  //           needCount.innerText.replace(/\s|\&nbsp;/g, "")
+  //         );
+  //         stockRemainValue = Number(
+  //           stockRemain.innerText.replace(/\s|\&nbsp;/g, "")
+  //         );
+  //         if (stockRemainValue > 0 && needCountValue + 50 <= stockRemainValue) {
+  //           console.log(`в ордере № ${index + 1} Бумаги хватает`);
+  //         } else if (
+  //           stockRemainValue <= 0 ||
+  //           needCountValue + 50 > stockRemainValue
+  //         ) {
+  //           console.log(`в ордере № ${index + 1} Бумаги нет блэт`);
+  //           needCountValue = Number(
+  //             needCount.innerText.replace(/\s|\&nbsp;/g, "")
+  //           );
+  //           stockRemainValue = Number(
+  //             stockRemain.innerText.replace(/\s|\&nbsp;/g, "")
+  //           );
+  //           newFilesGet.style.display = "none";
+  //           showCenterMessage(
+  //             `Не хватает бумаги для ордера №${
+  //               index + 1
+  //             }. Замените бумагу или свяжитесь с ответственным за остатки бумаги для запуска заказа в работу`
+  //           ); // Показываем сообщение в центре экрана
+  //         }
+  //       }
+  //     });
+  //   } else if (
+  //     statusIconCalc === null &&
+  //     statusIconCalcWFiles === null &&
+  //     statusIconNoFiles === null
+  //   ) {
+  //     calcCheck = 0;
+  //   }
+  // }, 2000);
 
   setInterval(() => {
     if (!document.body.innerText.includes("ОТГРУЗКА НА СЛЕДУЮЩИЙ ДЕНЬ!")) {
@@ -1962,21 +1700,7 @@
     }
   }, 1000);
 
-  // const DateReady = document.querySelector(
-  //   "#Summary > table > tbody > tr > td:nth-child(1) > table > tbody:nth-child(3) > tr:nth-child(9) > td.PlanBlock > span.DateReady"
-  // );
-  // const DateReady1 = document.querySelector(
-  //   "#Summary > table > tbody > tr > td:nth-child(1) > table > tbody:nth-child(3) > tr:nth-child(9) > td.PlanBlock > span.DateReady"
-  // );
-  // const calcDate = document.querySelector(
-  //   "#History > table:nth-child(1) > tbody > tr:nth-child(2) > td.right.bold > nobr"
-  // );
-  // const reCalcDate = document.querySelector(
-  //   "#Summary > table > tbody > tr > td:nth-child(1) > table > tbody:nth-child(3) > tr:nth-child(9) > td.PlanBlock > button"
-  // );
-  // const loadingDate = document.querySelector(
-  //   "#Summary > table > tbody > tr > td:nth-child(1) > table > tbody:nth-child(3) > tr:nth-child(9) > td.PlanBlock"
-  // );
+
 
   // Функция для преобразования строки в дату и изменения её на следующий день
   let datecheck = 0;
@@ -2046,6 +1770,8 @@
         const oldDate = dateInProduct.innerHTML.trim();
         const newDate = updateDate(oldDate);
         dateInProduct.innerHTML = newDate; // Обновляем текст в блоке
+        dateInProduct.style.backgroundColor = "yellow"
+        dateInProduct.style.padding = "10px"
         datecheck = 1;
       }
       // dateInCalc.innerHTML = "Расчитается после"
@@ -2139,6 +1865,8 @@
 
         // Обновляем текст в элементе
         dateInOrder.textContent = `Расчетная дата сдачи заказа: ${updatedDate}`;
+        dateInOrder.style.background = "yellow"
+        dateInOrder.style.padding = "10px"
       }
 
       // Обновляем дату в элементе с классом .textDate
@@ -2195,6 +1923,8 @@
         // Обновляем содержимое элемента
 
         dateForWorkOrder.textContent = newDateText;
+        dateForWorkOrder.style.backgroundColor = "yellow"
+        dateForWorkOrder.style.padding = "10px"
       }
 
       // Запускаем функцию
@@ -2253,6 +1983,7 @@
           // Обновляем текст в нужном формате
           const updatedText = formatDate(newDate, dateText.includes(","));
           dateBlock.textContent = updatedText;
+          dateBlock.style.backgroundColor = "yellow"
         });
       }
 
