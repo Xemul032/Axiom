@@ -1,5 +1,5 @@
 // ==UserScript==
-// @name         Проверка заказа 7.3.2
+// @name         Проверка заказа 7.3.3
 // @namespace    http://tampermonkey.net/
 // @version      1.6
 // @description
@@ -752,10 +752,11 @@
 
       for (let i = 0; i < ordersArray.length; i++) {
         const orderElem = document.getElementById(ordersArray[i]);
-        const pp = document.querySelector("#PostpressList");
+        let postpressList3 = orderElem.querySelector("#PostpressList");
 
 
-        let rows = orderElem.pp.getElementsByTagName("tr");
+
+        let rows = postpressList3.getElementsByTagName("tr");
         let backLamination = orderElem.querySelector("#pantoneback");
         console.log(backLamination.value);
 
