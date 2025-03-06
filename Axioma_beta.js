@@ -1,5 +1,5 @@
 // ==UserScript==
-// @name         Проверка заказа 7.3.1
+// @name         Проверка заказа 7.3.2
 // @namespace    http://tampermonkey.net/
 // @version      1.6
 // @description
@@ -1414,6 +1414,8 @@
          calcCheck = 0;
        }
      }, 100);
+     let paperList = document.querySelectorAll('table.inner > tbody > tr > td > table > tbody > tr > td.SkladBlock > table > tbody > tr')
+
      if (
        statusIconCalc !== null &&
        calcCheck === 0 &&
@@ -1439,9 +1441,25 @@
          let stockRemain = el.querySelector(
            "table.inner > tbody > tr > td > table > tbody > tr > td.SkladBlock > table > tbody > tr:nth-child(3) > td.right.nobreak"
          );
-         let needToOther = el.querySelector(
-           "table.inner > tbody > tr > td > table > tbody > tr > td.SkladBlock > table > tbody > tr:nth-child(4) > td.right.nobreak"
-         );
+
+         let needToOther;
+         if (paperList.length >=6){
+          needToOther = el.querySelector(
+            "table.inner > tbody > tr > td > table > tbody > tr > td.SkladBlock > table > tbody > tr:nth-child(5) > td.right.nobreak"
+          );
+         } else{
+          needToOther = el.querySelector(
+            "table.inner > tbody > tr > td > table > tbody > tr > td.SkladBlock > table > tbody > tr:nth-child(4) > td.right.nobreak"
+          );
+         }
+
+         if (paperList.length >=6){
+          needToOther = el.querySelector(
+            "table.inner > tbody > tr > td > table > tbody > tr > td.SkladBlock > table > tbody > tr:nth-child(5) > td.right.nobreak"
+
+          );
+         }
+
          let needCountValue = 0;
          let stockRemainValue = 0;
          let needToOtherValue = 0;
@@ -1527,9 +1545,22 @@
          let stockRemain = el.querySelector(
            "table.inner > tbody > tr > td > table > tbody > tr > td.SkladBlock > table > tbody > tr:nth-child(3) > td.right.nobreak"
          );
-         let needToOther = el.querySelector(
-           "table.inner > tbody > tr > td > table > tbody > tr > td.SkladBlock > table > tbody > tr:nth-child(4) > td.right.nobreak"
-         );
+         let needToOther;
+         if (paperList.length >=6){
+          needToOther = el.querySelector(
+            "table.inner > tbody > tr > td > table > tbody > tr > td.SkladBlock > table > tbody > tr:nth-child(5) > td.right.nobreak"
+          );
+         } else{
+          needToOther = el.querySelector(
+            "table.inner > tbody > tr > td > table > tbody > tr > td.SkladBlock > table > tbody > tr:nth-child(4) > td.right.nobreak"
+          );
+         }
+         if (paperList.length >=6){
+          needToOther = el.querySelector(
+            "table.inner > tbody > tr > td > table > tbody > tr > td.SkladBlock > table > tbody > tr:nth-child(5) > td.right.nobreak"
+
+          );
+         }
          let needCountValue = 0;
          let stockRemainValue = 0;
          let needToOtherValue = 0;
@@ -1627,9 +1658,16 @@
          let stockRemain = el.querySelector(
            "table.inner > tbody > tr > td > table > tbody > tr > td.SkladBlock > table > tbody > tr:nth-child(3) > td.right.nobreak"
          );
-         let needToOther = el.querySelector(
-           "table.inner > tbody > tr > td > table > tbody > tr > td.SkladBlock > table > tbody > tr:nth-child(4) > td.right.nobreak"
-         );
+         let needToOther;
+         if (paperList.length >=6){
+          needToOther = el.querySelector(
+            "table.inner > tbody > tr > td > table > tbody > tr > td.SkladBlock > table > tbody > tr:nth-child(5) > td.right.nobreak"
+          );
+         } else{
+          needToOther = el.querySelector(
+            "table.inner > tbody > tr > td > table > tbody > tr > td.SkladBlock > table > tbody > tr:nth-child(4) > td.right.nobreak"
+          );
+         }
          let needCountValue = 0;
          let stockRemainValue = 0;
          let needToOtherValue = 0;
