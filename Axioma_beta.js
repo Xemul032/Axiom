@@ -456,7 +456,7 @@
         const cifraLayoutType = document.getElementById("CifraLayoutType");
         if (foundOlod && cifraLayoutType && cifraLayoutType.value !== "2") {
           messages.push(
-            `СМОТРИ СЮДА Карты нужно раскладывать каждый вид на отдельный лист в ${getOrderName(
+            `Карты нужно раскладывать каждый вид на отдельный лист в ${getOrderName(
               i
             )}`
           );
