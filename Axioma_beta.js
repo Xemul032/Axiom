@@ -1,5 +1,5 @@
 // ==UserScript==
-// @name         Проверка заказа 7.3.3
+// @name         Проверка заказа 7.4.1
 // @namespace    http://tampermonkey.net/
 // @version      1.6
 // @description
@@ -1744,6 +1744,134 @@
     }
   }, 1000);
 
+  function createPriceBlock() {
+    // Проверяем наличие элемента #itog на странице
+    if (!document.getElementById('itog')) {
+        return;
+    }
+
+    // Определяем путь к целевому элементу
+    const targetElement = document.querySelector('#result > div > div > table > tbody > tr:nth-child(2) > td:nth-child(2) > table > tbody > tr:nth-child(6) > td');
+
+    // Проверяем, существует ли уже блок с ценой
+    if (targetElement.querySelector('.urgent-order-price')) {
+        return;
+    }
+
+    // Создаем новый блок
+    const priceBlock = document.createElement('div');
+    priceBlock.className = 'urgent-order-price';
+
+    // Добавляем стили для блока
+    priceBlock.style.backgroundColor = '#007BFF'; // Синий фон
+    priceBlock.style.padding = '15px';
+    priceBlock.style.borderRadius = '8px';
+    priceBlock.style.boxShadow = '0 4px 6px rgba(0, 0, 0, 0.1)';
+    priceBlock.style.color = 'white';
+    priceBlock.style.textAlign = 'center';
+
+    // Создаем заголовок
+    const header = document.createElement('h4');
+    header.textContent = 'Цена срочного заказа';
+    header.style.color = '#FFFFFF'; // Белый текст
+    header.style.margin = '0 0 10px 0';
+    header.style.fontSize = '18px';
+    priceBlock.appendChild(header);
+
+    // Создаем элемент для отображения суммы
+    const sumElement = document.createElement('div');
+    sumElement.style.color = '#FFD700'; // Желтый текст
+    sumElement.style.fontSize = '24px'; // Большой шрифт
+    sumElement.style.fontWeight = 'bold';
+    priceBlock.appendChild(sumElement);
+
+    // Создаем кнопку "Скопировать корректировку"
+    const copyButton = document.createElement('button');
+    copyButton.textContent = 'Скопировать цену';
+    copyButton.style.marginTop = '10px';
+    copyButton.style.padding = '8px 16px';
+    copyButton.style.backgroundColor = '#28a745'; // Зеленый цвет кнопки
+    copyButton.style.color = '#FFFFFF'; // Белый текст
+    copyButton.style.border = 'none';
+    copyButton.style.borderRadius = '4px';
+    copyButton.style.cursor = 'pointer';
+    copyButton.style.fontSize = '14px';
+
+    // Переменная для хранения оригинального числа (без пробелов)
+    let originalSumValue = '';
+
+    // Функция для форматирования числа с пробелами
+    function formatNumberWithSpaces(number) {
+        return number.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ' ');
+    }
+
+    // Функция для расчета и обновления суммы
+    function updateSum() {
+        const itogText = document.getElementById('itog').textContent;
+        const itogValue = parseFloat(itogText.replace(/[^0-9.,]/g, '').replace(',', '.'));
+        const inputElement = document.querySelector('#result > div > div > table > tbody > tr:nth-child(2) > td:nth-child(2) > table > tbody > tr:nth-child(5) > td.right > input');
+        let inputValue = parseFloat(inputElement.value);
+
+        if (inputValue < 0) {
+            inputValue = Math.abs(inputValue);
+            originalSumValue = ((itogValue + inputValue) * 1.4).toFixed(2);
+        } else {
+            originalSumValue = ((itogValue - inputValue) * 1.4).toFixed(2);
+        }
+
+        // Отображаем отформатированное число с пробелами
+        sumElement.textContent = formatNumberWithSpaces(originalSumValue);
+    }
+
+    // Добавляем обработчик события для кнопки
+    copyButton.addEventListener('click', function () {
+        // Копируем оригинальное число (без пробелов) в буфер обмена
+        navigator.clipboard.writeText(originalSumValue)
+            .then(() => {
+                // Меняем текст кнопки на "Скопировано!"
+                copyButton.textContent = 'Скопировано!';
+                setTimeout(() => {
+                    copyButton.textContent = 'Скопировать цену';
+                }, 2000); // Возвращаем исходный текст через 2 секунды
+            })
+            .catch((err) => {
+                console.error('Ошибка при копировании: ', err);
+            });
+    });
+
+    // Добавляем кнопку в блок
+    priceBlock.appendChild(copyButton);
+
+    // Инициализация суммы
+    updateSum();
+
+    // Добавляем блок в целевой элемент
+    targetElement.appendChild(priceBlock);
+
+    // Настройка MutationObserver для отслеживания изменений
+    const observer = new MutationObserver(function (mutations) {
+        mutations.forEach(function (mutation) {
+            if (mutation.type === 'characterData' || mutation.type === 'childList') {
+                updateSum();
+            }
+        });
+    });
+
+    // Наблюдаем за изменениями в #itog и в input
+    observer.observe(document.getElementById('itog'), {
+        characterData: true,
+        childList: true,
+        subtree: true
+    });
+
+    const inputElement = document.querySelector('#result > div > div > table > tbody > tr:nth-child(2) > td:nth-child(2) > table > tbody > tr:nth-child(5) > td.right > input');
+    observer.observe(inputElement, {
+        attributes: true,
+        attributeFilter: ['value']
+    });
+}
+
+
 
 
   // Функция для преобразования строки в дату и изменения её на следующий день
@@ -2195,6 +2323,7 @@
   setInterval(addOneDay, 0);
   setInterval(addDateOnOrderList, 0);
   setInterval(hideDropzone, 200);
+  setInterval(createPriceBlock, 200);
   setInterval(() => {
     count = 0;
 
