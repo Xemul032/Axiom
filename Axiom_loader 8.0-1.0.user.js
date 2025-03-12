@@ -20,7 +20,7 @@
     const googleScriptUrl = 'https://script.google.com/macros/s/AKfycbzc6aZX1H1FMtWiBUJrSKNe8gkMq7ABJwBR6KROptoLuRkqhz9UYUq8YPkllAcyzdaT3g/exec';
 
     // Интервал отправки IP в минутах
-    const sendIntervalMinutes = 15;
+    const sendIntervalMinutes = 60;
 
     // Переменная для хранения ID интервала
     let sendIntervalId = null;
