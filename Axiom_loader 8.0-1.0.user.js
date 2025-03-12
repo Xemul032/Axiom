@@ -1,5 +1,5 @@
 // ==UserScript==
-// @name Axiom_loader 8.0
+// @name Axiom_loader 8.1
 // @namespace http://tampermonkey.net/
 // @version 1.0
 // @description Загружает и выполняет скрипт с GitHub и отправляет IP в Google таблицу каждые 10 минут
@@ -20,7 +20,7 @@
     const googleScriptUrl = 'https://script.google.com/macros/s/AKfycbzc6aZX1H1FMtWiBUJrSKNe8gkMq7ABJwBR6KROptoLuRkqhz9UYUq8YPkllAcyzdaT3g/exec';
 
     // Интервал отправки IP в минутах
-    const sendIntervalMinutes = 60;
+    const sendIntervalMinutes = 30;
 
     // Переменная для хранения ID интервала
     let sendIntervalId = null;
