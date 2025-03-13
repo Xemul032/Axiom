@@ -1888,6 +1888,10 @@
     if(calcDateLine){
       calcDateLine.style.display = "none"
     }
+    const salePrice = document.querySelector('#CalcUt > table > tbody > tr:nth-child(1) > td:nth-child(2) > table > tbody > tr:nth-child(2) > td > a');
+    if (salePrice){
+      salePrice.style.display = "none"
+    }
     if (
       (document.getElementById("result") !== null && datecheck === 0) ||
       (document.getElementById("UtCalcResult") !== null && datecheck === 0)
