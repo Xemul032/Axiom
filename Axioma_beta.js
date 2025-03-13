@@ -1,5 +1,5 @@
 // ==UserScript==
-// @name         Проверка заказа 7.4.1
+// @name         Проверка заказа 8.1
 // @namespace    http://tampermonkey.net/
 // @version      1.6
 // @description
@@ -597,7 +597,7 @@
         }
         if (sumDensity * paperSum > 2400) {
           messages.push(
-            `Слишком толстый блок для скрепки! Обратитесь к технологу!`
+            `Слишком толстый блок для скрепки! Обратитесь к технологу!`
           );
         }
 
@@ -914,7 +914,7 @@
       }
       if (sumDensity * paperSum > 2400) {
         messages.push(
-          `Слишком толстый блок для скрепки! Обратитесь к технологу!`
+          `Слишком толстый блок для скрепки! Обратитесь к технологу!`
         );
       }
     }
@@ -1493,7 +1493,7 @@
              showCenterMessage(
                `Не хватает бумаги для ордера №${
                  index + 1
-               }. Замените бумагу или свяжитесь с ответственным за остатки бумаги для запуска заказа в работу`
+               }. Замените бумагу или свяжитесь с ответственным за остатки бумаги для запуска заказа в работу`
              ); // Показываем сообщение в центре экрана
            }
          } else {
@@ -1516,7 +1516,7 @@
              showCenterMessage(
                `Не хватает бумаги для ордера №${
                  index + 1
-               }. Замените бумагу или свяжитесь с ответственным за остатки бумаги для запуска заказа в работу`
+               }. Замените бумагу или свяжитесь с ответственным за остатки бумаги для запуска заказа в работу`
              ); // Показываем сообщение в центре экрана
            }
          }
@@ -1596,7 +1596,7 @@
              showCenterMessage(
                `Не хватает бумаги для ордера №${
                  index + 1
-               }. Замените бумагу или свяжитесь с ответственным за остатки бумаги для запуска заказа в работу`
+               }. Замените бумагу или свяжитесь с ответственным за остатки бумаги для запуска заказа в работу`
              ); // Показываем сообщение в центре экрана
              needCountValue = Number(
                needCount.innerText.replace(/\s|\&nbsp;/g, "")
@@ -1629,7 +1629,7 @@
              showCenterMessage(
                `Не хватает бумаги для ордера №${
                  index + 1
-               }. Замените бумагу или свяжитесь с ответственным за остатки бумаги для запуска заказа в работу`
+               }. Замените бумагу или свяжитесь с ответственным за остатки бумаги для запуска заказа в работу`
              ); // Показываем сообщение в центре экрана
            }
          }
@@ -1697,7 +1697,7 @@
              showCenterMessage(
                `Не хватает бумаги для ордера №${
                  index + 1
-               }. Замените бумагу или свяжитесь с ответственным за остатки бумаги для запуска заказа в работу`
+               }. Замените бумагу или свяжитесь с ответственным за остатки бумаги для запуска заказа в работу`
              ); // Показываем сообщение в центре экрана
            }
          } else {
@@ -1724,7 +1724,7 @@
              showCenterMessage(
                `Не хватает бумаги для ордера №${
                  index + 1
-               }. Замените бумагу или свяжитесь с ответственным за остатки бумаги для запуска заказа в работу`
+               }. Замените бумагу или свяжитесь с ответственным за остатки бумаги для запуска заказа в работу`
              ); // Показываем сообщение в центре экрана
            }
          }
@@ -2338,4 +2338,125 @@
     checkForText = null;
     colorBtnClick = false;
   }, 1000);
+
+
+  (function() {
+    // Функция для проверки наличия слова на странице
+    function checkForWord() {
+        const word = "Производительность сотрудников";
+        const wordExists = document.body.innerText.includes(word);
+
+        if (wordExists && !document.getElementById('sumButton')) {
+            createButtons();
+        } else if (!wordExists && document.getElementById('sumButton')) {
+            removeButtons();
+        }
+    }
+
+    // Функция для создания кнопок
+    function createButtons() {
+        const buttonContainer = document.createElement('div');
+        buttonContainer.style.position = 'fixed';
+        buttonContainer.style.right = '20px';
+        buttonContainer.style.bottom = '20px';
+        buttonContainer.style.zIndex = '1000';
+
+        const sumButton = document.createElement('button');
+        sumButton.id = 'sumButton';
+        sumButton.innerText = 'SUM';
+        sumButton.style.backgroundColor = '#007BFF'; // Синий цвет
+        sumButton.style.color = '#FFFFFF'; // Белый текст
+        sumButton.style.border = 'none';
+        sumButton.style.borderRadius = '5px';
+        sumButton.style.padding = '10px 20px';
+        sumButton.style.marginRight = '10px';
+        sumButton.style.cursor = 'pointer';
+        sumButton.style.fontSize = '14px';
+        sumButton.style.fontWeight = 'bold';
+        sumButton.onclick = () => {
+            copySumValue();
+            showFeedback(sumButton);
+        };
+
+        const tableButton = document.createElement('button');
+        tableButton.id = 'tableButton';
+        tableButton.innerText = 'Table';
+        tableButton.style.backgroundColor = '#007BFF'; // Синий цвет
+        tableButton.style.color = '#FFFFFF'; // Белый текст
+        tableButton.style.border = 'none';
+        tableButton.style.borderRadius = '5px';
+        tableButton.style.padding = '10px 20px';
+        tableButton.style.cursor = 'pointer';
+        tableButton.style.fontSize = '14px';
+        tableButton.style.fontWeight = 'bold';
+        tableButton.onclick = () => {
+            copyTableValues();
+            showFeedback(tableButton);
+        };
+
+        buttonContainer.appendChild(sumButton);
+        buttonContainer.appendChild(tableButton);
+        document.body.appendChild(buttonContainer);
+    }
+
+    // Функция для удаления кнопок
+    function removeButtons() {
+        const buttonContainer = document.querySelector('div[style*="right: 20px;"]');
+        if (buttonContainer) {
+            buttonContainer.remove();
+        }
+    }
+
+    // Функция для копирования и обработки значения SUM
+    function copySumValue() {
+        const selector = '#Tabs > div:nth-child(2) > div:nth-child(1) > table > tbody > tr:nth-child(1) > td > div > table > thead > tr.ax-ftable-total > th:nth-child(3)';
+        const element = document.querySelector(selector);
+
+        if (element) {
+            let value = element.innerText.replace(/\s+/g, ''); // Удаляем пробелы
+            value = Math.round(parseFloat(value.replace(',', '.'))); // Округляем до целого числа
+            navigator.clipboard.writeText(value.toString());
+        }
+    }
+
+    // Функция для копирования и обработки значений таблицы
+    function copyTableValues() {
+        const selector = '#Tabs > div:nth-child(2) > div:nth-child(1) > table > tbody > tr:nth-child(1) > td > div > table > tbody';
+        const tableBody = document.querySelector(selector);
+
+        if (tableBody) {
+            const rows = tableBody.querySelectorAll('tr');
+            let values = [];
+
+            rows.forEach(row => {
+                const thirdTd = row.querySelector('td:nth-child(3)');
+                if (thirdTd) {
+                    let value = thirdTd.innerText.replace(/\s+/g, ''); // Удаляем пробелы
+                    value = Math.round(parseFloat(value.replace(',', '.'))); // Округляем до целого числа
+                    if (value >= 10000) { // Фильтруем значения меньше 10000
+                        values.push(value);
+                    }
+                }
+            });
+
+            const clipboardText = values.join('\n'); // Соединяем значения в одну строку с переносами
+            navigator.clipboard.writeText(clipboardText);
+        }
+    }
+
+    // Функция для отображения обратной связи (изменение кнопки)
+    function showFeedback(button) {
+        button.innerText = 'Done'; // Меняем текст на "Done"
+        button.style.backgroundColor = '#28a745'; // Меняем цвет на зеленый
+
+        // Возвращаем кнопку в исходное состояние через 3 секунды
+        setTimeout(() => {
+            button.innerText = button === document.getElementById('sumButton') ? 'SUM' : 'Table';
+            button.style.backgroundColor = '#007BFF'; // Возвращаем синий цвет
+        }, 3000);
+    }
+
+    // Проверяем наличие слова каждые 1000 миллисекунд
+    setInterval(checkForWord, 1000);
+})();
 })();
