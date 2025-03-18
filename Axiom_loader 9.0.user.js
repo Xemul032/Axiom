@@ -1,5 +1,5 @@
 // ==UserScript==
-// @name         Axiom_loader 9.0
+// @name         Axiom_loader 9.1
 // @namespace    http://tampermonkey.net/
 // @version      1.1
 // @description  Загружает скрипт с GitHub, отправляет IP в Google таблицу и извлекает ProductId из кнопок
