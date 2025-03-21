@@ -1752,6 +1752,14 @@
 
     // Определяем путь к целевому элементу
     const targetElement = document.querySelector('#result > div > div > table > tbody > tr:nth-child(2) > td:nth-child(2) > table > tbody > tr:nth-child(6) > td');
+    const raschCifr = document.querySelector('#Doc > div.calc_head > div > table > tbody > tr:nth-child(1) > td:nth-child(1)');
+    const skidki = document.querySelector('#Doc > div.calc_head > div > table > tbody > tr:nth-child(1) > td:nth-child(2)');
+      if (raschCifr){
+         raschCifr.style.display = "none"
+        }
+      if(skidki){
+         skidki.style.display = "none"
+       }
 
     // Проверяем, существует ли уже блок с ценой
     if (targetElement.querySelector('.urgent-order-price')) {
