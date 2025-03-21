@@ -1,5 +1,5 @@
 // ==UserScript==
-// @name         Проверка заказа 8.1
+// @name         Проверка заказа 8.2
 // @namespace    http://tampermonkey.net/
 // @version      1.6
 // @description
@@ -54,6 +54,16 @@
   let choosenCalc = null;
   setInterval(() => {
     choosenCalcParent = document.querySelector("#Doc > div.TemplateChooser");
+
+  const choosenCalcParent1 = document.querySelector("#Doc > div.calc_head");
+  const raschCifr = document.querySelector('#Doc > div.calc_head > div > table > tbody > tr:nth-child(1) > td:nth-child(1)');
+  const skidki = document.querySelector('#Doc > div.calc_head > div > table > tbody > tr:nth-child(1) > td:nth-child(2)');
+      if (choosenCalcParent1){
+        raschCifr.style.display = "none"
+      }
+     if(skidki){
+        skidki.style.display = "none"
+      }
 
     let resultCals = document.getElementById("result");
 
@@ -1752,15 +1762,7 @@
 
     // Определяем путь к целевому элементу
     const targetElement = document.querySelector('#result > div > div > table > tbody > tr:nth-child(2) > td:nth-child(2) > table > tbody > tr:nth-child(6) > td');
-    const raschCifr = document.querySelector('#Doc > div.calc_head > div > table > tbody > tr:nth-child(1) > td:nth-child(1)');
-    const skidki = document.querySelector('#Doc > div.calc_head > div > table > tbody > tr:nth-child(1) > td:nth-child(2)');
-      if (raschCifr){
-         raschCifr.style.display = "none"
-        }
-      if(skidki){
-         skidki.style.display = "none"
-       }
-
+    
     // Проверяем, существует ли уже блок с ценой
     if (targetElement.querySelector('.urgent-order-price')) {
         return;
