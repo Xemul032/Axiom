@@ -1,5 +1,5 @@
 // ==UserScript==
-// @name         Проверка заказа 8.3.5
+// @name         Проверка заказа 8.3.6
 // @namespace    http://tampermonkey.net/
 // @version      1.6
 // @description
@@ -2530,8 +2530,11 @@ if (document.readyState === "interactive" || document.readyState === "complete")
 const SHEET_ID = '1h4vwAC83sqAnf2ibalKW4qfTSHe0qToPs0-0aSdpdrU';
 const SHEET_NAME = 'finder';
 
+// Глобальная переменная для хранения данных таблицы
+let sheetData = [];
+
 // Функция для получения данных из Google таблицы
-function fetchGoogleSheetData(callback) {
+function fetchGoogleSheetData() {
     const url = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?tqx=out:csv&sheet=${SHEET_NAME}`;
 
     GM_xmlhttpRequest({
@@ -2539,16 +2542,14 @@ function fetchGoogleSheetData(callback) {
         url: url,
         onload: function(response) {
             if (response.status === 200) {
-                const data = parseCSV(response.responseText);
-                callback(data);
+                sheetData = parseCSV(response.responseText);
+                console.log('Данные таблицы обновлены:', sheetData.length, 'строк');
             } else {
                 console.error('Ошибка загрузки данных из таблицы:', response.statusText);
-                callback([]);
             }
         },
         onerror: function(error) {
             console.error('Ошибка при запросе данных:', error);
-            callback([]);
         }
     });
 }
@@ -2588,13 +2589,13 @@ function checkProductIdInData(productId, data) {
 }
 
 // Функция для обработки элемента ProductId
-function processProductId(element, sheetData) {
+function processProductId(element) {
     const productId = element.textContent.trim();
 
     if (checkProductIdInData(productId, sheetData)) {
         if (!element.textContent.includes('⚡️')) {
-       element.textContent = element.textContent + '⚡️';
-   }
+            element.textContent = element.textContent + '⚡️';
+        }
         console.log(`ProductId ${productId} найден в таблице.`);
     } else {
         console.log(`Не срочный: ProductId ${productId} не найден в таблице.`);
@@ -2603,45 +2604,46 @@ function processProductId(element, sheetData) {
 
 // Функция для наблюдения за DOM и отслеживания появления #ProductId
 function observeDOM() {
-    let sheetData = [];
-
-    // Сначала загружаем данные из таблицы
-    fetchGoogleSheetData(function(data) {
-        sheetData = data;
-        console.log('Данные таблицы загружены:', data.length, 'строк');
-
-        // Затем настраиваем наблюдатель за DOM
-        const observer = new MutationObserver(function(mutations) {
-            const productIdElement = document.getElementById('ProductId');
-            if (productIdElement) {
-                processProductId(productIdElement, sheetData);
-                // Можно останавливать наблюдение после обработки элемента,
-                // но если элемент может меняться - лучше этого не делать
-                // observer.disconnect();
-            }
-        });
-
-        // Начинаем наблюдение за всем DOM
-        observer.observe(document.body, {
-            childList: true,
-            subtree: true
-        });
-
-        // Также проверяем существующий DOM на наличие элемента
-        const existingProductId = document.getElementById('ProductId');
-        if (existingProductId) {
-            processProductId(existingProductId, sheetData);
+    // Настраиваем наблюдатель за DOM
+    const observer = new MutationObserver(function(mutations) {
+        const productIdElement = document.getElementById('ProductId');
+        if (productIdElement) {
+            processProductId(productIdElement);
         }
     });
+
+    // Начинаем наблюдение за всем DOM
+    observer.observe(document.body, {
+        childList: true,
+        subtree: true
+    });
+
+    // Также проверяем существующий DOM на наличие элемента
+    const existingProductId = document.getElementById('ProductId');
+    if (existingProductId) {
+        processProductId(existingProductId);
+    }
 }
 
-// Запускаем наблюдение, когда страница полностью загружена
+// Запускаем обновление данных каждые 15 секунд
+function startPeriodicUpdates() {
+    // Первый вызов для немедленной загрузки данных
+    fetchGoogleSheetData();
+
+    // Устанавливаем интервал для обновления данных каждые 15 секунд
+    setInterval(fetchGoogleSheetData, 15000);
+}
+
+// Запускаем наблюдение и обновление данных, когда страница полностью загружена
 if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', observeDOM);
+    document.addEventListener('DOMContentLoaded', function() {
+        startPeriodicUpdates();
+        observeDOM();
+    });
 } else {
+    startPeriodicUpdates();
     observeDOM();
 }
-
 // Функция для получения данных из селектора на странице
 function getDataFromSelector() {
   const selector1 = '#Summary > table > tbody > tr > td:nth-child(1) > table > tbody:nth-child(1) > tr:nth-child(2) > td:nth-child(2) > div > a > span';
