@@ -2714,6 +2714,8 @@ function createBonusRow() {
 function removeUnwantedElements(targetTableBody) {
   // Проходим по всем строкам таблицы
   const rows = targetTableBody.querySelectorAll('tr');
+   const rows1 = document.querySelector("#Fin > table > tbody:nth-child(4) > tr > td:nth-child(2) > table > tbody");
+    rows1.style.display = 'none';
   rows.forEach((row, index) => {
       // Проверяем, есть ли у строки класс .bonus-row
       if (!row.classList.contains('bonus-row')) {
