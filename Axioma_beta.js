@@ -1,5 +1,5 @@
 // ==UserScript==
-// @name         Проверка заказа 8.3
+// @name         Проверка заказа 8.3.1
 // @namespace    http://tampermonkey.net/
 // @version      1.6
 // @description
@@ -2661,14 +2661,6 @@ function createBonusRow(bonusAmount) {
   cell.style.textAlign = 'center'; // Центрируем текст
   cell.style.fontWeight = 'bold'; // Делаем текст жирным
 
-  // Проверяем, является ли bonusAmount числом и равно ли оно нулю
-  if (bonusAmount !== null && !isNaN(bonusAmount) && Number(bonusAmount) > 0) {
-      cell.style.color = 'green'; // Зеленый цвет для бонусов
-      cell.textContent = `Доступно бонусов: ${bonusAmount}`;
-  } else {
-      cell.style.color = 'red'; // Красный цвет для "нет бонусов"
-      cell.textContent = 'Бонусов нет';
-  }
 
   row.appendChild(cell);
   return row;
@@ -2696,7 +2688,7 @@ function addBonusRowToTable(targetTable, bonusAmount) {
   if (existingBonusRow) {
       // Если строка уже существует, обновляем её содержимое
       const cell = existingBonusRow.querySelector('td');
-      if (bonusAmount !== null && !isNaN(bonusAmount) && Number(bonusAmount) > 0) {
+      if (bonusAmount !== null ) {
           cell.textContent = `Доступно бонусов: ${bonusAmount}`;
           cell.style.color = 'green';
       } else {
