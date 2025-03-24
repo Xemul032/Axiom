@@ -2661,14 +2661,51 @@ function getDataFromSelector() {
 }
 
 // Функция для создания строки с информацией о бонусах
-function createBonusRow(bonusAmount) {
+function createBonusRow() {
   const row = document.createElement('tr');
   const cell = document.createElement('td');
   cell.colSpan = 2; // Устанавливаем colspan, чтобы ячейка занимала всю ширину строки
   cell.style.textAlign = 'center'; // Центрируем текст
   cell.style.fontWeight = 'bold'; // Делаем текст жирным
 
+  // Создаем текстовое содержимое
+  const text = document.createTextNode('Доступно бонусов: ');
+  cell.appendChild(text);
 
+  // Создаем кнопку "Узнать"
+  const button = document.createElement('button');
+  button.textContent = 'Узнать';
+  button.style.marginLeft = '10px';
+  button.style.padding = '5px 10px';
+  button.style.border = 'none';
+  button.style.backgroundColor = '#4CAF50';
+  button.style.color = 'white';
+  button.style.cursor = 'pointer';
+  button.style.borderRadius = '5px';
+
+  // Добавляем обработчик события для кнопки
+  button.addEventListener('click', () => {
+      const searchText = getDataFromSelector();
+      if (searchText) {
+          fetchDataFromGoogleSheets(searchText, (bonusAmount) => {
+              if (bonusAmount !== null) {
+                  cell.textContent = `Доступно бонусов: ${bonusAmount}`;
+                  cell.style.color = 'green';
+              } else {
+                  cell.textContent = 'Бонусов нет';
+                  cell.style.color = 'red';
+              }
+          });
+      } else {
+          cell.textContent = 'Ошибка: невозможно получить данные';
+          cell.style.color = 'red';
+      }
+  });
+
+  // Добавляем кнопку в ячейку
+  cell.appendChild(button);
+
+  // Добавляем ячейку в строку
   row.appendChild(cell);
   return row;
 }
@@ -2689,24 +2726,15 @@ function removeUnwantedElements(targetTableBody) {
 }
 
 // Функция для добавления строки с бонусами в таблицу
-function addBonusRowToTable(targetTable, bonusAmount) {
+function addBonusRowToTable(targetTable) {
   // Проверяем, существует ли уже строка с бонусами
   const existingBonusRow = targetTable.querySelector('.bonus-row');
   if (existingBonusRow) {
-      // Если строка уже существует, обновляем её содержимое
-      const cell = existingBonusRow.querySelector('td');
-      if (bonusAmount !== null ) {
-          cell.textContent = `Доступно бонусов: ${bonusAmount}`;
-          cell.style.color = 'green';
-      } else {
-          cell.textContent = 'Бонусов нет';
-          cell.style.color = 'red';
-      }
-      return;
+      return; // Если строка уже существует, ничего не делаем
   }
 
   // Создаем новую строку с бонусами
-  const bonusRow = createBonusRow(bonusAmount);
+  const bonusRow = createBonusRow();
   bonusRow.classList.add('bonus-row'); // Добавляем уникальный класс для идентификации
 
   // Вставляем строку в конец таблицы
@@ -2763,25 +2791,16 @@ function checkAndProcessElements() {
       return;
   }
 
-  const textFromSelector = getDataFromSelector();
-  if (textFromSelector) {
-      if (!isProcessing) {
-          isProcessing = true;
-          fetchDataFromGoogleSheets(textFromSelector, (bonusAmount) => {
-              const targetTable = document.querySelector('#Fin > table > tbody:nth-child(4) > tr > td:nth-child(1) > table');
-              if (targetTable) {
-                  // Получаем тело таблицы
-                  const targetTableBody = targetTable.querySelector('tbody');
-                  if (targetTableBody) {
-                      // Скрываем все элементы, кроме указанных строк
-                      removeUnwantedElements(targetTableBody);
+  const targetTable = document.querySelector('#Fin > table > tbody:nth-child(4) > tr > td:nth-child(1) > table');
+  if (targetTable) {
+      // Получаем тело таблицы
+      const targetTableBody = targetTable.querySelector('tbody');
+      if (targetTableBody) {
+          // Скрываем все элементы, кроме указанных строк
+          removeUnwantedElements(targetTableBody);
 
-                      // Добавляем строку с бонусами
-                      addBonusRowToTable(targetTable, bonusAmount);
-                  }
-              }
-              isProcessing = false;
-          });
+          // Добавляем строку с бонусами
+          addBonusRowToTable(targetTable);
       }
   } else {
       isProcessing = false;
@@ -2807,12 +2826,11 @@ function setupObserver() {
       subtree: true
   });
 
-
   // Также проверим сразу, вдруг элементы уже есть на странице
   checkAndProcessElements();
 
   // Запускаем проверку каждую секунду
-  setInterval(checkAndProcessElements, 100);
+  setInterval(checkAndProcessElements, 800);
 }
 
 // Запускаем настройку наблюдателя, когда документ загружен
