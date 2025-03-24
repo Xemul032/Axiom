@@ -1,5 +1,5 @@
 // ==UserScript==
-// @name         Проверка заказа 8.3.2
+// @name         Проверка заказа 8.3.4
 // @namespace    http://tampermonkey.net/
 // @version      1.6
 // @description
@@ -8,7 +8,8 @@
 // @icon         https://cplink.simprint.pro/axiom/img/icon/icon32.png
 // @grant        GM_xmlhttpRequest
 // @connect      sheets.googleapis.com
-// @connect      docs.google.com // Разрешаем подключение к docs.google.com
+// @connect      script.googleusercontent.com
+// @connect      docs.google.com
 // ==/UserScript==
 
 (function () {
