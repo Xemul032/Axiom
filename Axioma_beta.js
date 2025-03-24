@@ -1,5 +1,5 @@
 // ==UserScript==
-// @name         Проверка заказа 8.3.6
+// @name         Проверка заказа 8.3.7
 // @namespace    http://tampermonkey.net/
 // @version      1.6
 // @description
@@ -2671,7 +2671,7 @@ function createBonusRow() {
   cell.style.fontWeight = 'bold'; // Делаем текст жирным
 
   // Создаем текстовое содержимое
-  const text = document.createTextNode('Бонусы клиента: ');
+  const text = document.createTextNode('Доступно бонусов: ');
   cell.appendChild(text);
 
   // Создаем кнопку "Узнать"
@@ -2716,8 +2716,6 @@ function createBonusRow() {
 function removeUnwantedElements(targetTableBody) {
   // Проходим по всем строкам таблицы
   const rows = targetTableBody.querySelectorAll('tr');
-   const rows1 = document.querySelector("#Fin > table > tbody:nth-child(4) > tr > td:nth-child(2) > table > tbody");
-    rows1.style.display = 'none';
   rows.forEach((row, index) => {
       // Проверяем, есть ли у строки класс .bonus-row
       if (!row.classList.contains('bonus-row')) {
