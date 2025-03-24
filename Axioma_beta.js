@@ -1,12 +1,12 @@
 // ==UserScript==
-// @name         Проверка заказа 8.2
+// @name         Проверка заказа 8.3
 // @namespace    http://tampermonkey.net/
 // @version      1.6
 // @description
 // @author       Ваше имя
 // @match        https://cplink.simprint.pro/*
 // @icon         https://cplink.simprint.pro/axiom/img/icon/icon32.png
-// @grant        none
+// @grant        GM_xmlhttpRequest
 // ==/UserScript==
 
 (function () {
@@ -1762,7 +1762,7 @@
 
     // Определяем путь к целевому элементу
     const targetElement = document.querySelector('#result > div > div > table > tbody > tr:nth-child(2) > td:nth-child(2) > table > tbody > tr:nth-child(6) > td');
-    
+
     // Проверяем, существует ли уже блок с ценой
     if (targetElement.querySelector('.urgent-order-price')) {
         return;
@@ -2457,6 +2457,371 @@
             navigator.clipboard.writeText(clipboardText);
         }
     }
+
+    function replaceDropzoneWithDirectUpload() {
+  // Проверяем наличие текста "Номенклатура" или "Номенклатура по умолчанию" на странице
+  const bodyText = document.body.innerText;
+  const hasNomenclature = bodyText.includes("Номенклатура") || bodyText.includes("номенклатура по умолчанию");
+
+  // Проверяем наличие текста "Нет изображений" в указанном элементе
+  const previewBlock = document.querySelector("#PreviewBlock > div");
+  const hasNoImages = previewBlock && previewBlock.classList.contains("fororama_no_previews") &&
+                       previewBlock.textContent.includes("Файловый сервер недоступен");
+
+  // Если оба условия выполняются
+  if (hasNomenclature && hasNoImages) {
+
+      // Находим элемент Dropzone
+      const dropzoneElement = document.querySelector("#Dropzone");
+
+      if (dropzoneElement) {
+          // Создаем новый элемент
+          const directUploadElement = document.createElement("div");
+          directUploadElement.style.backgroundColor = "#4CAF50"; // Зеленый фон
+          directUploadElement.style.fontSize = "25px";
+          directUploadElement.style.fontWeight = "700";
+          directUploadElement.style.color = "#ffffff";
+          directUploadElement.style.textAlign = "center";
+          directUploadElement.style.padding = "20px";
+          directUploadElement.style.margin = "10px 0";
+          directUploadElement.style.borderRadius = "5px";
+          directUploadElement.style.cursor = "pointer";
+          directUploadElement.textContent = "Загрузите файл через папку или отошлите на почту!";
+
+
+          // Заменяем Dropzone на новый элемент
+          dropzoneElement.parentNode.replaceChild(directUploadElement, dropzoneElement);
+
+      }
+  }
+}
+
+// Функция для периодической проверки условий (на случай, если элементы загружаются динамически)
+function checkAndReplaceDropzone() {
+  replaceDropzoneWithDirectUpload();
+
+  // Наблюдатель за изменениями в DOM
+  const observer = new MutationObserver(function(mutations) {
+      replaceDropzoneWithDirectUpload();
+  });
+
+  // Начинаем наблюдение за изменениями в body
+  observer.observe(document.body, { childList: true, subtree: true });
+}
+
+// Запускаем проверку после полной загрузки страницы
+window.addEventListener("load", function() {
+    checkAndReplaceDropzone();
+});
+
+// Также проверяем сразу, если DOM уже загружен
+if (document.readyState === "interactive" || document.readyState === "complete") {
+    checkAndReplaceDropzone();
+}
+
+
+const SHEET_ID = '1h4vwAC83sqAnf2ibalKW4qfTSHe0qToPs0-0aSdpdrU';
+const SHEET_NAME = 'finder';
+
+// Функция для получения данных из Google таблицы
+function fetchGoogleSheetData(callback) {
+    const url = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?tqx=out:csv&sheet=${SHEET_NAME}`;
+
+    GM_xmlhttpRequest({
+        method: 'GET',
+        url: url,
+        onload: function(response) {
+            if (response.status === 200) {
+                const data = parseCSV(response.responseText);
+                callback(data);
+            } else {
+                console.error('Ошибка загрузки данных из таблицы:', response.statusText);
+                callback([]);
+            }
+        },
+        onerror: function(error) {
+            console.error('Ошибка при запросе данных:', error);
+            callback([]);
+        }
+    });
+}
+
+// Функция для парсинга CSV данных
+function parseCSV(csvText) {
+    const lines = csvText.split('\n');
+    const result = [];
+
+    for (let i = 0; i < lines.length; i++) {
+        if (lines[i].trim() === '') continue;
+
+        // Обработка CSV с учетом возможных кавычек
+        const values = lines[i].match(/(".*?"|[^",]+)(?=\s*,|\s*$)/g) || [];
+
+        for (let j = 0; j < values.length; j++) {
+            values[j] = values[j].replace(/^"|"$/g, '').trim();
+        }
+
+        result.push(values);
+    }
+
+    return result;
+}
+
+// Функция для проверки наличия ProductId в данных таблицы
+function checkProductIdInData(productId, data) {
+    for (let i = 0; i < data.length; i++) {
+        for (let j = 0; j < data[i].length; j++) {
+            // Приводим всё к строке и удаляем пробелы для корректного сравнения
+            if (data[i][j].toString().trim() === productId.toString().trim()) {
+                return true;
+            }
+        }
+    }
+    return false;
+}
+
+// Функция для обработки элемента ProductId
+function processProductId(element, sheetData) {
+    const productId = element.textContent.trim();
+
+    if (checkProductIdInData(productId, sheetData)) {
+        if (!element.textContent.includes('⚡️')) {
+       element.textContent = element.textContent + '⚡️';
+   }
+        console.log(`ProductId ${productId} найден в таблице.`);
+    } else {
+        console.log(`Не срочный: ProductId ${productId} не найден в таблице.`);
+    }
+}
+
+// Функция для наблюдения за DOM и отслеживания появления #ProductId
+function observeDOM() {
+    let sheetData = [];
+
+    // Сначала загружаем данные из таблицы
+    fetchGoogleSheetData(function(data) {
+        sheetData = data;
+        console.log('Данные таблицы загружены:', data.length, 'строк');
+
+        // Затем настраиваем наблюдатель за DOM
+        const observer = new MutationObserver(function(mutations) {
+            const productIdElement = document.getElementById('ProductId');
+            if (productIdElement) {
+                processProductId(productIdElement, sheetData);
+                // Можно останавливать наблюдение после обработки элемента,
+                // но если элемент может меняться - лучше этого не делать
+                // observer.disconnect();
+            }
+        });
+
+        // Начинаем наблюдение за всем DOM
+        observer.observe(document.body, {
+            childList: true,
+            subtree: true
+        });
+
+        // Также проверяем существующий DOM на наличие элемента
+        const existingProductId = document.getElementById('ProductId');
+        if (existingProductId) {
+            processProductId(existingProductId, sheetData);
+        }
+    });
+}
+
+// Запускаем наблюдение, когда страница полностью загружена
+if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', observeDOM);
+} else {
+    observeDOM();
+}
+
+// Функция для получения данных из селектора на странице
+function getDataFromSelector() {
+  const selector1 = '#Summary > table > tbody > tr > td:nth-child(1) > table > tbody:nth-child(1) > tr:nth-child(2) > td:nth-child(2) > div > a > span';
+  const selector2 = '#Summary > table > tbody > tr > td:nth-child(1) > table > tbody:nth-child(1) > tr:nth-child(2) > td:nth-child(2)';
+
+  let element = document.querySelector(selector1);
+  if (element) {
+      return element.textContent.trim();
+  } else {
+      element = document.querySelector(selector2);
+      if (element) {
+          const spanElement = element.querySelector('div > a > span');
+          return spanElement ? spanElement.textContent.trim() : element.textContent.trim();
+      }
+  }
+  return null;
+}
+
+// Функция для создания строки с информацией о бонусах
+function createBonusRow(bonusAmount) {
+  const row = document.createElement('tr');
+  const cell = document.createElement('td');
+  cell.colSpan = 2; // Устанавливаем colspan, чтобы ячейка занимала всю ширину строки
+  cell.style.textAlign = 'center'; // Центрируем текст
+  cell.style.fontWeight = 'bold'; // Делаем текст жирным
+
+  // Проверяем, является ли bonusAmount числом и равно ли оно нулю
+  if (bonusAmount !== null && !isNaN(bonusAmount) && Number(bonusAmount) > 0) {
+      cell.style.color = 'green'; // Зеленый цвет для бонусов
+      cell.textContent = `Доступно бонусов: ${bonusAmount}`;
+  } else {
+      cell.style.color = 'red'; // Красный цвет для "нет бонусов"
+      cell.textContent = 'Бонусов нет';
+  }
+
+  row.appendChild(cell);
+  return row;
+}
+
+// Функция для скрытия всех элементов, кроме указанных строк
+function removeUnwantedElements(targetTableBody) {
+  // Проходим по всем строкам таблицы
+  const rows = targetTableBody.querySelectorAll('tr');
+  rows.forEach((row, index) => {
+      // Проверяем, есть ли у строки класс .bonus-row
+      if (!row.classList.contains('bonus-row')) {
+          // Оставляем только первую строку (index === 0) и четвертую строку (index === 3)
+          if (index !== 0 && index !== 3) {
+              row.style.display = 'none'; // Скрываем строку
+          }
+      }
+  });
+}
+
+// Функция для добавления строки с бонусами в таблицу
+function addBonusRowToTable(targetTable, bonusAmount) {
+  // Проверяем, существует ли уже строка с бонусами
+  const existingBonusRow = targetTable.querySelector('.bonus-row');
+  if (existingBonusRow) {
+      // Если строка уже существует, обновляем её содержимое
+      const cell = existingBonusRow.querySelector('td');
+      if (bonusAmount !== null && !isNaN(bonusAmount) && Number(bonusAmount) > 0) {
+          cell.textContent = `Доступно бонусов: ${bonusAmount}`;
+          cell.style.color = 'green';
+      } else {
+          cell.textContent = 'Бонусов нет';
+          cell.style.color = 'red';
+      }
+      return;
+  }
+
+  // Создаем новую строку с бонусами
+  const bonusRow = createBonusRow(bonusAmount);
+  bonusRow.classList.add('bonus-row'); // Добавляем уникальный класс для идентификации
+
+  // Вставляем строку в конец таблицы
+  targetTable.querySelector('tbody').appendChild(bonusRow);
+}
+
+// Функция для получения данных из Google Sheets
+function fetchDataFromGoogleSheets(searchText, callback) {
+  const spreadsheetId = '1J-AqPpr5y9HEl0Q0WhSvafZFTjw5DpLi_jWYy0g7KqQ';
+  const sheetName = 'ОСТАТОК';
+  const apiKey = 'AIzaSyCiGZzZ85qCs-xJmlCbM-bz9IdAQxEq5z0'; // Замените на ваш API ключ Google Sheets
+
+  const url = `https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}/values/${sheetName}!A:B?key=${apiKey}`;
+
+  GM_xmlhttpRequest({
+      method: 'GET',
+      url: url,
+      onload: function(response) {
+          if (response.status === 200) {
+              const data = JSON.parse(response.responseText);
+              if (data && data.values && data.values.length > 1) {
+                  for (let i = 1; i < data.values.length; i++) {
+                      const row = data.values[i];
+                      if (row[0] === searchText) {
+                          callback(row[1]); // Передаем значение бонусов в callback
+                          return;
+                      }
+                  }
+              }
+          }
+          callback(null); // Если совпадений нет или произошла ошибка
+      },
+      onerror: function(error) {
+          console.error('Ошибка при отправке запроса:', error);
+          callback(null);
+      }
+  });
+}
+
+// Флаг для предотвращения повторной обработки, пока элементы видимы
+let isProcessing = false;
+
+// Функция для проверки наличия текста "Номенклатура" или "Номенклатура по умолчанию" на странице
+function hasNomenclatureText() {
+  const pageText = document.body.textContent || '';
+  return pageText.includes('Номенклатура') || pageText.includes('Номенклатура по умолчанию');
+}
+
+// Функция проверки наличия и обработки элементов
+function checkAndProcessElements() {
+  // Проверяем наличие текста "Номенклатура" или "Номенклатура по умолчанию"
+  if (!hasNomenclatureText()) {
+      isProcessing = false;
+      return;
+  }
+
+  const textFromSelector = getDataFromSelector();
+  if (textFromSelector) {
+      if (!isProcessing) {
+          isProcessing = true;
+          fetchDataFromGoogleSheets(textFromSelector, (bonusAmount) => {
+              const targetTable = document.querySelector('#Fin > table > tbody:nth-child(4) > tr > td:nth-child(1) > table');
+              if (targetTable) {
+                  // Получаем тело таблицы
+                  const targetTableBody = targetTable.querySelector('tbody');
+                  if (targetTableBody) {
+                      // Скрываем все элементы, кроме указанных строк
+                      removeUnwantedElements(targetTableBody);
+
+                      // Добавляем строку с бонусами
+                      addBonusRowToTable(targetTable, bonusAmount);
+                  }
+              }
+              isProcessing = false;
+          });
+      }
+  } else {
+      isProcessing = false;
+  }
+}
+
+// Функция для настройки MutationObserver
+function setupObserver() {
+  const observer = new MutationObserver((mutations) => {
+      if (hasNomenclatureText()) {
+          const selector1 = '#Summary > table > tbody > tr > td:nth-child(1) > table > tbody:nth-child(1) > tr:nth-child(2) > td:nth-child(2) > div > a > span';
+          const selector2 = '#Summary > table > tbody > tr > td:nth-child(1) > table > tbody:nth-child(1) > tr:nth-child(2) > td:nth-child(2)';
+          if (document.querySelector(selector1) || document.querySelector(selector2)) {
+              checkAndProcessElements();
+          } else {
+              isProcessing = false;
+          }
+      }
+  });
+
+  observer.observe(document.documentElement, {
+      childList: true,
+      subtree: true
+  });
+
+
+  // Также проверим сразу, вдруг элементы уже есть на странице
+  checkAndProcessElements();
+
+  // Запускаем проверку каждую секунду
+  setInterval(checkAndProcessElements, 100);
+}
+
+// Запускаем настройку наблюдателя, когда документ загружен
+if (document.readyState === 'loading') {
+  document.addEventListener('DOMContentLoaded', setupObserver);
+} else {
+  setupObserver();
+}
 
     // Функция для отображения обратной связи (изменение кнопки)
     function showFeedback(button) {
