@@ -2669,7 +2669,7 @@ function createBonusRow() {
   cell.style.fontWeight = 'bold'; // Делаем текст жирным
 
   // Создаем текстовое содержимое
-  const text = document.createTextNode('Доступно бонусов: ');
+  const text = document.createTextNode('Бонусы клиента: ');
   cell.appendChild(text);
 
   // Создаем кнопку "Узнать"
