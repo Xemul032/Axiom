@@ -1,5 +1,5 @@
 // ==UserScript==
-// @name         Проверка заказа 8.3.7
+// @name         Проверка заказа 9.0
 // @namespace    http://tampermonkey.net/
 // @version      1.6
 // @description
@@ -7,6 +7,7 @@
 // @match        https://cplink.simprint.pro/*
 // @icon         https://cplink.simprint.pro/axiom/img/icon/icon32.png
 // @grant        GM_xmlhttpRequest
+// @grant        GM_addStyle
 // @connect      sheets.googleapis.com
 // @connect      docs.google.com
 // @connect      script.google.com
@@ -29,7 +30,7 @@
   blurOverlay.style.backdropFilter = "blur(5px)";
   blurOverlay.style.zIndex = "9998";
   let blur = false;
-  console.log(`Всё работает =P`);
+
 
   const loaderContainer = document.createElement("div");
   loaderContainer.style.position = "fixed";
@@ -92,7 +93,7 @@
               blur = false;
             }, 1000);
           }
-          console.log(`Нажали на кнопку ${k}`);
+
 
           // Получаем индекс элемента, на который нажали
 
@@ -113,7 +114,7 @@
               'img[src="img/calc/konvert.png"]'
             );
             if (listImg && !sostav) {
-              console.log("hello");
+
 
               closeBtnId =
                 "#Doc > div > table:nth-child(7) > tbody > tr > td:nth-child(1) > button.btn.btn-default.btn-lg";
@@ -189,7 +190,7 @@
               "#Doc > div > table:nth-child(9) > tbody > tr > td:nth-child(1) > button.btn.btn-default.btn-lg";
             choosenCalc = 1;
           } else if (choosenCalc === 2) {
-            console.log("hello");
+
 
             closeBtnId =
               "#Doc > div > table:nth-child(7) > tbody > tr > td:nth-child(1) > button.btn.btn-default.btn-lg";
@@ -252,7 +253,7 @@
           currentValue = input.value;
           if (currentValue !== previousValue) {
             changeDate = true;
-            console.log(changeDate);
+
 
             previousValue = currentValue;
           }
@@ -273,7 +274,7 @@
           currentValue = input2.innerText;
           if (currentValue !== previousValue2) {
             changeDate = true;
-            console.log(changeDate);
+
 
             previousValue2 = currentValue;
           }
@@ -378,18 +379,18 @@
       let productZKtr = null;
       let productZKValue = 0;
       if (productZKList.length >= 1) {
-        console.log(productZKList);
+
         for (let i = 0; i < productZKList.length; i++) {
           if (productZKList[i].innerText.includes("zk")) {
             productZKtr = i;
             productZKValue =
               productZKList[productZKtr].querySelector("#Quantity").value;
-            console.log(productZKValue);
+
           }
 
           if (productZKValue == 1) {
             let sms2 = productZKList[i].children[0];
-            console.log(sms2);
+
 
             sms2.style.color = "red";
             messages.push(
@@ -403,7 +404,7 @@
       for (let i = 0; i < ordersArray.length; i++) {
 
         const orderElem = document.getElementById(ordersArray[i]);
-          console.log(orderElem);
+
         let postpressList2 = orderElem.querySelector("#PostpressList");
         let rows = postpressList2.getElementsByTagName("tr");
         let foundSkvoznaya = false;
@@ -561,7 +562,7 @@
         if (productZKList.length >= 0) {
           for (let j = 0; j < productZKList.length; j++) {
             if (productZKList[j].innerText.includes("Скрепка")) {
-              console.log(paperType2);
+
               if (paperType2.length === 1) {
                 let paperName = paperType2[0].innerText;
                 let density = Number(paperName.split(",").pop());
@@ -580,25 +581,25 @@
         }
         const postpressList1 = document.querySelector("#PostpressList");
         const ltrs = postpressList1.querySelectorAll("tr");
-        console.log(ltrs);
+
 
         ltrs.forEach((elem) => {
           if (elem.innerText.includes("Люверс") === true) {
-            console.log("я нашел люверс в ордере");
 
-            console.log(elem);
+
+
             let lQuantity = elem.querySelector("#Quantity").value;
-            console.log(lQuantity);
+
 
             if (!isInteger(lQuantity)) {
-              console.log("Сюда ннна");
+
               messages.push(
                 `В ${getOrderName(
                   i
                 )} люверс указан неверно! Перенесите люверс в нижнюю постпечать!`
               );
             } else {
-              console.log("Число целое - от*ебись");
+
             }
           }
         });
@@ -623,20 +624,20 @@
         let ZKList = postpressList.getElementsByTagName("tr");
         let ZKtr = null;
         let ZKValue = 0;
-        console.log(ZKList);
+
         if (ZKList.length >= 2) {
           for (let i = 0; i < ZKList.length; i++) {
             if (ZKList[i].innerText.includes("zk")) {
               ZKtr = i;
               ZKValue = ZKList[ZKtr].querySelector("#Quantity").value;
-              console.log(ZKValue);
+
               if (ZKValue == 1) {
                 let sms = ZKList[0].children[0];
                 sms.style.color = "red";
                 messages.push(
                   `В операции "${sms.innerText}", Количество не должно быть 1, или подойдите к Щёкину Александру`
                 );
-                console.log(ZKList[i]);
+
                 ZKValue = 0;
               }
             }
@@ -765,7 +766,7 @@
           }
         }
       }
-      console.log(ordersArray);
+
 
       for (let i = 0; i < ordersArray.length; i++) {
         const orderElem = document.getElementById(ordersArray[i]);
@@ -775,7 +776,7 @@
 
         let rows = postpressList3.getElementsByTagName("tr");
         let backLamination = orderElem.querySelector("#pantoneback");
-        console.log(backLamination.value);
+
 
         let foundSkvoznaya = false;
         let foundOlod = false;
@@ -878,7 +879,7 @@
       if (productZKList.length >= 0) {
         for (let j = 0; j < productZKList.length; j++) {
           if (productZKList[j].innerText.includes("Скрепка")) {
-            console.log(paperType2);
+
             if (paperType2.length === 1) {
               let paperName = paperType2[0].innerText;
               let density = Number(paperName.split(",").pop());
@@ -898,15 +899,15 @@
       }
       const postpressList1 = document.querySelector("#PostpressList");
       const ltrs = postpressList1.querySelectorAll("tr");
-      console.log(ltrs);
+
 
       ltrs.forEach((elem) => {
         if (elem.innerText.includes("Люверс") === true) {
-          console.log("я нашел люверс в ордере");
 
-          console.log(elem);
+
+
           let lQuantity = elem.querySelector("#Quantity").value;
-          console.log(lQuantity);
+
 
           if (!isInteger(lQuantity)) {
             messages.push(
@@ -914,8 +915,7 @@
                 i
               )} не целое число - убирай епрст и перекидывай на общую постпечать !`
             );
-          } else {
-            console.log("Число целое - от*ебись");
+
           }
         }
       });
@@ -940,10 +940,10 @@
     if (messages.length === 0) {
       messages.push("Всё в порядке!");
 
-      console.log(choosenCalcId);
+
 
       let calcButton = document.querySelector(choosenCalcId);
-      console.log(calcButton);
+
 
       calcButton.click();
       choosenCalcParent = null;
@@ -956,7 +956,7 @@
   let userName1 = document.querySelector(
     "body > ul > div > li:nth-child(1) > a.topmenu-a"
   ).textContent;
-  console.log(userName1);
+
 
   let user1 = "Кандеев Рустам";
   let user2 = "Щёкин Александр";
@@ -1197,7 +1197,7 @@
             phraseFound = true;
             count = 0;
             colorBtnClick = false;
-            console.log("Фраза не найдена.");
+
             showCenterMessage(
               'В данном заказе не установлена операция "ПОПАСТЬ В ЦВЕТ", в таком случае - никаких гарантий по цвету - нет!!!'
             );
@@ -1213,7 +1213,7 @@
             //   colorCheck = true;
             // }
           } else {
-            console.log("Фраза найдена!");
+
             phraseFound = false;
           }
         });
@@ -1238,6 +1238,24 @@
   let checkingClientsBtnClick = false;
 
   function checkingClients() {
+    let userName2 = document.querySelector(
+      "body > ul > div > li:nth-child(1) > a.topmenu-a"
+    ).textContent;
+
+    let user01 = "Кандеев Рустам";
+    let user02 = "Щёкин Александр";
+    let user03 = "Галимов Адель";
+    let user04 = "Козлов Артём";
+
+    // ИСПРАВЛЕНО: двойное использование if
+    if (
+      userName2 === user01 ||
+      userName2 === user02 ||
+      userName2 === user03 ||
+      userName2 === user04
+    ) {
+      return;
+    }
     const bodyText = document.body.innerText;
     const searchText1 = "Название";
     const searchText2 = "ИНН";
@@ -1276,10 +1294,10 @@
         // Проверяем, начинается ли строка с "ОПЛАТА ФИЗЛИЦА - "
         if (clientValue.startsWith("ОПЛАТА ФИЗЛИЦА - ")) {
           checkingClientsBtn.style.display = "none";
-          console.log("Все ок");
+
         } else {
           navigator.clipboard.writeText("ОПЛАТА ФИЗЛИЦА - ");
-          console.log("Неверно");
+
           showCenterMessage(
             'в поле Название необходимо прописать большими буквами без кавычек "ОПЛАТА ФИЗЛИЦА - ", данный текст уже скопирован - можете просто вставить'
           );
@@ -1315,6 +1333,25 @@
 
       // Функция для управления видимостью кнопки в зависимости от видимости элемента #danger
       function toggleButtonVisibility() {
+        let userName3 = document.querySelector(
+          "body > ul > div > li:nth-child(1) > a.topmenu-a"
+        ).textContent;
+
+        let user001 = "Кандеев Рустам";
+        let user002 = "Щёкин Александр";
+        let user003 = "Галимов Адель";
+        let user004 = "Козлов Артём";
+
+        // ИСПРАВЛЕНО: двойное использование if
+        if (
+          userName3 === user001 ||
+          userName3 === user002 ||
+          userName3 === user003 ||
+          userName3 === user004
+        ) {
+          return;
+        }
+
         const dangerElement = document.querySelector(
           "#vmClientForm > div:nth-child(1) > div > div:nth-child(2) > div:nth-child(6) > table:nth-child(3) > tbody > tr > td:nth-child(2) > table:nth-child(2) > tbody > tr:nth-child(3) > td > div"
         ); // получаем элемент #danger
@@ -1492,18 +1529,18 @@
            needToOtherValue = Number(
              needToOther.innerText.replace(/\s|\&nbsp;/g, "")
            );
-           console.log(stockRemainValue);
+
 
            if (
              stockRemainValue > 0 &&
              needCountValue + needToOtherValue + 50 <= stockRemainValue
            ) {
-             console.log(`в ордере № ${index + 1} Бумаги хватает`);
+
            } else if (
              stockRemainValue <= 0 ||
              needCountValue + needToOtherValue + 50 > stockRemainValue
            ) {
-             console.log(`в ордере № ${index + 1} Бумаги нет блэт`);
+
              if (btnsgroup2 !== null) {
                btnsgroup2.style.display = "none";
              }
@@ -1521,12 +1558,12 @@
              stockRemain.innerText.replace(/\s|\&nbsp;/g, "")
            );
            if (stockRemainValue > 0 && needCountValue + 50 <= stockRemainValue) {
-             console.log(`в ордере № ${index + 1} Бумаги хватает`);
+
            } else if (
              stockRemainValue <= 0 ||
              needCountValue + 50 > stockRemainValue
            ) {
-             console.log(`в ордере № ${index + 1} Бумаги нет блэт`);
+
              if (btnsgroup2 !== null) {
                btnsgroup2.style.display = "none";
              }
@@ -1597,12 +1634,12 @@
              stockRemainValue > 0 &&
              needCountValue + needToOtherValue + 50 <= stockRemainValue
            ) {
-             console.log(`в ордере № ${index + 1} Бумаги хватает`);
+
            } else if (
              stockRemainValue <= 0 ||
              needCountValue + needToOtherValue + 50 > stockRemainValue
            ) {
-             console.log(`в ордере № ${index + 1} Бумаги нет блэт`);
+
              btnToWorkWFiles.style.display = "none";
              if (btnsgroup1 !== null) {
                btnsgroup1.style.display = "none";
@@ -1630,12 +1667,12 @@
              stockRemain.innerText.replace(/\s|\&nbsp;/g, "")
            );
            if (stockRemainValue > 0 && needCountValue + 50 <= stockRemainValue) {
-             console.log(`в ордере № ${index + 1} Бумаги хватает`);
+
            } else if (
              stockRemainValue <= 0 ||
              needCountValue + 50 > stockRemainValue
            ) {
-             console.log(`в ордере № ${index + 1} Бумаги нет блэт`);
+
              btnToWorkWFiles.style.display = "none";
              if (btnsgroup1 !== null) {
                btnsgroup1.style.display = "none";
@@ -1704,12 +1741,12 @@
              stockRemainValue > 0 &&
              needCountValue + needToOtherValue + 50 <= stockRemainValue
            ) {
-             console.log(`в ордере № ${index + 1} Бумаги хватает`);
+
            } else if (
              stockRemainValue <= 0 ||
              needCountValue + needToOtherValue + 50 > stockRemainValue
            ) {
-             console.log(`в ордере № ${index + 1} Бумаги нет блэт`);
+
              newFilesGet.style.display = "none";
              showCenterMessage(
                `Не хватает бумаги для ордера №${
@@ -1725,12 +1762,12 @@
              stockRemain.innerText.replace(/\s|\&nbsp;/g, "")
            );
            if (stockRemainValue > 0 && needCountValue + 50 <= stockRemainValue) {
-             console.log(`в ордере № ${index + 1} Бумаги хватает`);
+
            } else if (
              stockRemainValue <= 0 ||
              needCountValue + 50 > stockRemainValue
            ) {
-             console.log(`в ордере № ${index + 1} Бумаги нет блэт`);
+
              needCountValue = Number(
                needCount.innerText.replace(/\s|\&nbsp;/g, "")
              );
@@ -1852,7 +1889,7 @@
                 }, 2000); // Возвращаем исходный текст через 2 секунды
             })
             .catch((err) => {
-                console.error('Ошибка при копировании: ', err);
+
             });
     });
 
@@ -2002,7 +2039,7 @@
         // Находим элемент
 
         if (!dateInOrder) {
-          console.error("Элемент не найден");
+
           return;
         }
 
@@ -2165,7 +2202,7 @@
             // Формат: "16 янв 09:35"
             newDate = parseShortDate(dateText);
           } else {
-            // console.error("Неверный формат даты:", dateText);
+
             return;
           }
 
@@ -2303,8 +2340,7 @@
           (element && element.textContent.trim() && prepressCheck === 0 ) ||
           (element1 && element1.textContent.trim() && prepressCheck === 0)
         ) {
-          console.log("Проверил:", element1.textContent.trim());
-          console.log("Смонтировал:", element.textContent.trim());
+
 
           // Создание элемента <div class="prepress">
           const prepressElement = document.createElement("div");
@@ -2543,13 +2579,13 @@ function fetchGoogleSheetData() {
         onload: function(response) {
             if (response.status === 200) {
                 sheetData = parseCSV(response.responseText);
-                console.log('Данные таблицы обновлены:', sheetData.length, 'строк');
+
             } else {
-                console.error('Ошибка загрузки данных из таблицы:', response.statusText);
+
             }
         },
         onerror: function(error) {
-            console.error('Ошибка при запросе данных:', error);
+
         }
     });
 }
@@ -2596,9 +2632,9 @@ function processProductId(element) {
         if (!element.textContent.includes('⚡️')) {
             element.textContent = element.textContent + '⚡️';
         }
-        console.log(`ProductId ${productId} найден в таблице.`);
+
     } else {
-        console.log(`Не срочный: ProductId ${productId} не найден в таблице.`);
+
     }
 }
 
@@ -2644,6 +2680,21 @@ if (document.readyState === 'loading') {
     startPeriodicUpdates();
     observeDOM();
 }
+  // Добавляем CSS для анимации
+  GM_addStyle(`
+    /* Анимация для текста "Получаем информацию о бонусах..." */
+    @keyframes dots {
+        0% { content: "..."; }
+        33% { content: "."; }
+        66% { content: ".."; }
+    }
+
+    .loading-text::after {
+        content: "...";
+        animation: dots 1s infinite;
+    }
+`);
+
 // Функция для получения данных из селектора на странице
 function getDataFromSelector() {
   const selector1 = '#Summary > table > tbody > tr > td:nth-child(1) > table > tbody:nth-child(1) > tr:nth-child(2) > td:nth-child(2) > div > a > span';
@@ -2685,24 +2736,38 @@ function createBonusRow() {
   button.style.cursor = 'pointer';
   button.style.borderRadius = '5px';
 
-  // Добавляем обработчик события для кнопки
-  button.addEventListener('click', () => {
-      const searchText = getDataFromSelector();
-      if (searchText) {
-          fetchDataFromGoogleSheets(searchText, (bonusAmount) => {
-              if (bonusAmount !== null) {
-                  cell.textContent = `Доступно бонусов: ${bonusAmount}`;
-                  cell.style.color = 'green';
-              } else {
-                  cell.textContent = 'Бонусов нет';
-                  cell.style.color = 'red';
-              }
-          });
-      } else {
-          cell.textContent = 'Ошибка: невозможно получить данные';
-          cell.style.color = 'red';
-      }
-  });
+   // Добавляем обработчик события для кнопки
+   button.addEventListener('click', () => {
+    // Отключаем кнопку и показываем спиннер
+    button.disabled = true;
+    button.textContent = ''; // Очищаем текст кнопки
+    button.style.backgroundColor = '#ccc'; // Серый цвет для отключения
+
+    // Добавляем текст "Получаем информацию о бонусах..."
+    const loadingText = document.createElement('span');
+    loadingText.textContent = 'Загрузка';
+    loadingText.classList.add('loading-text'); // Применяем анимацию
+    button.appendChild(loadingText);
+
+    // Задержка в 2 секунды перед отправкой запроса
+    setTimeout(() => {
+        const searchText = getDataFromSelector();
+        if (searchText) {
+            fetchDataFromGoogleSheets(searchText, (bonusAmount) => {
+                if (bonusAmount !== null) {
+                    cell.textContent = `Доступно бонусов: ${bonusAmount}`;
+                    cell.style.color = 'green';
+                } else {
+                    cell.textContent = 'Бонусов нет';
+                    cell.style.color = 'red';
+                }
+            });
+        } else {
+            cell.textContent = 'Ошибка: невозможно получить данные';
+            cell.style.color = 'red';
+        }
+    }, 1000); // Задержка в 2 секунды
+});
 
   // Добавляем кнопку в ячейку
   cell.appendChild(button);
@@ -2770,7 +2835,7 @@ function fetchDataFromGoogleSheets(searchText, callback) {
           callback(null); // Если совпадений нет или произошла ошибка
       },
       onerror: function(error) {
-          console.error('Ошибка при отправке запроса:', error);
+
           callback(null);
       }
   });
