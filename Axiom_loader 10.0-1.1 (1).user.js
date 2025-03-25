@@ -1,5 +1,5 @@
 // ==UserScript==
-// @name         Axiom_loader 10.0
+// @name         Axiom_loader 10.1
 // @namespace    http://tampermonkey.net/
 // @version      1.1
 // @description
@@ -8,6 +8,7 @@
 // @match        :///*
 // @icon         https://cplink.simprint.pro/axiom/img/icon/icon32.png
 // @grant        GM_xmlhttpRequest
+// @grant        GM_addStyle
 // @connect      sheets.googleapis.com
 // @connect      docs.google.com
 // @connect      script.google.com
