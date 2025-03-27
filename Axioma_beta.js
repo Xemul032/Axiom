@@ -1,5 +1,5 @@
 // ==UserScript==
-// @name         Проверка заказа 9.0
+// @name         Проверка заказа 9.1
 // @namespace    http://tampermonkey.net/
 // @version      1.6
 // @description
@@ -2906,6 +2906,165 @@ if (document.readyState === 'loading') {
 } else {
   setupObserver();
 }
+
+    //отображение списаных бонусов за заказ
+
+const gs_SHEET_ID = '1VNlFOnfbc_pyCGsRjiV6WD1e6WUrT3UJBDgBkCFl970';
+const gs_SHEET_NAME = 'idCheck';
+
+let gs_sheetData = [];
+let gs_processedElements = new Set();
+
+// Функция для получения данных из Google таблицы
+function gs_fetchGoogleSheetData() {
+    const url = `https://docs.google.com/spreadsheets/d/${gs_SHEET_ID}/gviz/tq?tqx=out:csv&sheet=${gs_SHEET_NAME}`;
+
+    GM_xmlhttpRequest({
+        method: 'GET',
+        url: url,
+        onload: function (response) {
+            if (response.status === 200) {
+                gs_sheetData = gs_parseCSV(response.responseText);
+            } else {
+                console.error('Ошибка при получении данных из Google таблицы:', response.statusText);
+            }
+        },
+        onerror: function (error) {
+            console.error('Ошибка при запросе к Google таблице:', error);
+        }
+    });
+}
+
+// Функция для парсинга CSV данных
+function gs_parseCSV(csvText) {
+    const lines = csvText.split('\n');
+    const result = [];
+
+    for (let i = 0; i < lines.length; i++) {
+        if (lines[i].trim() === '') continue;
+
+        const values = lines[i].match(/(".*?"|[^",]+)(?=\s*,|\s*$)/g) || [];
+
+        for (let j = 0; j < values.length; j++) {
+            values[j] = values[j].replace(/^"|"$/g, '').trim();
+        }
+
+        result.push(values);
+    }
+
+    return result;
+}
+
+// Функция для проверки наличия ProductId в данных таблицы
+function gs_checkProductIdInData(productId, data) {
+    for (let i = 0; i < data.length; i++) {
+        const productCell = data[i][0]; // Столбец A
+        const bonusCell = data[i][4];   // Столбец E
+
+        if (productCell.toString().trim() === productId.toString().trim()) {
+            return bonusCell; // Возвращаем значение из столбца E
+        }
+    }
+    return null;
+}
+
+// Функция для получения данных из селекторов на странице
+function gs_getDataFromSelector() {
+    const selector1 = '#Summary > table > tbody > tr > td:nth-child(1) > table > tbody:nth-child(1) > tr:nth-child(2) > td:nth-child(2) > div > a > span';
+    const selector2 = '#Summary > table > tbody > tr > td:nth-child(1) > table > tbody:nth-child(1) > tr:nth-child(2) > td:nth-child(2)';
+
+    let element = document.querySelector(selector1);
+    if (element) {
+        return { text: element.textContent.trim(), element };
+    } else {
+        element = document.querySelector(selector2);
+        if (element) {
+            const spanElement = element.querySelector('div > a > span');
+            return { text: spanElement ? spanElement.textContent.trim() : element.textContent.trim(), element };
+        }
+    }
+    return null;
+}
+
+// Функция для обработки элемента chosen-single
+function gs_processChosenSingle(productId) {
+    // Проверяем, есть ли ProductId в таблице
+    const bonuses = gs_checkProductIdInData(productId, gs_sheetData);
+    if (!bonuses) {
+        return; // Если ProductId нет в таблице, выходим из функции
+    }
+
+    const chosenSingleElement = document.querySelector('#Summary > table > tbody > tr > td:nth-child(1) > table.table.table-condensed.table-striped > tbody:nth-child(1) > tr:nth-child(2) > td:nth-child(2) > div > a');
+    if (chosenSingleElement && !gs_processedElements.has(chosenSingleElement)) {
+        gs_processedElements.add(chosenSingleElement);
+
+        chosenSingleElement.style.display = 'none';
+
+        const selectorData = gs_getDataFromSelector();
+        const newElement = document.createElement('span');
+        newElement.classList.add('myelem');
+
+        // Запрещаем все действия с элементом через CSS-свойства
+        newElement.style.pointerEvents = 'none'; // Отключает все события мыши (клик, наведение и т.д.)
+        newElement.style.userSelect = 'none';    // Запрещает выделение текста
+        newElement.style.opacity = '0.5';
+
+        // Формируем текст для нового элемента
+        if (bonuses) {
+            // Оборачиваем значение bonuses в span с зеленым цветом
+            newElement.innerHTML = `${selectorData.text} (Было списано <span style="color: green;">${bonuses}</span> бонусов)`;
+        } else {
+            newElement.textContent = selectorData.text;
+        }
+
+        if (selectorData) {
+            const clientSelect = document.querySelector("#Summary > table > tbody > tr > td:nth-child(1) > table > tbody:nth-child(1) > tr:nth-child(2) > td:nth-child(2) > div");
+            clientSelect.style.pointerEvents = 'none';
+
+            chosenSingleElement.parentNode.insertBefore(newElement, chosenSingleElement);
+        }
+    }
+}
+
+// Функция для обработки ProductId
+function gs_processProductId() {
+    const productIdElement = document.querySelector("#ProductId");
+    if (productIdElement) {
+        const productId = productIdElement.textContent.trim();
+
+        // Проверяем, есть ли ProductId в таблице
+        const bonuses = gs_checkProductIdInData(productId, gs_sheetData);
+        if (!bonuses) {
+            return; // Если ProductId нет в таблице, выходим из функции
+        }
+
+        gs_processChosenSingle(productId); // Обрабатываем элемент chosen-single
+    }
+}
+
+// MutationObserver для отслеживания изменений DOM
+const gs_observer = new MutationObserver(function (mutations) {
+    mutations.forEach(function (mutation) {
+        mutation.addedNodes.forEach(function (node) {
+            if (node.nodeType === Node.ELEMENT_NODE) {
+                if (node.querySelector("#ProductId")) {
+                    gs_processProductId();
+                }
+                if (node.querySelector('a.chosen-single')) {
+                    const productIdElement = document.querySelector("#ProductId");
+                    if (productIdElement) {
+                        const productId = productIdElement.textContent.trim();
+                        gs_processChosenSingle(productId);
+                    }
+                }
+            }
+        });
+    });
+});
+
+gs_observer.observe(document.body, { childList: true, subtree: true });
+
+gs_fetchGoogleSheetData();
 
     // Функция для отображения обратной связи (изменение кнопки)
     function showFeedback(button) {
