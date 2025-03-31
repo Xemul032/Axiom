@@ -1,5 +1,5 @@
 // ==UserScript==
-// @name         Проверка заказа 9.3.1
+// @name         Проверка заказа 9.3.2
 // @namespace    http://tampermonkey.net/
 // @version      1.6
 // @description
@@ -3448,106 +3448,110 @@ function getLaunchDate() {
 }
 
 sendButton.addEventListener('click', async () => {
+    if (sendButton.disabled) return; // Проверяем, не заблокирована ли уже кнопка
+
     sendButton.style.backgroundColor = '#45a049'; // Изменение цвета при нажатии
+    sendButton.disabled = true; // Блокируем кнопку для предотвращения двойного нажатия
 
-    const productId = gs_processProductId();
-    const userName = getUserName();
-    const productName = getProductName();
-    const designerPrice = parseFloat(priceInput.value.replace(',', '.'));
-    const category = dropdown.value;
-    const axiomPriceElement = document.querySelector('#DesignBlockSummary > div > table > tbody > tr > td:nth-child(1)');
-    let axiomPriceText = '';
-    if (axiomPriceElement) {
-        axiomPriceText = axiomPriceElement.textContent.replace(/\s/g, '').match(/(\d+,\d+)/); // Удаляем пробелы
-        axiomPriceText = axiomPriceText ? axiomPriceText[0].replace(',', '.') : null; // Заменяем запятую на точку
-    }
-    const axiomPrice = parseFloat(axiomPriceText);
-
-    // Проверка наличия даты запуска заказа
-    const launchDate = getLaunchDate();
-    if (!launchDate) {
-        // Проверяем, существует ли уже сообщение об ошибке
-        const existingError = popup.querySelector('.error-message');
-        if (!existingError) {
-            const errorTable = document.createElement('table'); // Создаем таблицу для ошибки
-            errorTable.style.width = '100%';
-            errorTable.style.borderCollapse = 'collapse';
-            errorTable.style.marginTop = '10px';
-            errorTable.style.border = '1px solid red';
-            errorTable.style.borderRadius = '4px';
-            const errorRow = errorTable.insertRow();
-            const errorCell = errorRow.insertCell();
-            errorCell.colSpan = 2;
-            errorCell.style.textAlign = 'center';
-            errorCell.style.color = 'red';
-            errorCell.style.fontWeight = 'bold';
-            errorCell.style.padding = '10px';
-            errorCell.className = 'error-message'; // Добавляем класс для идентификации
-            errorCell.innerText = 'Отправка данных только по запущенным заказам.';
-            popup.appendChild(errorTable);
+    try {
+        const productId = gs_processProductId();
+        const userName = getUserName();
+        const productName = getProductName();
+        const designerPrice = parseFloat(priceInput.value.replace(',', '.'));
+        const category = dropdown.value;
+        const axiomPriceElement = document.querySelector('#DesignBlockSummary > div > table > tbody > tr > td:nth-child(1)');
+        let axiomPriceText = '';
+        if (axiomPriceElement) {
+            axiomPriceText = axiomPriceElement.textContent.replace(/\s/g, '').match(/(\d+,\d+)/); // Удаляем пробелы
+            axiomPriceText = axiomPriceText ? axiomPriceText[0].replace(',', '.') : null; // Заменяем запятую на точку
         }
-        return;
-    }
+        const axiomPrice = parseFloat(axiomPriceText);
+        const launchDate = getLaunchDate();
 
-    if (designerPrice * 1.3 <= axiomPrice) {
-        const data = [
-            productId,
-            userName,
-            productName,
-            designerPrice,
-            category,
-            axiomPrice,
-            launchDate // Добавляем дату запуска заказа в данные
-        ];
-
-        // Отправляем данные в Google Sheets
-        const success = await writeDataToSheet(data);
-        if (success) {
-            // Показываем сообщение об успехе
-            const successMessage = document.createElement('p');
-            successMessage.style.marginTop = '10px';
-            successMessage.style.color = 'green';
-            successMessage.style.fontWeight = 'bold';
-            successMessage.style.textAlign = 'center';
-            successMessage.innerText = 'Данные успешно загружены!';
-            popup.appendChild(successMessage);
-
-            // Через 3 секунды удаляем попап
-            setTimeout(() => {
-                popup.remove();
-            }, 3000);
-
-            // Находим textarea для создания кнопки "Проверить данные"
-            const textarea = document.querySelector('#DesignBlockSummary > div > table > tbody > tr > td:nth-child(2) > textarea');
-            if (textarea) {
-                // Удаляем существующую кнопку "Заполнить"
-                const existingButtons = textarea.parentElement.querySelectorAll('button');
-                existingButtons.forEach(button => button.remove());
-                // Создаем кнопку "Проверить данные"
-                createCheckButton(textarea);
+        if (!launchDate) {
+            const existingError = popup.querySelector('.error-message');
+            if (!existingError) {
+                const errorTable = document.createElement('table'); 
+                errorTable.style.width = '100%';
+                errorTable.style.borderCollapse = 'collapse';
+                errorTable.style.marginTop = '10px';
+                errorTable.style.border = '1px solid red';
+                errorTable.style.borderRadius = '4px';
+                const errorRow = errorTable.insertRow();
+                const errorCell = errorRow.insertCell();
+                errorCell.colSpan = 2;
+                errorCell.style.textAlign = 'center';
+                errorCell.style.color = 'red';
+                errorCell.style.fontWeight = 'bold';
+                errorCell.style.padding = '10px';
+                errorCell.className = 'error-message'; 
+                errorCell.innerText = 'Отправка данных только по запущенным заказам.';
+                popup.appendChild(errorTable);
             }
+            sendButton.disabled = false; // Разблокируем кнопку при ошибке
+            return;
         }
-    } else {
-        // Проверяем, существует ли уже сообщение об ошибке
-        const existingError = popup.querySelector('.error-message');
-        if (!existingError) {
-            const errorTable = document.createElement('table'); // Создаем таблицу для ошибки
-            errorTable.style.width = '100%';
-            errorTable.style.borderCollapse = 'collapse';
-            errorTable.style.marginTop = '10px';
-            errorTable.style.border = '1px solid red';
-            errorTable.style.borderRadius = '4px';
-            const errorRow = errorTable.insertRow();
-            const errorCell = errorRow.insertCell();
-            errorCell.colSpan = 2;
-            errorCell.style.textAlign = 'center';
-            errorCell.style.color = 'red';
-            errorCell.style.fontWeight = 'bold';
-            errorCell.style.padding = '10px';
-            errorCell.className = 'error-message'; // Добавляем класс для идентификации
-            errorCell.innerText = 'Сумма некорректна';
-            popup.appendChild(errorTable);
+
+        if (designerPrice * 1.3 <= axiomPrice) {
+            const data = [
+                productId,
+                userName,
+                productName,
+                designerPrice,
+                category,
+                axiomPrice,
+                launchDate
+            ];
+
+            const success = await writeDataToSheet(data);
+            if (success) {
+                const successMessage = document.createElement('p');
+                successMessage.style.marginTop = '10px';
+                successMessage.style.color = 'green';
+                successMessage.style.fontWeight = 'bold';
+                successMessage.style.textAlign = 'center';
+                successMessage.innerText = 'Данные успешно загружены!';
+                popup.appendChild(successMessage);
+
+                setTimeout(() => {
+                    popup.remove();
+                }, 3000);
+
+                const textarea = document.querySelector('#DesignBlockSummary > div > table > tbody > tr > td:nth-child(2) > textarea');
+                if (textarea) {
+                    const existingButtons = textarea.parentElement.querySelectorAll('button');
+                    existingButtons.forEach(button => button.remove());
+                    createCheckButton(textarea);
+                }
+            } else {
+                sendButton.disabled = false; // Разблокируем кнопку при ошибке
+            }
+        } else {
+            const existingError = popup.querySelector('.error-message');
+            if (!existingError) {
+                const errorTable = document.createElement('table'); 
+                errorTable.style.width = '100%';
+                errorTable.style.borderCollapse = 'collapse';
+                errorTable.style.marginTop = '10px';
+                errorTable.style.border = '1px solid red';
+                errorTable.style.borderRadius = '4px';
+                const errorRow = errorTable.insertRow();
+                const errorCell = errorRow.insertCell();
+                errorCell.colSpan = 2;
+                errorCell.style.textAlign = 'center';
+                errorCell.style.color = 'red';
+                errorCell.style.fontWeight = 'bold';
+                errorCell.style.padding = '10px';
+                errorCell.className = 'error-message'; 
+                errorCell.innerText = 'Сумма некорректна';
+                popup.appendChild(errorTable);
+            }
+            sendButton.disabled = false; // Разблокируем кнопку при ошибке
         }
+    } catch (error) {
+        console.error('Ошибка при отправке данных:', error);
+        alert('Произошла ошибка при отправке данных.');
+        sendButton.disabled = false; // Разблокируем кнопку при ошибке
     }
 });
     const closeButton = document.createElement('button');
