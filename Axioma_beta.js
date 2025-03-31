@@ -1,5 +1,5 @@
 // ==UserScript==
-// @name         Проверка заказа 9.3
+// @name         Проверка заказа 9.3.1
 // @namespace    http://tampermonkey.net/
 // @version      1.6
 // @description
@@ -3437,9 +3437,12 @@ closeOldBill();
 
 // Функция для получения даты запуска заказа
 function getLaunchDate() {
-    const launchDateElement = document.querySelector("#History > table:nth-child(1) > tbody > tr:nth-child(3) > td.right.bold.RegHistoryEditor input");
-    if (launchDateElement && launchDateElement.value.trim()) {
-        return launchDateElement.value.trim().replace(/,/g, '').replace(/Понедельник|Вторник|Среда|Четверг|Пятница|Суббота|Воскресенье/g, '').trim();
+    const launchDateElement = document.querySelector("#History > table:nth-child(1) > tbody > tr:nth-child(3) > td.right.bold");
+    if (launchDateElement && launchDateElement.textContent.trim()) {
+        return launchDateElement.textContent.trim()
+            .replace(/,/g, '')
+            .replace(/Понедельник|Вторник|Среда|Четверг|Пятница|Суббота|Воскресенье/g, '')
+            .trim();
     }
     return null;
 }
