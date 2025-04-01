@@ -1,5 +1,5 @@
 // ==UserScript==
-// @name         Проверка заказа 9.3.2
+// @name         Проверка заказа 9.3.3
 // @namespace    http://tampermonkey.net/
 // @version      1.6
 // @description
@@ -3686,17 +3686,18 @@ sendButton.addEventListener('click', async () => {
 
     let buttonAdded = false;
 
-function hideTopButtonIfRemoteDesigners() {
+//function hideTopButtonIfRemoteDesigners() {
     // Проверяем наличие элемента с текстом "Дизайнеры на удаленке"
-    const designerElement = document.querySelector('#DesignBlockSummary > div > table > tbody > tr > td:nth-child(1) > b');
-    if (designerElement && designerElement.textContent.includes('Дизайнеры на удаленке')) {
+  //  const designerElement = document.querySelector('#DesignBlockSummary > div > table > tbody > tr > td:nth-child(1) > b');
+    //if (designerElement && designerElement.textContent.includes('Дизайнеры на удаленке')) {
         // Находим элемент #TopButtons > a:nth-child(6)
-        const topButtonToRemove = document.querySelector('#TopButtons > a:nth-child(6)');
-        if (topButtonToRemove) {
-            topButtonToRemove.remove(); // Скрываем элемент
-        }
-    }
-}
+      //  const topButtonToRemove = document.querySelector('#TopButtons > a:nth-child(6)');
+        //if (topButtonToRemove) {
+          //  topButtonToRemove.remove(); // Скрываем элемент
+        //}
+    //}
+//}
+
 
     function observeDOMChanges() {
         const observer = new MutationObserver(async (mutationsList) => {
