@@ -1,5 +1,5 @@
 // ==UserScript==
-// @name         Проверка заказа 9.3.3
+// @name         Проверка заказа 9.3.4
 // @namespace    http://tampermonkey.net/
 // @version      1.6
 // @description
@@ -3686,17 +3686,18 @@ sendButton.addEventListener('click', async () => {
 
     let buttonAdded = false;
 
-//function hideTopButtonIfRemoteDesigners() {
+function hideTopButtonIfRemoteDesigners() {
     // Проверяем наличие элемента с текстом "Дизайнеры на удаленке"
-  //  const designerElement = document.querySelector('#DesignBlockSummary > div > table > tbody > tr > td:nth-child(1) > b');
-    //if (designerElement && designerElement.textContent.includes('Дизайнеры на удаленке')) {
-        // Находим элемент #TopButtons > a:nth-child(6)
-      //  const topButtonToRemove = document.querySelector('#TopButtons > a:nth-child(6)');
-        //if (topButtonToRemove) {
-          //  topButtonToRemove.remove(); // Скрываем элемент
-        //}
-    //}
-//}
+    const designerElement = document.querySelector('#DesignBlockSummary > div > table > tbody > tr > td:nth-child(1) > b');
+    if (designerElement && designerElement.textContent.includes('Дизайнеры на удаленке')) {
+        // Находим кнопку, содержащую элемент с классом "glyphicon glyphicon-picture"
+        const topButtonToRemove = document.querySelector('a > .glyphicon.glyphicon-picture').parentNode;
+        
+        if (topButtonToRemove) {
+            topButtonToRemove.remove(); // Удаляем элемент
+        }
+    }
+}
 
 
     function observeDOMChanges() {
@@ -3714,7 +3715,7 @@ sendButton.addEventListener('click', async () => {
                         continue; // Пропускаем остальную логику, пока идет загрузка
                     }
                        // Вызываем функцию для скрытия кнопки при необходимости
-                         // hideTopButtonIfRemoteDesigners();
+                         hideTopButtonIfRemoteDesigners();
 
                     // Если элементы существуют и текст содержит "Дизайнеры на удаленке"
                     if (designerElement && designerElement.textContent.includes('Дизайнеры на удаленке')) {
