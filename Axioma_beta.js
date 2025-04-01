@@ -1,5 +1,5 @@
 // ==UserScript==
-// @name         Проверка заказа 9.3.4
+// @name         Проверка заказа 9.3.5
 // @namespace    http://tampermonkey.net/
 // @version      1.6
 // @description
@@ -3691,10 +3691,14 @@ function hideTopButtonIfRemoteDesigners() {
     const designerElement = document.querySelector('#DesignBlockSummary > div > table > tbody > tr > td:nth-child(1) > b');
     if (designerElement && designerElement.textContent.includes('Дизайнеры на удаленке')) {
         // Находим кнопку, содержащую элемент с классом "glyphicon glyphicon-picture"
-        const topButtonToRemove = document.querySelector('a > .glyphicon.glyphicon-picture').parentNode;
+        const iconElement = document.querySelector('a > .glyphicon.glyphicon-picture');
         
-        if (topButtonToRemove) {
-            topButtonToRemove.remove(); // Удаляем элемент
+        if (iconElement) {
+            const topButtonToRemove = iconElement.parentNode;
+            
+            if (topButtonToRemove) {
+                topButtonToRemove.remove(); // Удаляем элемент
+            }
         }
     }
 }
