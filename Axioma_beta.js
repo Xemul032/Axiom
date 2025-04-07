@@ -1,5 +1,5 @@
 // ==UserScript==
-// @name         Проверка заказа 9.3.5
+// @name         Проверка заказа 9.3.6
 // @namespace    http://tampermonkey.net/
 // @version      1.6
 // @description
@@ -3703,7 +3703,42 @@ function hideTopButtonIfRemoteDesigners() {
     }
 }
 
+     function checkLowCost() {
+        // Проверяем текст в первом столбце
+        const firstColumn = document.querySelector("#DesignList > tr > td:nth-child(1)");
+        if (
+            firstColumn &&
+            (
+                firstColumn.textContent.trim() === "Дизайнеры на удаленке (вписываем в таблицу СРАЗУ!)" ||
+                firstColumn.textContent.trim() === "Дизайн Регина" ||
+                firstColumn.textContent.trim() === "Дизайн Резеда"
+            )
+        ) {
 
+
+            // Ищем элемент с ценой
+            const priceElement = document.querySelector("#DesignList > tr > td.right nobr");
+            if (priceElement) {
+                const priceText = priceElement.textContent.trim();
+
+
+                // Извлекаем числовое значение из строки "1,00 Р"
+                const priceValue = parseFloat(priceText.replace(',', '.').replace(/[^0-9\.]/g, ''));
+
+                // Проверяем значение и скрываем кнопку, если оно меньше 101
+                const button = document.querySelector("#DesignBlockSummary > div > button");
+                if (button) {
+                    if (priceValue < 101) {
+                        button.style.display = "none";
+                        } else {
+                        button.style.display = "";
+
+                    }
+                }
+            }
+        }
+    }
+      
     function observeDOMChanges() {
         const observer = new MutationObserver(async (mutationsList) => {
             for (const mutation of mutationsList) {
@@ -3720,6 +3755,7 @@ function hideTopButtonIfRemoteDesigners() {
                     }
                        // Вызываем функцию для скрытия кнопки при необходимости
                          hideTopButtonIfRemoteDesigners();
+                        checkLowCost();
 
                     // Если элементы существуют и текст содержит "Дизайнеры на удаленке"
                     if (designerElement && designerElement.textContent.includes('Дизайнеры на удаленке')) {
