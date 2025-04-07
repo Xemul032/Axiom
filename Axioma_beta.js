@@ -1,5 +1,5 @@
 // ==UserScript==
-// @name         Проверка заказа 9.3.6
+// @name         Проверка заказа 9.3.7
 // @namespace    http://tampermonkey.net/
 // @version      1.6
 // @description
@@ -3778,6 +3778,107 @@ function hideTopButtonIfRemoteDesigners() {
     observeDOMChanges();
 };
 newDesign();
+
+    
+function hideDiscounts() {
+    'use strict';
+
+    // Переменная для хранения предыдущего значения текста
+    let previousText = null;
+
+    // Функция для поиска и скрытия целевого <td>
+    function hideTD() {
+        // Проверяем, существует ли #vmClientForm
+        const vmClientForm = document.querySelector("#vmClientForm");
+        if (!vmClientForm) {
+            
+            return;
+        }
+
+        // Находим все элементы <td> внутри #vmClientForm
+        const tdElements = document.querySelectorAll("#vmClientForm td");
+
+        // Ищем нужный <td> по его содержимому
+        for (const td of tdElements) {
+            // Проверяем, содержит ли <td> текст "Логотип:" (игнорируем регистр и пробелы)
+            const containsLogoText = td.querySelector("h4")?.textContent.trim().toLowerCase().includes("логотип:");
+            // Проверяем, содержит ли <td> таблицу с текстом "Логотип не загружен" (игнорируем регистр и пробелы)
+            const containsTableText = td.querySelector("table td")?.textContent.trim().toLowerCase().includes("логотип не загружен");
+
+            if (containsLogoText && containsTableText) {
+                
+                td.style.display = "none"; // Скрываем элемент
+                
+                return; // Прекращаем поиск, так как элемент найден
+            }
+        }
+
+       
+    }
+
+    // Функция для добавления эффекта белесого блюра на #vmClientForm
+    function applyWhitishBlurEffect(vmClientForm) {
+        // Создаем элемент для белесого фона
+        const whitishOverlay = document.createElement("div");
+        whitishOverlay.style.position = "absolute";
+        whitishOverlay.style.top = "0";
+        whitishOverlay.style.left = "0";
+        whitishOverlay.style.width = "100%";
+        whitishOverlay.style.height = "100%";
+        whitishOverlay.style.backgroundColor = "rgba(255, 255, 255, 0.3)"; // Полупрозрачный белый фон
+        whitishOverlay.style.zIndex = "9999"; // Чтобы затемнение было поверх всех элементов
+        whitishOverlay.style.pointerEvents = "none"; // Чтобы затемнение не блокировало взаимодействие с интерфейсом
+
+        // Добавляем белесый фон в #vmClientForm
+        vmClientForm.style.position = "relative"; // Для корректного позиционирования затемнения
+        vmClientForm.appendChild(whitishOverlay);
+
+        // Добавляем стиль блюра
+        vmClientForm.style.filter = "blur(2px)";
+        vmClientForm.style.transition = "filter 0.1s ease";
+
+        // Убираем эффекты через 2 секунды
+        setTimeout(() => {
+            vmClientForm.style.filter = "none"; // Убираем блюр
+            whitishOverlay.remove(); // Удаляем белесый фон
+        }, 500);
+    }
+
+    // MutationObserver для отслеживания динамических изменений в DOM
+    const observer = new MutationObserver(function(mutations) {
+        mutations.forEach(function(mutation) {
+            const vmClientForm = document.querySelector("#vmClientForm");
+
+            // Если #vmClientForm существует
+            if (vmClientForm) {
+                // Находим элемент с текстом для отслеживания изменений
+                const textElement = document.querySelector("#vmClientForm > div:nth-child(1) > table > tbody > tr > td:nth-child(1) > p");
+
+                // Если элемент с текстом найден
+                if (textElement) {
+                    const currentText = textElement.textContent.trim();
+
+                    // Если текст изменился
+                    if (currentText !== previousText) {
+                        
+                        // Применяем эффект белесого блюра
+                        applyWhitishBlurEffect(vmClientForm);
+
+                        // Обновляем предыдущее значение текста
+                        previousText = currentText;
+
+                        // Вызываем функцию hideTD без задержки
+                        hideTD();
+                    }
+                }
+            } 
+        });
+    });
+
+    // Начинаем наблюдать за изменениями в DOM
+    observer.observe(document.body, { childList: true, subtree: true });
+};
+hideDiscounts();
     
     // Функция для отображения обратной связи (изменение кнопки)
     function showFeedback(button) {
