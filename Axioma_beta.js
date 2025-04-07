@@ -1,5 +1,5 @@
 // ==UserScript==
-// @name         Проверка заказа 9.3.8
+// @name         Проверка заказа 9.3.9
 // @namespace    http://tampermonkey.net/
 // @version      1.6
 // @description
@@ -3880,6 +3880,58 @@ function hideDiscounts() {
     observer.observe(document.body, { childList: true, subtree: true });
 };
 hideDiscounts();
+
+    
+function zoomIzdelia() {
+    'use strict';
+
+    // Функция для применения зум эффекта
+    function applyZoomEffect(utList) {
+        const containers = utList.querySelectorAll("div.rubricator > a");
+
+        containers.forEach((container) => {
+            const backgroundImage = container.style.backgroundImage;
+
+            // Проверяем, есть ли background-image
+            if (backgroundImage && backgroundImage.includes('url')) {
+                // Добавляем зум эффект при наведении
+                container.addEventListener('mouseenter', () => {
+                    container.style.transform = 'scale(1.1)';
+                    container.style.transition = 'transform 0.3s ease';
+                });
+
+                container.addEventListener('mouseleave', () => {
+                    container.style.transform = 'scale(1)';
+                });
+            }
+        });
+    }
+
+    // Функция для инициализации MutationObserver
+    function initObserver() {
+        const observer = new MutationObserver((mutationsList) => {
+            for (const mutation of mutationsList) {
+                if (mutation.type === 'childList') {
+                    const utList = document.querySelector("#UtList");
+                    if (utList) {
+                        applyZoomEffect(utList);
+                        observer.disconnect(); // Останавливаем наблюдение после нахождения элемента
+                        console.log("Element #UtList found and zoom effect applied.");
+                        break;
+                    }
+                }
+            }
+        });
+
+        // Начинаем наблюдать за изменениями в DOM
+        observer.observe(document.body, { childList: true, subtree: true });
+    }
+
+    // Запускаем наблюдателя
+    initObserver();
+
+}
+zoomIzdelia();
     
     // Функция для отображения обратной связи (изменение кнопки)
     function showFeedback(button) {
