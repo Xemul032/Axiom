@@ -1,5 +1,5 @@
 // ==UserScript==
-// @name         Проверка заказа 9.3.7
+// @name         Проверка заказа 9.3.8
 // @namespace    http://tampermonkey.net/
 // @version      1.6
 // @description
@@ -3807,7 +3807,8 @@ function hideDiscounts() {
 
             if (containsLogoText && containsTableText) {
                 
-                td.style.display = "none"; // Скрываем элемент
+                  
+                td.style.pointerEvents = "none";
                 
                 return; // Прекращаем поиск, так как элемент найден
             }
