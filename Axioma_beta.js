@@ -1,5 +1,5 @@
 // ==UserScript==
-// @name         Проверка заказа 9.4.2
+// @name         Проверка заказа 9.4.3
 // @namespace    http://tampermonkey.net/
 // @version      1.6
 // @description
@@ -3885,56 +3885,96 @@ hideDiscounts();
 function zoomIzdelia() {
     'use strict';
 
-    // Функция для применения зум эффекта
-    function applyZoomEffect(utList) {
-        const containers = utList.querySelectorAll("div.rubricator > a");
+    // Функция для проверки, находится ли элемент в видимой части экрана
+    function isElementInViewport(el) {
+        const rect = el.getBoundingClientRect();
+        return (
+            rect.top >= 0 &&
+            rect.left >= 0 &&
+            rect.bottom <= (window.innerHeight || document.documentElement.clientHeight) &&
+            rect.right <= (window.innerWidth || document.documentElement.clientWidth)
+        );
+    }
 
+    // Функция для применения зум эффекта
+    function applyZoomEffect(containers) {
         containers.forEach((container) => {
             const backgroundImage = container.style.backgroundImage;
 
-            // Проверяем, есть ли background-image
-            if (backgroundImage && backgroundImage.includes('url')) {
-                // Добавляем зум эффект при наведении
-                container.addEventListener('mouseenter', () => {
-                    container.style.transform = 'scale(1.1)';
-                    container.style.transition = 'transform 0.3s ease';
-                });
+            // Проверяем, есть ли background-image и находится ли элемент в видимой области
+            if (backgroundImage && backgroundImage.includes('url') && isElementInViewport(container)) {
+                // Проверяем, не был ли уже применён обработчик
+                if (!container.dataset.zoomApplied) {
+                    container.dataset.zoomApplied = true; // Помечаем элемент как обработанный
 
-                container.addEventListener('mouseleave', () => {
-                    container.style.transform = 'scale(1)';
-                });
+                    // Добавляем зум эффект при наведении
+                    container.addEventListener('mouseenter', () => {
+                        container.style.transform = 'scale(1.1)';
+                        container.style.transition = 'transform 0.3s ease';
+                    });
+
+                    container.addEventListener('mouseleave', () => {
+                        container.style.transform = 'scale(1)';
+                    });
+                }
             }
         });
     }
 
     // Функция для инициализации MutationObserver
     function initObserver() {
+        const utList = document.querySelector("#UtList");
+        if (!utList) return;
+
         const observer = new MutationObserver((mutationsList) => {
             for (const mutation of mutationsList) {
                 if (mutation.type === 'childList') {
-                    const utList = document.querySelector("#UtList");
-                    if (utList) {
-                        applyZoomEffect(utList);
-                    }
+                    const newContainers = Array.from(
+                        utList.querySelectorAll("div.rubricator > a")
+                    ).filter((container) => !container.dataset.zoomApplied);
+
+                    applyZoomEffect(newContainers);
                 }
             }
         });
 
-        // Начинаем наблюдать за изменениями в DOM
-        observer.observe(document.body, { childList: true, subtree: true });
+        // Начинаем наблюдать за изменениями внутри #UtList
+        observer.observe(utList, { childList: true, subtree: true });
     }
 
-    // Запускаем наблюдателя
+    // Дебаунсинг для обработчика прокрутки
+    function debounce(func, delay) {
+        let timeout;
+        return function (...args) {
+            clearTimeout(timeout);
+            timeout = setTimeout(() => func.apply(this, args), delay);
+        };
+    }
+
+    // Обновляем эффект при прокрутке страницы
+    const handleScroll = debounce(() => {
+        const utList = document.querySelector("#UtList");
+        if (utList) {
+            const containers = Array.from(
+                utList.querySelectorAll("div.rubricator > a")
+            ).filter((container) => !container.dataset.zoomApplied);
+
+            applyZoomEffect(containers);
+        }
+    }, 150); // Задержка в 150 мс
+
+    // Инициализация
+    window.addEventListener('scroll', handleScroll);
     initObserver();
 
-    // Проверяем наличие элемента сразу при загрузке страницы
-    const initialUtList = document.querySelector("#UtList");
-    if (initialUtList) {
-        applyZoomEffect(initialUtList);
+    // Применяем зум к начальным видимым элементам
+    const utList = document.querySelector("#UtList");
+    if (utList) {
+        applyZoomEffect(utList.querySelectorAll("div.rubricator > a"));
     }
 }
 
-//zoomIzdelia();
+zoomIzdelia();
 
 function fixOrderList() {
     'use strict';
