@@ -1,5 +1,5 @@
 // ==UserScript==
-// @name         Проверка заказа 9.4.1
+// @name         Проверка заказа 9.4.2
 // @namespace    http://tampermonkey.net/
 // @version      1.6
 // @description
@@ -3934,7 +3934,7 @@ function zoomIzdelia() {
     }
 }
 
-zoomIzdelia();
+//zoomIzdelia();
 
 function fixOrderList() {
     'use strict';
