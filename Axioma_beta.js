@@ -1,5 +1,5 @@
 // ==UserScript==
-// @name         Проверка заказа 9.4.0
+// @name         Проверка заказа 9.4.1
 // @namespace    http://tampermonkey.net/
 // @version      1.6
 // @description
@@ -3915,9 +3915,6 @@ function zoomIzdelia() {
                     const utList = document.querySelector("#UtList");
                     if (utList) {
                         applyZoomEffect(utList);
-                        observer.disconnect(); // Останавливаем наблюдение после нахождения элемента
-                        console.log("Element #UtList found and zoom effect applied.");
-                        break;
                     }
                 }
             }
@@ -3930,7 +3927,13 @@ function zoomIzdelia() {
     // Запускаем наблюдателя
     initObserver();
 
+    // Проверяем наличие элемента сразу при загрузке страницы
+    const initialUtList = document.querySelector("#UtList");
+    if (initialUtList) {
+        applyZoomEffect(initialUtList);
+    }
 }
+
 zoomIzdelia();
 
 function fixOrderList() {
