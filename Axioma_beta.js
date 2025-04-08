@@ -1,5 +1,5 @@
 // ==UserScript==
-// @name         Проверка заказа 9.3.9
+// @name         Проверка заказа 9.4.0
 // @namespace    http://tampermonkey.net/
 // @version      1.6
 // @description
@@ -3932,6 +3932,96 @@ function zoomIzdelia() {
 
 }
 zoomIzdelia();
+
+function fixOrderList() {
+    'use strict';
+
+    // Функция для применения стилей
+    function applyStyles() {
+        const targetElements = document.querySelectorAll('#ManagerList > div > div.ax-table-body');
+        targetElements.forEach(element => {
+            element.style.display = 'table-cell';
+            element.style.padding = '4px 12px 4px 25px';
+            element.style.width = '100%';
+        });
+    }
+
+    // Функция для запуска наблюдателя за #ManagerList
+    function observeManagerList() {
+        const managerList = document.querySelector('#ManagerList');
+
+        if (managerList) {
+            const observer = new MutationObserver(() => {
+                applyStyles();
+            });
+
+            observer.observe(managerList, { childList: true, subtree: true });
+            applyStyles(); // Применяем стили сразу при загрузке
+        }
+    }
+
+    // Главный наблюдатель за динамическим появлением/исчезанием #ManagerList
+    const mainObserver = new MutationObserver((mutationsList) => {
+        for (const mutation of mutationsList) {
+            if (mutation.type === 'childList') {
+                // Проверяем наличие #ManagerList после каждого изменения
+                observeManagerList();
+            }
+        }
+    });
+
+    // Наблюдаем за <body> или другим корневым элементом
+    const bodyElement = document.querySelector('body');
+    if (bodyElement) {
+        mainObserver.observe(bodyElement, { childList: true, subtree: true });
+    }
+}
+fixOrderList();
+
+
+function titleOrder() {
+ 'use strict';
+
+    let originalTitle = document.title; // Сохраняем оригинальный заголовок страницы
+
+    // Функция для обновления заголовка страницы
+    function updateTitle(orderId) {
+        if (orderId) {
+            document.title = `Заказ №${orderId} | ${originalTitle}`;
+        } else {
+            document.title = originalTitle; // Возвращаемся к исходному заголовку
+        }
+    }
+
+
+
+    // Функция для отслеживания элемента
+    function observeProductId() {
+        const observer = new MutationObserver((mutationsList) => {
+            let currentOrderId = null;
+
+            // Проверяем текущее значение ProductId
+            const productIdElement = document.querySelector('#ProductId');
+            if (productIdElement) {
+                currentOrderId = productIdElement.textContent.trim();
+            }
+
+            // Обновляем заголовок страницы
+            updateTitle(currentOrderId);
+
+
+        });
+
+        // Начинаем наблюдать за body или определенным контейнером
+        const targetNode = document.body;
+        const config = { childList: true, subtree: true, characterData: true, attributes: true };
+        observer.observe(targetNode, config);
+    }
+
+    // Запускаем наблюдение
+    observeProductId();
+}
+titleOrder();
     
     // Функция для отображения обратной связи (изменение кнопки)
     function showFeedback(button) {
