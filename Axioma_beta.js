@@ -1,5 +1,5 @@
 // ==UserScript==
-// @name         Проверка заказа 9.4.3
+// @name         Проверка заказа 9.4.4
 // @namespace    http://tampermonkey.net/
 // @version      1.6
 // @description
@@ -1994,16 +1994,19 @@
         // dateInCalc.innerHTML = newDate; // Обновляем текст в блоке
         datecheck = 1;
       } else if (
-        datecheck === 0 &&
-        document.getElementById("UtCalcResult") !== null
-      ) {
-        const oldDate = dateInProduct.innerHTML.trim();
-        const newDate = updateDate(oldDate);
-        dateInProduct.innerHTML = newDate; // Обновляем текст в блоке
-        dateInProduct.style.backgroundColor = "yellow"
-        dateInProduct.style.padding = "10px"
-        datecheck = 1;
-      }
+            datecheck === 0 &&
+            document.getElementById("UtCalcResult") !== null
+        ) {
+            // Проверяем, существует ли элемент dateInProduct
+            if (dateInProduct) {
+                const oldDate = dateInProduct.innerHTML.trim();
+                const newDate = updateDate(oldDate);
+                dateInProduct.innerHTML = newDate; // Обновляем текст в блоке
+                dateInProduct.style.backgroundColor = "yellow";
+                dateInProduct.style.padding = "10px";
+                datecheck = 1;
+            } 
+        }
       // dateInCalc.innerHTML = "Расчитается после"
 
       // Создание элемента <div class="prepress">
