@@ -1,5 +1,5 @@
 // ==UserScript==
-// @name         Проверка заказа 9.4.5
+// @name         Проверка заказа 9.4.6
 // @namespace    http://tampermonkey.net/
 // @version      1.6
 // @description
@@ -4070,7 +4070,7 @@ function titleOrder() {
 titleOrder();
 
     
-function dynamicToolti() {
+function dynamicTooltip() {
     'use strict';
 
     // Функция для создания тултипа
