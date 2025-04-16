@@ -1,5 +1,5 @@
 // ==UserScript==
-// @name         Проверка заказа 9.4.6
+// @name         Проверка заказа 9.4.7
 // @namespace    http://tampermonkey.net/
 // @version      1.6
 // @description
@@ -18,6 +18,243 @@
 
 
 (function () {
+
+  //Политика конфиденциальности
+    function confidAgree() {
+    'use strict';
+
+    let warningButton = null;
+    let popupElement = null;
+    let warningShown = false;
+    let warningTimer = null;
+    let elementsDetected = false;
+
+    // Добавление стилей
+function injectStyles() {
+    const styleElement = document.createElement('style');
+    styleElement.innerHTML = `
+        .axiom-warning-button {
+            position: fixed;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            height: 50vh;
+            background-color: transparent !important; /* Явное указание фона */
+            color: white !important; /* Явное указание цвета текста */
+            font-size: 24px;
+            border: none !important; /* Убираем границы */
+            cursor: pointer;
+            z-index: 9999;
+            text-align: center;
+            box-shadow: none !important; /* Принудительно убираем тень */
+            outline: none !important; /* Убираем возможный контур при фокусе */
+        }
+        .axiom-warning-button:hover {
+            background-color: transparent !important; /* Остается прозрачным */
+            color: red !important; /* Текст становится красным при наведении */
+            box-shadow: none !important; /* Явное отключение тени при наведении */
+        }
+        .axiom-popup {
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            width: 80%;
+            max-width: 600px;
+            background-color: white;
+            padding: 20px;
+            border-radius: 5px;
+            box-shadow: 0 0 10px rgba(0, 0, 0, 0.5);
+            z-index: 10000;
+        }
+        .axiom-popup-header {
+            font-size: 24px;
+            font-weight: bold;
+            margin-bottom: 20px;
+            color: red;
+            text-align: center;
+        }
+        .axiom-popup-content {
+            font-size: 16px;
+            margin-bottom: 20px;
+            text-align: center; /* Центрируем текст */
+        }
+        .axiom-checkbox-container {
+            display: flex !important; /* Обязательно */
+            align-items: center !important; /* Вертикальное выравнивание */
+            justify-content: center !important; /* Горизонтальное центрирование */
+            gap: 10px !important; /* Расстояние между элементами */
+            margin: 20px 0 !important; /* Отступы сверху и снизу */
+        }
+        input[type="checkbox"] {
+            width: 13px; /* Ширина чекбокса */
+            height: 13px; /* Высота чекбокса */
+            accent-color: #aaa; /* Цвет чекбокса (по умолчанию светлосерый) */
+            cursor: pointer; /* Курсор при наведении */
+        }
+        .axiom-agreement-text {
+            font-size: 16px;
+            color: #aaa; /* Светлосерый цвет */
+            white-space: nowrap; /* Запрет переноса текста на новую строку */
+        }
+        .axiom-agreement-text.active {
+            color: black; /* Черный цвет, когда чекбокс активен */
+        }
+        .axiom-ok-button {
+            display: block;
+            margin: 0 auto;
+            padding: 10px 20px;
+            background-color: #4CAF50;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 16px;
+            opacity: 0.5;
+            pointer-events: none;
+            transition: opacity 0.3s, background-color 0.3s; /* Добавляем плавный переход */
+        }
+        .axiom-ok-button.visible {
+            opacity: 1;
+            pointer-events: auto;
+        }
+        .axiom-ok-button:hover {
+            background-color: #45a049; /* Темнее при наведении */
+        }
+    `;
+    document.head.appendChild(styleElement);
+}
+
+    // Создание кнопки предупреждения
+    function createWarningButton() {
+        if (warningButton || warningShown) return;
+
+        warningButton = document.createElement('button');
+        warningButton.className = 'axiom-warning-button';
+        warningButton.addEventListener('click', showPopup);
+        document.body.appendChild(warningButton);
+    }
+
+    // Показ всплывающего окна
+    function showPopup() {
+        if (popupElement) return;
+
+        popupElement = document.createElement('div');
+        popupElement.className = 'axiom-popup';
+        popupElement.innerHTML = `
+            <div class="axiom-popup-header">Согласие о конфиденциальности</div>
+            <p class="axiom-popup-content">Вся информация, доступная при входе в систему "Axiom", является конфиденциальной и составляет коммерческую тайну ООО "Линк".</p>
+            <p class="axiom-popup-content"></p>
+            <div class="axiom-checkbox-container">
+                <input type="checkbox" id="axiom-agreement-checkbox">
+                <label for="axiom-agreement-checkbox" class="axiom-agreement-text">С вышеописанным ознакомлен и согласен</label>
+            </div>
+            <button id="axiom-ok-button" class="axiom-ok-button">ОК</button>
+        `;
+        document.body.appendChild(popupElement);
+
+        const checkbox = document.getElementById('axiom-agreement-checkbox');
+        const agreementText = document.querySelector('.axiom-agreement-text');
+        const okButton = document.getElementById('axiom-ok-button');
+
+        checkbox.addEventListener('change', function() {
+            if (this.checked) {
+                agreementText.classList.add('active'); // Установка активного состояния текста
+                okButton.classList.add('visible');
+            } else {
+                agreementText.classList.remove('active'); // Снятие активного состояния текста
+                okButton.classList.remove('visible');
+            }
+        });
+
+        okButton.addEventListener('click', function() {
+            document.body.removeChild(popupElement);
+            document.body.removeChild(warningButton);
+            popupElement = null;
+            warningButton = null;
+            warningShown = true;
+        });
+    }
+
+    // Проверить наличие элементов
+    function checkElements() {
+        if (warningShown) return;
+
+        // Проверка наличия изображения
+        const logo = document.querySelector('img[src*="img/ax/axlogotrans.png"]');
+
+        // Проверка наличия текста
+        const textElement = document.querySelector('body > table > tbody > tr:nth-child(3) > td > p');
+        const hasText = textElement && textElement.textContent.includes('Система управления полиграфическим производством');
+
+        // Элементы обнаружены
+        if (logo && hasText) {
+            if (!elementsDetected) {
+                elementsDetected = true;
+                createWarningButton();
+            }
+        }
+        // Элементы исчезли
+        else if (elementsDetected) {
+            elementsDetected = false;
+
+            // Запускаем таймер, если его еще нет
+            if (!warningTimer && warningButton && !popupElement) {
+                warningTimer = setTimeout(() => {
+                    if (!document.querySelector('img[src*="img/ax/axlogotrans.png"]') &&
+                        !document.querySelector('body > table > tbody > tr:nth-child(3) > td > p')) {
+
+                        if (warningButton && !popupElement) {
+                            document.body.removeChild(warningButton);
+                            warningButton = null;
+                        }
+                    }
+                    warningTimer = null;
+                }, 10000);
+            }
+        }
+    }
+
+    // Инициализация скрипта
+    function initScript() {
+        injectStyles();
+
+        // Создаем наблюдатель за изменениями DOM
+        const observerConfig = {
+            childList: true,
+            subtree: true,
+            attributes: true,
+            attributeFilter: ['src', 'textContent']
+        };
+
+        const observer = new MutationObserver((mutations) => {
+            // Проверяем только если страница видима пользователю
+            if (document.visibilityState === 'visible') {
+                checkElements();
+            }
+        });
+
+        observer.observe(document.body, observerConfig);
+
+        // Проверяем начальное состояние
+        checkElements();
+
+        // Также проверяем при возвращении к странице
+        document.addEventListener('visibilitychange', () => {
+            if (document.visibilityState === 'visible') {
+                checkElements();
+            }
+        });
+    }
+
+    // Запуск скрипта после загрузки страницы
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', initScript);
+    } else {
+        initScript();
+    }
+}
+confidAgree();
   "use strict";
   let blurOverlay = document.createElement("div");
   blurOverlay.id = "Spinner";
