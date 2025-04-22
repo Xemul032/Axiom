@@ -1,5 +1,5 @@
 // ==UserScript==
-// @name         Проверка заказа 9.4.7
+// @name         Проверка заказа 9.4.8
 // @namespace    http://tampermonkey.net/
 // @version      1.6
 // @description
@@ -2242,7 +2242,7 @@ confidAgree();
                 dateInProduct.style.backgroundColor = "yellow";
                 dateInProduct.style.padding = "10px";
                 datecheck = 1;
-            } 
+            }
         }
       // dateInCalc.innerHTML = "Расчитается после"
 
@@ -3019,18 +3019,21 @@ function createBonusRow() {
 
 // Функция для скрытия всех элементов, кроме указанных строк
 function removeUnwantedElements(targetTableBody) {
-  // Проходим по всем строкам таблицы
-  const rows = targetTableBody.querySelectorAll('tr');
-  rows.forEach((row, index) => {
-      // Проверяем, есть ли у строки класс .bonus-row
-      if (!row.classList.contains('bonus-row')) {
-          // Оставляем только первую строку (index === 0) и четвертую строку (index === 3)
-          if (index !== 0 && index !== 3) {
-              row.style.display = 'none'; // Скрываем строку
-          }
-      }
-  });
-}
+        // Проходим по всем строкам таблицы
+        const rows = targetTableBody.querySelectorAll('tr');
+        rows.forEach(row => {
+            // Получаем текст строки и проверяем его содержимое
+            const rowText = row.textContent || row.innerText || '';
+            if (
+    !rowText.includes('Корректировка суммы') &&
+    !rowText.includes('Юр. лицо') &&
+    !rowText.includes('Доступно бонусов') &&
+    !document.querySelector('.bonus-row')
+) {
+                row.style.display = 'none'; // Скрываем строку
+            }
+        });
+    }
 
 // Функция для добавления строки с бонусами в таблицу
 function addBonusRowToTable(targetTable) {
@@ -3501,7 +3504,7 @@ gs_fetchGoogleSheetData();
   observeDOM();
 }
 closeOldBill();
-    
+
 //Связка аксиомы и таблицы дизайнеров
     function newDesign() {
     'use strict';
@@ -3711,7 +3714,7 @@ sendButton.addEventListener('click', async () => {
         if (!launchDate) {
             const existingError = popup.querySelector('.error-message');
             if (!existingError) {
-                const errorTable = document.createElement('table'); 
+                const errorTable = document.createElement('table');
                 errorTable.style.width = '100%';
                 errorTable.style.borderCollapse = 'collapse';
                 errorTable.style.marginTop = '10px';
@@ -3724,7 +3727,7 @@ sendButton.addEventListener('click', async () => {
                 errorCell.style.color = 'red';
                 errorCell.style.fontWeight = 'bold';
                 errorCell.style.padding = '10px';
-                errorCell.className = 'error-message'; 
+                errorCell.className = 'error-message';
                 errorCell.innerText = 'Отправка данных только по запущенным заказам.';
                 popup.appendChild(errorTable);
             }
@@ -3769,7 +3772,7 @@ sendButton.addEventListener('click', async () => {
         } else {
             const existingError = popup.querySelector('.error-message');
             if (!existingError) {
-                const errorTable = document.createElement('table'); 
+                const errorTable = document.createElement('table');
                 errorTable.style.width = '100%';
                 errorTable.style.borderCollapse = 'collapse';
                 errorTable.style.marginTop = '10px';
@@ -3782,7 +3785,7 @@ sendButton.addEventListener('click', async () => {
                 errorCell.style.color = 'red';
                 errorCell.style.fontWeight = 'bold';
                 errorCell.style.padding = '10px';
-                errorCell.className = 'error-message'; 
+                errorCell.className = 'error-message';
                 errorCell.innerText = 'Сумма некорректна';
                 popup.appendChild(errorTable);
             }
@@ -3868,51 +3871,75 @@ sendButton.addEventListener('click', async () => {
         });
     }
 
-    // Функция для создания кнопки "Проверить данные"
-    function createCheckButton(textarea) {
-        const checkButton = document.createElement('button');
-        checkButton.innerText = 'Проверить данные';
-        textarea.parentElement.appendChild(checkButton);
+// Функция для создания кнопки "Проверить данные"
+function createCheckButton(textarea) {
+    const checkButton = document.createElement('button');
+    checkButton.innerText = 'Проверить данные';
+    textarea.parentElement.appendChild(checkButton);
+    let infoDivCreated = false;
 
-        let infoDivCreated = false;
-        checkButton.addEventListener('click', async () => {
-            const productId = gs_processProductId();
-            const productData = await getProductDataFromSheet(productId);
-            if (productData) {
-                if (!infoDivCreated) {
-                    const infoDiv = document.createElement('div');
-                    infoDiv.style.color = 'green';
-                    infoDiv.style.marginTop = '10px';
-                    infoDiv.style.border = '1px solid green';
-                    infoDiv.style.padding = '10px';
-                    infoDiv.style.borderRadius = '5px';
-                    const table = document.createElement('table');
-                    table.style.width = '50%';
-                    table.style.borderCollapse = 'collapse';
-                    const priceRow = table.insertRow();
-                    const priceLabelCell = priceRow.insertCell();
-                    priceLabelCell.style.fontWeight = 'bold';
-                    priceLabelCell.innerText = 'Оплата дизайнеру:';
-                    const priceValueCell = priceRow.insertCell();
-                    priceValueCell.innerText = `${productData[3]} руб.`;
-                    const designerRow = table.insertRow();
-                    const designerLabelCell = designerRow.insertCell();
-                    designerLabelCell.style.fontWeight = 'bold';
-                    designerLabelCell.innerText = 'Дизайнер:';
-                    const designerValueCell = designerRow.insertCell();
-                    designerValueCell.innerText = productData[4];
-                    infoDiv.appendChild(table);
-                    checkButton.parentElement.appendChild(infoDiv);
-                    infoDivCreated = true;
-                }
-            } else {
-                const errorSpan = document.createElement('span');
-                errorSpan.innerText = 'Информация о продукте не найдена.';
-                errorSpan.style.color = 'red';
-                checkButton.parentElement.appendChild(errorSpan);
+    checkButton.addEventListener('click', async () => {
+        const productId = gs_processProductId();
+
+        // Получаем данные из листа Design
+        const designRange = `Design!A:E`;
+        const designValues = await fetchGoogleSheetData(designRange);
+        const designData = designValues.find(row => row[0] === productId.toString()) || null;
+
+        // Получаем данные из листа test
+        const testRange = `test!A:H`;
+        const testValues = await fetchGoogleSheetData(testRange);
+        const testData = testValues.find(row => row[0] === productId.toString()) || null;
+
+        if (designData && testData) {
+            if (!infoDivCreated) {
+                const infoDiv = document.createElement('div');
+                infoDiv.style.color = 'green';
+                infoDiv.style.marginTop = '10px';
+                infoDiv.style.border = '1px solid green';
+                infoDiv.style.padding = '10px';
+                infoDiv.style.borderRadius = '5px';
+
+                const table = document.createElement('table');
+                table.style.width = '50%';
+                table.style.borderCollapse = 'collapse';
+
+                // Отображение оплаты дизайнеру (столбец D листа Design)
+                const priceRow = table.insertRow();
+                const priceLabelCell = priceRow.insertCell();
+                priceLabelCell.style.fontWeight = 'bold';
+                priceLabelCell.innerText = 'Оплата дизайнеру:';
+                const priceValueCell = priceRow.insertCell();
+                priceValueCell.innerText = `${designData[3]} руб.`;
+
+                // Отображение дизайнера (столбец E листа Design)
+                const designerRow = table.insertRow();
+                const designerLabelCell = designerRow.insertCell();
+                designerLabelCell.style.fontWeight = 'bold';
+                designerLabelCell.innerText = 'Дизайнер:';
+                const designerValueCell = designerRow.insertCell();
+                designerValueCell.innerText = designData[4];
+
+                // Отображение статуса оплаты (столбец H листа test)
+                const paymentStatusRow = table.insertRow();
+                const paymentStatusLabelCell = paymentStatusRow.insertCell();
+                paymentStatusLabelCell.style.fontWeight = 'bold';
+                paymentStatusLabelCell.innerText = 'Статус оплаты: ';
+                const paymentStatusValueCell = paymentStatusRow.insertCell();
+                paymentStatusValueCell.innerText = testData[7] || 'Не оплачено'; // Столбец H
+
+                infoDiv.appendChild(table);
+                checkButton.parentElement.appendChild(infoDiv);
+                infoDivCreated = true;
             }
-        });
-    }
+        } else {
+            const errorSpan = document.createElement('span');
+            errorSpan.innerText = 'Информация о продукте не найдена.';
+            errorSpan.style.color = 'red';
+            checkButton.parentElement.appendChild(errorSpan);
+        }
+    });
+}
 
     // Функция для создания кнопки "Заполнить"
     function createFillButton(textarea) {
@@ -3932,10 +3959,10 @@ function hideTopButtonIfRemoteDesigners() {
     if (designerElement && designerElement.textContent.includes('Дизайнеры на удаленке')) {
         // Находим кнопку, содержащую элемент с классом "glyphicon glyphicon-picture"
         const iconElement = document.querySelector('a > .glyphicon.glyphicon-picture');
-        
+
         if (iconElement) {
             const topButtonToRemove = iconElement.parentNode;
-            
+
             if (topButtonToRemove) {
                 topButtonToRemove.remove(); // Удаляем элемент
             }
@@ -3978,7 +4005,7 @@ function hideTopButtonIfRemoteDesigners() {
             }
         }
     }
-      
+
     function observeDOMChanges() {
         const observer = new MutationObserver(async (mutationsList) => {
             for (const mutation of mutationsList) {
@@ -4019,7 +4046,7 @@ function hideTopButtonIfRemoteDesigners() {
 };
 newDesign();
 
-    
+
 function hideDiscounts() {
     'use strict';
 
@@ -4031,7 +4058,7 @@ function hideDiscounts() {
         // Проверяем, существует ли #vmClientForm
         const vmClientForm = document.querySelector("#vmClientForm");
         if (!vmClientForm) {
-            
+
             return;
         }
 
@@ -4046,15 +4073,15 @@ function hideDiscounts() {
             const containsTableText = td.querySelector("table td")?.textContent.trim().toLowerCase().includes("логотип не загружен");
 
             if (containsLogoText && containsTableText) {
-                
-                  
+
+
                 td.style.pointerEvents = "none";
-                
+
                 return; // Прекращаем поиск, так как элемент найден
             }
         }
 
-       
+
     }
 
     // Функция для добавления эффекта белесого блюра на #vmClientForm
@@ -4101,7 +4128,7 @@ function hideDiscounts() {
 
                     // Если текст изменился
                     if (currentText !== previousText) {
-                        
+
                         // Применяем эффект белесого блюра
                         applyWhitishBlurEffect(vmClientForm);
 
@@ -4112,7 +4139,7 @@ function hideDiscounts() {
                         hideTD();
                     }
                 }
-            } 
+            }
         });
     });
 
@@ -4121,7 +4148,7 @@ function hideDiscounts() {
 };
 hideDiscounts();
 
-    
+
 function zoomIzdelia() {
     'use strict';
 
@@ -4306,7 +4333,7 @@ function titleOrder() {
 }
 titleOrder();
 
-    
+
 function dynamicTooltip() {
     'use strict';
 
@@ -4495,7 +4522,7 @@ function dynamicTooltip() {
 }
 
 dynamicTooltip();
-    
+
     // Функция для отображения обратной связи (изменение кнопки)
     function showFeedback(button) {
         button.innerText = 'Done'; // Меняем текст на "Done"
