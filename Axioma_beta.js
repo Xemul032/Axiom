@@ -1,5 +1,5 @@
 // ==UserScript==
-// @name         Проверка заказа 9.4.9
+// @name         Проверка заказа 9.5.0
 // @namespace    http://tampermonkey.net/
 // @version      1.6
 // @description
@@ -19,8 +19,8 @@
 
 (function () {
 
-  //Политика конфиденциальности
-    function confidAgree() {
+   //Политика конфиденциальности
+function confidAgree() {
     'use strict';
 
     let warningButton = null;
@@ -30,100 +30,114 @@
     let elementsDetected = false;
 
     // Добавление стилей
-function injectStyles() {
-    const styleElement = document.createElement('style');
-    styleElement.innerHTML = `
-        .axiom-warning-button {
-            position: fixed;
-            bottom: 0;
-            left: 0;
-            right: 0;
-            height: 50vh;
-            background-color: transparent !important; /* Явное указание фона */
-            color: white !important; /* Явное указание цвета текста */
-            font-size: 24px;
-            border: none !important; /* Убираем границы */
-            cursor: pointer;
-            z-index: 9999;
-            text-align: center;
-            box-shadow: none !important; /* Принудительно убираем тень */
-            outline: none !important; /* Убираем возможный контур при фокусе */
-        }
-        .axiom-warning-button:hover {
-            background-color: transparent !important; /* Остается прозрачным */
-            color: red !important; /* Текст становится красным при наведении */
-            box-shadow: none !important; /* Явное отключение тени при наведении */
-        }
-        .axiom-popup {
-            position: fixed;
-            top: 50%;
-            left: 50%;
-            transform: translate(-50%, -50%);
-            width: 80%;
-            max-width: 600px;
-            background-color: white;
-            padding: 20px;
-            border-radius: 5px;
-            box-shadow: 0 0 10px rgba(0, 0, 0, 0.5);
-            z-index: 10000;
-        }
-        .axiom-popup-header {
-            font-size: 24px;
-            font-weight: bold;
-            margin-bottom: 20px;
-            color: red;
-            text-align: center;
-        }
-        .axiom-popup-content {
-            font-size: 16px;
-            margin-bottom: 20px;
-            text-align: center; /* Центрируем текст */
-        }
-        .axiom-checkbox-container {
-            display: flex !important; /* Обязательно */
-            align-items: center !important; /* Вертикальное выравнивание */
-            justify-content: center !important; /* Горизонтальное центрирование */
-            gap: 10px !important; /* Расстояние между элементами */
-            margin: 20px 0 !important; /* Отступы сверху и снизу */
-        }
-        input[type="checkbox"] {
-            width: 13px; /* Ширина чекбокса */
-            height: 13px; /* Высота чекбокса */
-            accent-color: #aaa; /* Цвет чекбокса (по умолчанию светлосерый) */
-            cursor: pointer; /* Курсор при наведении */
-        }
-        .axiom-agreement-text {
-            font-size: 16px;
-            color: #aaa; /* Светлосерый цвет */
-            white-space: nowrap; /* Запрет переноса текста на новую строку */
-        }
-        .axiom-agreement-text.active {
-            color: black; /* Черный цвет, когда чекбокс активен */
-        }
-        .axiom-ok-button {
-            display: block;
-            margin: 0 auto;
-            padding: 10px 20px;
-            background-color: #4CAF50;
-            color: white;
-            border: none;
-            border-radius: 5px;
-            cursor: pointer;
-            font-size: 16px;
-            opacity: 0.5;
-            pointer-events: none;
-            transition: opacity 0.3s, background-color 0.3s; /* Добавляем плавный переход */
-        }
-        .axiom-ok-button.visible {
-            opacity: 1;
-            pointer-events: auto;
-        }
-        .axiom-ok-button:hover {
-            background-color: #45a049; /* Темнее при наведении */
-        }
-    `;
-    document.head.appendChild(styleElement);
-}
+    function injectStyles() {
+        const styleElement = document.createElement('style');
+        styleElement.innerHTML = `
+            /* Стили для кнопки предупреждения */
+            .axiom-warning-button {
+                position: fixed;
+                bottom: 0;
+                left: 0;
+                right: 0;
+                height: 50vh;
+                background-color: transparent !important;
+                color: white !important;
+                font-size: 24px;
+                border: none !important;
+                cursor: pointer;
+                z-index: 9999;
+                text-align: center;
+                box-shadow: none !important;
+                outline: none !important;
+            }
+            .axiom-warning-button:hover {
+                background-color: transparent !important;
+                color: red !important;
+                box-shadow: none !important;
+            }
+
+            /* Стили для всплывающего окна */
+            .axiom-popup {
+                position: fixed;
+                top: 50%;
+                left: 50%;
+                transform: translate(-50%, -50%);
+                width: 80%;
+                max-width: 600px;
+                background-color: white;
+                padding: 20px;
+                border-radius: 5px;
+                box-shadow: 0 0 10px rgba(0, 0, 0, 0.5);
+                z-index: 10000;
+            }
+            .axiom-popup-header {
+                font-size: 24px;
+                font-weight: bold;
+                margin-bottom: 20px;
+                color: red;
+                text-align: center;
+            }
+            .axiom-popup-content {
+                font-size: 16px;
+                margin-bottom: 20px;
+                text-align: center;
+            }
+
+            /* Стили для чекбокса и текста соглашения */
+            .axiom-checkbox-container {
+                display: flex !important;
+                align-items: center !important;
+                justify-content: center !important;
+                gap: 10px !important;
+                margin: 20px 0 !important;
+            }
+            input[type="checkbox"] {
+                width: 13px;
+                height: 13px;
+                accent-color: #aaa;
+                cursor: pointer;
+            }
+            .axiom-agreement-text {
+                font-size: 16px;
+                color: #aaa;
+                white-space: nowrap;
+            }
+            .axiom-agreement-text.active {
+                color: black;
+            }
+
+            /* Стили для кнопки "Войти" */
+            .axiom-enter-button {
+                display: block;
+                margin: 0 auto;
+                padding: 10px 20px;
+                background-color: #4CAF50;
+                color: white;
+                border: none;
+                border-radius: 5px;
+                cursor: pointer;
+                font-size: 16px;
+                opacity: 0.5;
+                pointer-events: none;
+                transition: opacity 0.3s, background-color 0.3s;
+            }
+            .axiom-enter-button.visible {
+                opacity: 1;
+                pointer-events: auto;
+            }
+            .axiom-enter-button:hover {
+                background-color: #45a049;
+            }
+
+            /* Стили для ссылки на соглашение */
+            .axiom-agreement-link {
+                color: blue;
+                text-decoration: underline;
+                cursor: pointer;
+            }
+        `;
+        document.head.appendChild(styleElement);
+    }
 
     // Создание кнопки предупреждения
     function createWarningButton() {
@@ -143,36 +157,45 @@ function injectStyles() {
         popupElement.className = 'axiom-popup';
         popupElement.innerHTML = `
             <div class="axiom-popup-header">Согласие о конфиденциальности</div>
-            <p class="axiom-popup-content">Вся информация, доступная при входе в систему "Axiom", является конфиденциальной и составляет коммерческую тайну ООО "Линк".</p>
-            <p class="axiom-popup-content"></p>
-            <div class="axiom-checkbox-container">
+            <p class="axiom-popup-content">
+                Вся информация, доступная при входе в систему "Axiom", является конфиденциальной и составляет коммерческую тайну ООО "Линк".
+            </p>
+                        <div class="axiom-checkbox-container">
                 <input type="checkbox" id="axiom-agreement-checkbox">
                 <label for="axiom-agreement-checkbox" class="axiom-agreement-text">С вышеописанным ознакомлен и согласен</label>
             </div>
-            <button id="axiom-ok-button" class="axiom-ok-button">ОК</button>
+            <button id="axiom-enter-button" class="axiom-enter-button">Войти</button>
         `;
         document.body.appendChild(popupElement);
 
         const checkbox = document.getElementById('axiom-agreement-checkbox');
         const agreementText = document.querySelector('.axiom-agreement-text');
-        const okButton = document.getElementById('axiom-ok-button');
+        const enterButton = document.getElementById('axiom-enter-button');
 
-        checkbox.addEventListener('change', function() {
+        // Обработка состояния чекбокса
+        checkbox.addEventListener('change', function () {
             if (this.checked) {
-                agreementText.classList.add('active'); // Установка активного состояния текста
-                okButton.classList.add('visible');
+                agreementText.classList.add('active');
+                enterButton.classList.add('visible');
             } else {
-                agreementText.classList.remove('active'); // Снятие активного состояния текста
-                okButton.classList.remove('visible');
+                agreementText.classList.remove('active');
+                enterButton.classList.remove('visible');
             }
         });
 
-        okButton.addEventListener('click', function() {
-            document.body.removeChild(popupElement);
-            document.body.removeChild(warningButton);
-            popupElement = null;
-            warningButton = null;
-            warningShown = true;
+        // Обработка клика по кнопке "Войти"
+        enterButton.addEventListener('click', function () {
+            if (enterButton.classList.contains('visible')) {
+                const loginButton = document.querySelector("body > table > tbody > tr:nth-child(2) > td > div > form > div > div:nth-child(5) > button");
+                if (loginButton) {
+                    loginButton.click();
+                }
+                document.body.removeChild(popupElement);
+                document.body.removeChild(warningButton);
+                popupElement = null;
+                warningButton = null;
+                warningShown = true;
+            }
         });
     }
 
@@ -254,6 +277,7 @@ function injectStyles() {
         initScript();
     }
 }
+
 confidAgree();
   "use strict";
   let blurOverlay = document.createElement("div");
