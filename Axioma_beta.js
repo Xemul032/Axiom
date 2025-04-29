@@ -1,5 +1,5 @@
 // ==UserScript==
-// @name         Проверка заказа 9.5.0
+// @name         Проверка заказа 9.5.1
 // @namespace    http://tampermonkey.net/
 // @version      1.6
 // @description
@@ -4546,6 +4546,155 @@ function dynamicTooltip() {
 }
 
 dynamicTooltip();
+     function buhToolTip() {
+    'use strict';
+
+    const targetSelector = "#Doc > div.bigform > div:nth-child(2) > div:nth-child(1)";
+    const invoiceTableSelector = "#InvoiceProductList > table";
+    const dangerCellSelector = "td.right.danger";
+
+    // Тексты тултипов
+    const tooltipMessageDanger = "Невозможно выставить документ на некорректный счет. Проверьте суммы или обратитесь в бухгалтерию";
+    const tooltipMessageEmpty = "Невозможно выставить счет без заказов. Добавьте заказы в счет или обратитесь в бухгалтерию";
+
+    let tooltipEl = null;
+
+    // Создаем tooltip
+    function createTooltip() {
+        tooltipEl = document.createElement('div');
+        tooltipEl.textContent = tooltipMessageDanger;
+        tooltipEl.classList.add('custom-tooltip');
+        tooltipEl.style.cssText = `
+            position: fixed;
+            z-index: 9999999;
+            background-color: rgba(0, 0, 0, 0.7);
+            color: white;
+            padding: 10px 14px;
+            border-radius: 6px;
+            max-width: 300px;
+            word-wrap: break-word;
+            font-size: 14px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.3);
+            pointer-events: none;
+            opacity: 0;
+            visibility: hidden;
+            transition: opacity 0.3s ease, visibility 0.3s;
+        `;
+        document.body.appendChild(tooltipEl);
+    }
+
+    // Перемещаем tooltip рядом с курсором
+    function trackMouseMove(e) {
+        if (!tooltipEl) return;
+        tooltipEl.style.left = `${e.clientX + 10}px`;
+        tooltipEl.style.top = `${e.clientY + 10}px`;
+    }
+
+    // Показываем tooltip с анимацией
+    function showTooltip() {
+        if (!tooltipEl) return;
+        tooltipEl.style.visibility = 'visible';
+        tooltipEl.style.opacity = '1';
+    }
+
+    // Скрываем tooltip с задержкой для анимации
+    function hideTooltip() {
+        if (!tooltipEl) return;
+        tooltipEl.style.opacity = '0';
+        setTimeout(() => {
+            tooltipEl.style.visibility = 'hidden';
+        }, 300); // соответствует времени transition
+    }
+
+    // Проверяем состояние таблицы
+    function checkTableState() {
+        const invoiceTable = document.querySelector(invoiceTableSelector);
+        if (!invoiceTable) return null;
+
+        const rows = Array.from(invoiceTable.querySelectorAll("tr")).filter(
+            row => row.children.length > 0
+        );
+
+        const hasDanger = invoiceTable.querySelector(dangerCellSelector);
+
+        if (hasDanger) {
+            return 'danger';
+        } else if (rows.length <= 2) {
+            return 'empty';
+        }
+
+        return null; // Нет ошибок
+    }
+
+    // Проверяем и обновляем поведение
+    function checkAndUpdate() {
+        const element = document.querySelector(targetSelector);
+        if (!element) return;
+
+        const state = checkTableState();
+
+        applyHandlers(element, state);
+    }
+
+    // Навешиваем обработчики событий
+    function applyHandlers(element, state) {
+        // Убираем старые обработчики
+        if (element._tooltipClickListener) {
+            element.removeEventListener('click', element._tooltipClickListener);
+        }
+
+        element._tooltipClickListener = (e) => {
+            if (!state) return; // Нет ошибок — клик работает как обычно
+
+            e.preventDefault();
+            e.stopPropagation();
+
+            // Меняем текст tooltip'а в зависимости от типа ошибки
+            if (state === 'danger') {
+                tooltipEl.textContent = tooltipMessageDanger;
+            } else if (state === 'empty') {
+                tooltipEl.textContent = tooltipMessageEmpty;
+            }
+
+            showTooltip(); // Показываем с анимацией
+        };
+
+        element.addEventListener('click', element._tooltipClickListener);
+
+        // Скрываем tooltip при уходе мыши
+        element.addEventListener('mouseleave', hideTooltip);
+    }
+
+    // Ждём появления целевого элемента
+    function waitForTargetElement(callback, maxAttempts = 50, interval = 200) {
+        let attempts = 0;
+        const timer = setInterval(() => {
+            const element = document.querySelector(targetSelector);
+            if (element) {
+                clearInterval(timer);
+                callback();
+            } else if (attempts++ >= maxAttempts) {
+                clearInterval(timer);
+            }
+        }, interval);
+    }
+
+    // Инициализация
+    createTooltip();
+    document.addEventListener('mousemove', trackMouseMove);
+
+    waitForTargetElement(() => {
+        console.log("🟢 Целевой элемент найден");
+
+        const observer = new MutationObserver(checkAndUpdate);
+        observer.observe(document.body, { childList: true, subtree: true });
+
+        checkAndUpdate(); // Однократная проверка
+        setInterval(checkAndUpdate, 500); // Фоновая проверка
+    });
+}
+
+buhToolTip();
 
     // Функция для отображения обратной связи (изменение кнопки)
     function showFeedback(button) {
