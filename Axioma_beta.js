@@ -1,5 +1,5 @@
 // ==UserScript==
-// @name         Проверка заказа 9.5.3
+// @name         Проверка заказа 9.5.4
 // @namespace    http://tampermonkey.net/
 // @version      1.6
 // @description
@@ -3610,7 +3610,7 @@ closeOldBill();
                 },
                 body: JSON.stringify(data),
             });
-            console.log('Данные успешно отправлены.');
+
             return true;
         } catch (error) {
             console.error('Ошибка отправки данных:', error);
@@ -4645,7 +4645,6 @@ dynamicTooltip();
             if (!upduItem.dataset.tooltipListenerAdded) {
                 // Tooltip
                 upduItem.addEventListener('mouseenter', e => {
-                    console.log("MouseListener: курсор над пунктом \"УПД\"");
                     showTooltip(e.pageX, e.pageY);
                 });
                 upduItem.addEventListener('mouseleave', hideTooltip);
