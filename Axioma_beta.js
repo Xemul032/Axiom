@@ -1423,16 +1423,14 @@ confidAgree();
 
 
 
-    if (
-      bodyText.includes(
-        searchText1 &&
-          searchText2 &&
-          searchText3 &&
-          searchText4 &&
-          searchText5 &&
-          searchText6
-      )
-    ) {
+if (
+  bodyText.includes(searchText1) &&
+  bodyText.includes(searchText2) &&
+  bodyText.includes(searchText3) &&
+  bodyText.includes(searchText4) &&
+  bodyText.includes(searchText5) &&
+  bodyText.includes(searchText6)
+) {
       colorCheck = true;
       let phraseFound = false;
       if (colorCheck === true && count1 < 1) {
