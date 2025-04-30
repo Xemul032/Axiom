@@ -1,5 +1,5 @@
 // ==UserScript==
-// @name         Проверка заказа 9.5.1
+// @name         Проверка заказа 9.5.2
 // @namespace    http://tampermonkey.net/
 // @version      1.6
 // @description
@@ -4547,21 +4547,45 @@ dynamicTooltip();
      function buhToolTip() {
     'use strict';
 
-    const targetSelector = "#Doc > div.bigform > div:nth-child(2) > div:nth-child(1)";
-    const invoiceTableSelector = "#InvoiceProductList > table";
-    const dangerCellSelector = "td.right.danger";
+    // === Внедрение стилей для плавного появления конкретного меню ===
+    function injectStyles() {
+        const style = document.createElement('style');
+        style.textContent = `
+            /* Прячем выпадающее меню по умолчанию */
+            #Doc > div.bigform > div:nth-child(2) > div.btn-group.btn-group-sm.dropdown > ul {
+                display: block;
+                opacity: 0;
+                transform: scaleY(0.95);
+                transform-origin: top;
+                transition: all 0.3s ease;
+                box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+                background-color: white;
+                border: 1px solid #ccc;
+                min-width: 160px;
+                z-index: 9999;
+                position: absolute;
+                margin-top: 4px;
+                pointer-events: none;
+            }
 
-    // Тексты тултипов
-    const tooltipMessageDanger = "Невозможно выставить документ на некорректный счет. Проверьте суммы или обратитесь в бухгалтерию";
-    const tooltipMessageEmpty = "Невозможно выставить счет без заказов. Добавьте заказы в счет или обратитесь в бухгалтерию";
+            /* Класс для анимации появления */
+            #Doc > div.bigform > div:nth-child(2) > div.btn-group.btn-group-sm.dropdown > ul.animate {
+                opacity: 1;
+                transform: scaleY(1);
+                pointer-events: auto;
+            }
+        `;
+        document.head.appendChild(style);
+        console.log("🎨 Внедрены стили для плавного появления конкретного меню");
+    }
 
+    // === Tooltip ===
     let tooltipEl = null;
 
-    // Создаем tooltip
     function createTooltip() {
+        if (tooltipEl) return;
         tooltipEl = document.createElement('div');
-        tooltipEl.textContent = tooltipMessageDanger;
-        tooltipEl.classList.add('custom-tooltip');
+        tooltipEl.innerText = "Невозможно выставить документ на некорректный счет. Устраните ошибки в счете или обратитесь в бухгалтерию.";
         tooltipEl.style.cssText = `
             position: fixed;
             z-index: 9999999;
@@ -4579,117 +4603,169 @@ dynamicTooltip();
             transition: opacity 0.3s ease, visibility 0.3s;
         `;
         document.body.appendChild(tooltipEl);
+        console.log("✅ Tooltip создан");
     }
 
-    // Перемещаем tooltip рядом с курсором
-    function trackMouseMove(e) {
-        if (!tooltipEl) return;
-        tooltipEl.style.left = `${e.clientX + 10}px`;
-        tooltipEl.style.top = `${e.clientY + 10}px`;
-    }
-
-    // Показываем tooltip с анимацией
-    function showTooltip() {
-        if (!tooltipEl) return;
-        tooltipEl.style.visibility = 'visible';
+    function showTooltip(x, y) {
+        if (!tooltipEl) createTooltip();
+        tooltipEl.style.left = `${x + 10}px`;
+        tooltipEl.style.top = `${y + 10}px`;
         tooltipEl.style.opacity = '1';
+        tooltipEl.style.visibility = 'visible';
     }
 
-    // Скрываем tooltip с задержкой для анимации
     function hideTooltip() {
-        if (!tooltipEl) return;
-        tooltipEl.style.opacity = '0';
-        setTimeout(() => {
+        if (tooltipEl) {
+            tooltipEl.style.opacity = '0';
             tooltipEl.style.visibility = 'hidden';
-        }, 300); // соответствует времени transition
+        }
     }
 
-    // Проверяем состояние таблицы
-    function checkTableState() {
-        const invoiceTable = document.querySelector(invoiceTableSelector);
-        if (!invoiceTable) return null;
+    // === Обработка меню ===
+    function processDropdownMenu() {
+        const invoiceList = document.querySelector("#InvoiceProductList");
+        const clientChosen = document.querySelector("#Client_chosen > a");
 
-        const rows = Array.from(invoiceTable.querySelectorAll("tr")).filter(
-            row => row.children.length > 0
-        );
-
-        const hasDanger = invoiceTable.querySelector(dangerCellSelector);
-
-        if (hasDanger) {
-            return 'danger';
-        } else if (rows.length <= 2) {
-            return 'empty';
+        if (!invoiceList) {
+            console.warn("❌ #InvoiceProductList не найден → пропуск обработки");
+            return;
         }
 
-        return null; // Нет ошибок
-    }
+        const actItem = document.querySelector("#Doc > div.bigform > div:nth-child(2) > div.btn-group.btn-group-sm.dropdown.open > ul > li:nth-child(3)");
+        const upduItem = document.querySelector("#Doc > div.bigform > div:nth-child(2) > div.btn-group.btn-group-sm.dropdown.open > ul > li:nth-child(4)");
 
-    // Проверяем и обновляем поведение
-    function checkAndUpdate() {
-        const element = document.querySelector(targetSelector);
-        if (!element) return;
-
-        const state = checkTableState();
-
-        applyHandlers(element, state);
-    }
-
-    // Навешиваем обработчики событий
-    function applyHandlers(element, state) {
-        // Убираем старые обработчики
-        if (element._tooltipClickListener) {
-            element.removeEventListener('click', element._tooltipClickListener);
+        // Скрытие "Акт"
+        if (actItem && actItem.innerText.trim() === "Акт") {
+            actItem.style.display = 'none';
+            console.log("❌ Элемент \"Акт\" скрыт");
+        } else {
+            console.warn("⚠️ Элемент \"Акт\" не найден или текст не совпадает");
         }
 
-        element._tooltipClickListener = (e) => {
-            if (!state) return; // Нет ошибок — клик работает как обычно
+        // Обработка "УПД"
+        if (upduItem && clientChosen) {
+            if (!upduItem.dataset.tooltipListenerAdded) {
+                // Tooltip
+                upduItem.addEventListener('mouseenter', e => {
+                    console.log("MouseListener: курсор над пунктом \"УПД\"");
+                    showTooltip(e.pageX, e.pageY);
+                });
+                upduItem.addEventListener('mouseleave', hideTooltip);
+                upduItem.addEventListener('mousemove', e => {
+                    showTooltip(e.pageX, e.pageY);
+                });
 
-            e.preventDefault();
-            e.stopPropagation();
+                // Блокируем клик по "УПД"
+                const clickBlocker = (e) => {
+                    e.stopPropagation();
+                    e.preventDefault();
+                    console.log("🚫 Клик по \"УПД\" заблокирован");
+                };
+                upduItem.addEventListener('click', clickBlocker);
 
-            // Меняем текст tooltip'а в зависимости от типа ошибки
-            if (state === 'danger') {
-                tooltipEl.textContent = tooltipMessageDanger;
-            } else if (state === 'empty') {
-                tooltipEl.textContent = tooltipMessageEmpty;
+                // === Блокируем само подменю ===
+                const subMenu = upduItem.querySelector('ul.dropdown-menu');
+                if (subMenu) {
+                    subMenu.style.display = 'none'; // Прячем подменю
+                    subMenu.style.pointerEvents = 'none'; // Запрещаем взаимодействие
+
+                    // Убираем класс, чтобы оно не работало как dropdown-submenu
+                    if (subMenu.parentElement?.classList.contains('dropdown-submenu')) {
+                        subMenu.parentElement.classList.remove('dropdown-submenu');
+                        console.log("🧱 Класс dropdown-submenu удалён → подменю больше не открывается");
+                    }
+                }
+
+                upduItem.dataset.tooltipListenerAdded = "true";
+                upduItem.dataset.blocked = "true";
+
+                // Визуальная подсказка
+                upduItem.style.opacity = '0.6';
+                upduItem.style.cursor = 'not-allowed';
+                console.log("🛡️ Клик и раскрытие подменю УПД заблокированы");
             }
-
-            showTooltip(); // Показываем с анимацией
-        };
-
-        element.addEventListener('click', element._tooltipClickListener);
-
-        // Скрываем tooltip при уходе мыши
-        element.addEventListener('mouseleave', hideTooltip);
+        } else {
+            console.warn("⚠️ Условие для \"УПД\" не выполнено: один из элементов отсутствует");
+        }
     }
 
-    // Ждём появления целевого элемента
-    function waitForTargetElement(callback, maxAttempts = 50, interval = 200) {
-        let attempts = 0;
-        const timer = setInterval(() => {
-            const element = document.querySelector(targetSelector);
-            if (element) {
-                clearInterval(timer);
-                callback();
-            } else if (attempts++ >= maxAttempts) {
-                clearInterval(timer);
+    // === Ждём открытия меню и запускаем анимацию ===
+    function waitForDropdownAndProcess() {
+        const dropdown = document.querySelector("#Doc > div.bigform > div:nth-child(2) > div.btn-group.btn-group-sm.dropdown");
+
+        if (dropdown) {
+            const menu = dropdown.querySelector("ul");
+
+            // Открытие меню
+            dropdown.classList.add("open");
+
+            if (menu) {
+                // Сброс предыдущей анимации
+                menu.classList.remove("animate");
+                void menu.offsetWidth; // триггер reflow
+
+                // === СКРЫТИЕ ПУНКТОВ ПРЯМО ПРИ ОТКРЫТИИ ===
+                processDropdownMenu();
+
+                // Анимация
+                setTimeout(() => {
+                    menu.classList.add("animate");
+                }, 0);
             }
-        }, interval);
+
+            // Один раз добавляем обработчик для закрытия при клике вне
+            if (!dropdown.dataset.outsideClickListenerSet) {
+                setupOutsideClickHandler(menu);
+                dropdown.dataset.outsideClickListenerSet = "true";
+            }
+        } else {
+            console.warn("⚠️ Меню не найдено");
+        }
     }
 
-    // Инициализация
-    createTooltip();
-    document.addEventListener('mousemove', trackMouseMove);
+    // === Закрытие меню при клике вне его ===
+    function setupOutsideClickHandler(menuElement) {
+        document.addEventListener("click", function (e) {
+            const dropdown = menuElement.closest(".dropdown");
 
-    waitForTargetElement(() => {
-        console.log("🟢 Целевой элемент найден");
+            // Если клик НЕ по меню и НЕ по кнопке dLabel
+            if (!dropdown.contains(e.target) && !e.target.matches("#dLabel")) {
+                dropdown.classList.remove("open");
+                menuElement.classList.remove("animate"); // Сбрасываем анимацию
+                console.log("❌ Клик вне меню → закрыто");
+            }
+        });
+    }
 
-        const observer = new MutationObserver(checkAndUpdate);
+    // === Наблюдатель за появлением #dLabel ===
+    function observeDLabel() {
+        const observer = new MutationObserver(mutations => {
+            mutations.forEach(() => {
+                const dLabel = document.querySelector("#dLabel");
+
+                if (dLabel && !dLabel.dataset.dLabelListenerAdded) {
+                    console.log("🟢 #dLabel появился → добавляем обработчик клика");
+
+                    dLabel.addEventListener("click", () => {
+                        console.log("🖱️ Клик по #dLabel → ожидание открытия меню...");
+                        setTimeout(waitForDropdownAndProcess, 0);
+                    });
+
+                    dLabel.dataset.dLabelListenerAdded = "true";
+                } else if (!dLabel) {
+                    console.log("❌ #dLabel удален из DOM → сброс состояния");
+                }
+            });
+        });
+
         observer.observe(document.body, { childList: true, subtree: true });
+        console.log("🧩 MutationObserver запущен для отслеживания #dLabel");
+    }
 
-        checkAndUpdate(); // Однократная проверка
-        setInterval(checkAndUpdate, 500); // Фоновая проверка
-    });
+    // === Запуск ===
+    injectStyles();
+    createTooltip();
+    observeDLabel();
 }
 
 buhToolTip();
