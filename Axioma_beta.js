@@ -1,5 +1,5 @@
 // ==UserScript==
-// @name         Проверка заказа 9.5.4
+// @name         Проверка заказа 9.5.5
 // @namespace    http://tampermonkey.net/
 // @version      1.6
 // @description
@@ -4799,6 +4799,487 @@ function lockManager() {
 }
 
 lockManager();
+
+     function notHalfButton() {
+    'use strict';
+
+    const GOOGLE_SHEETS_API_KEY = "AIzaSyD-gPXmq0YOL3WXjQ8jub9g5_xyx2PfOZU";
+    const SPREADSHEET_ID = "1Luf6pGAkIRBZ46HNa95NvoqkffKEZAiFuxBKUwlMSHY";
+    const SHEET_NAME = "notHalf";
+    const APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbxGHhoKoSgdS5_nbtK6HKXo5oJrDyFNVyixNApdjS8HcsFy6w2u4-M7XMJ6d93ik0Yo/exec";
+
+    function checkAndCreateButton() {
+        const topButtons = document.querySelector("#TopButtons");
+        const chatManager = document.querySelector("#ChatManager");
+        const labelForDescription = document.querySelector("#LabelForDescription");
+
+        if (!topButtons) return;
+
+        // Если кнопка уже есть — не делаем ничего
+        if (topButtons.querySelector("button[data-not-half]")) return;
+
+        let showButton = false;
+        let managerNameElement = null;
+        let summaryNameElement = null;
+
+        if (chatManager) {
+            // Сценарий #ChatManager
+            managerNameElement = document.querySelector("body > ul > div > li:nth-child(1) > a");
+            summaryNameElement = document.querySelector("#Summary > table > tbody > tr > td:nth-child(1) > table.table.table-condensed.table-striped > tbody:nth-child(1) > tr:nth-child(1) > td:nth-child(2) > div > a > span");
+
+            if (managerNameElement && summaryNameElement) {
+                const managerText = managerNameElement.textContent.trim(); // Фамилия Имя
+                const summaryText = summaryNameElement.textContent.trim(); // Имя Отчество Фамилия
+
+                const managerSurname = managerText.split(" ")[0];
+                const summaryParts = summaryText.split(" ");
+                const summarySurname = summaryParts[summaryParts.length - 1];
+
+                showButton = managerSurname === summarySurname;
+            }
+
+        } else if (labelForDescription) {
+            // Сценарий #LabelForDescription
+            managerNameElement = document.querySelector("#Manager_chosen > a > span"); // Имя Фамилия
+            summaryNameElement = document.querySelector("body > ul > div > li:nth-child(1) > a"); // Фамилия Имя
+
+            if (managerNameElement && summaryNameElement) {
+                const managerText = managerNameElement.textContent.trim();
+                const summaryText = summaryNameElement.textContent.trim();
+
+                const managerSurname = managerText.split(" ")[1];
+                const summarySurname = summaryText.split(" ")[0];
+
+
+                showButton = managerSurname === summarySurname;
+            }
+        }
+
+        if (!showButton) {
+            return;
+        }
+
+        const productId = gs_processProductId();
+        if (productId) {
+            createNotHalfButton();
+        }
+    }
+
+    function gs_processProductId() {
+        if (document.querySelector("#LabelForDescription")) {
+            const productIdElement = document.querySelector("#Doc > div.form-group > div > div > span:nth-child(1)");
+            return productIdElement ? productIdElement.textContent.trim() : null;
+        } else {
+            const productIdElement = document.querySelector("#ProductId");
+            return productIdElement ? productIdElement.textContent.trim() : null;
+        }
+    }
+
+    function createNotHalfButton() {
+        const topButtons = document.querySelector("#TopButtons");
+        const button = document.createElement("button");
+        button.setAttribute("data-not-half", "true");
+        button.style.cssText = `
+            -webkit-text-size-adjust: 100%;
+            -webkit-tap-highlight-color: rgba(0,0,0,0);
+            font-family: "Helvetica Neue", Helvetica, Arial, sans-serif;
+            border-spacing: 0;
+            border-collapse: collapse;
+            box-sizing: border-box;
+            text-decoration: none;
+            display: inline-block;
+            margin-bottom: 0;
+            font-weight: 400;
+            text-align: center;
+            white-space: nowrap;
+            vertical-align: middle;
+            touch-action: manipulation;
+            cursor: pointer;
+            user-select: none;
+            border: 1px solid transparent;
+            color: #333;
+            background-color: #fff;
+            box-shadow: inset 0 1px 0 rgba(255,255,255,.15), 0 1px 1px rgba(0,0,0,.075);
+            text-shadow: 0 1px 0 #fff;
+            background-image: linear-gradient(to bottom, #fff 0, #e0e0e0 100%);
+            background-repeat: repeat-x;
+            border-color: #ccc;
+            padding: 5px 10px;
+            font-size: 12px;
+            line-height: 1.5;
+            position: relative;
+            float: left;
+            margin-left: 0;
+            border-radius: 0;
+        `;
+        button.textContent = "Не пополам";
+        button.addEventListener("mousedown", () => {
+            button.style.border = "1px solid black";
+        });
+        button.addEventListener("mouseup", () => {
+            button.style.border = "none";
+        });
+        button.addEventListener("click", showPercentageModal);
+        topButtons.appendChild(button);
+    }
+
+    function createActionButton(text, bgColor, isSpecial = false) {
+        const button = document.createElement("button");
+        button.textContent = text;
+        let commonStyles = `
+            width: 100%;
+            padding: 10px;
+            margin-top: 10px;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 14px;
+            transition: background-color 0.3s;
+            box-sizing: border-box;
+        `;
+        if (isSpecial === "allToMe") {
+            button.style.cssText = `
+                ${commonStyles}
+                color: #333;
+                background-image: linear-gradient(to bottom, #f0fff0 0, #d0ecd0 100%);
+                background-repeat: repeat-x;
+                box-shadow: inset 0 1px 0 rgba(255,255,255,.15), 0 1px 1px rgba(0,0,0,.075);
+                text-shadow: 0 1px 0 #fff;
+                border-color: #ccc;
+            `;
+        } else if (isSpecial === "allToOther") {
+            button.style.cssText = `
+                ${commonStyles}
+                color: #333;
+                background-image: linear-gradient(to bottom, #faebd7 0, #e0d3b5 100%);
+                background-repeat: repeat-x;
+                box-shadow: inset 0 1px 0 rgba(255,255,255,.15), 0 1px 1px rgba(0,0,0,.075);
+                text-shadow: 0 1px 0 #fff;
+                border-color: #ccc;
+            `;
+        } else if (bgColor === "red") {
+            button.style.cssText = `
+                ${commonStyles}
+                color: white;
+                background-color: red;
+            `;
+        } else {
+            button.style.cssText = `
+                ${commonStyles}
+                color: #333;
+                background-color: #fff;
+                box-shadow: inset 0 1px 0 rgba(255,255,255,.15), 0 1px 1px rgba(0,0,0,.075);
+                text-shadow: 0 1px 0 #fff;
+                background-image: linear-gradient(to bottom, #fff 0, #e0e0e0 100%);
+                background-repeat: repeat-x;
+                border-color: #ccc;
+            `;
+        }
+        button.addEventListener("mousedown", () => {
+            button.style.border = "1px solid black";
+        });
+        button.addEventListener("mouseup", () => {
+            button.style.border = "none";
+        });
+        return button;
+    }
+
+    function showPercentageModal() {
+        const productId = gs_processProductId();
+        if (!productId) {
+            alert("Не удалось получить ProductId!");
+            return;
+        }
+        const loadingPopup = createLoadingPopup();
+        document.body.appendChild(loadingPopup);
+        let dotCount = 0;
+        const dotInterval = setInterval(() => {
+            dotCount = (dotCount + 1) % 4;
+            loadingPopup.querySelector(".loading-message").textContent = `Проверка${".".repeat(dotCount)}`;
+        }, 300);
+        checkIfProductIdExists(productId)
+            .then((exists) => {
+                clearInterval(dotInterval);
+                loadingPopup.remove();
+                if (exists) {
+                    showInfoPopup("Данные уже внесены!", "red");
+                    return;
+                }
+                const popup = document.createElement("div");
+                popup.style.position = "fixed";
+                popup.style.top = "50%";
+                popup.style.left = "50%";
+                popup.style.transform = "translate(-50%, -50%)";
+                popup.style.padding = "20px";
+                popup.style.backgroundColor = "#f9f9f9";
+                popup.style.border = "1px solid #ddd";
+                popup.style.borderRadius = "8px";
+                popup.style.boxShadow = "0 4px 6px rgba(0, 0, 0, 0.1)";
+                popup.style.zIndex = "1000";
+                popup.style.width = "300px";
+                const title = document.createElement("div");
+                title.textContent = "Выберите действие:";
+                title.style.fontWeight = "bold";
+                title.style.textAlign = "center";
+                title.style.marginBottom = "15px";
+                title.style.fontSize = "16px";
+                popup.appendChild(title);
+                const buttonAllToMe = createActionButton("Вся премия мне", null, "allToMe");
+                buttonAllToMe.addEventListener("click", () => handleAutoSend(popup, 100, 0));
+                popup.appendChild(buttonAllToMe);
+                const buttonAllToOther = createActionButton("Вся премия другому менеджеру", null, "allToOther");
+                buttonAllToOther.addEventListener("click", () => handleAutoSend(popup, 0, 100));
+                popup.appendChild(buttonAllToOther);
+                const buttonManual = createActionButton("Указать кому сколько вручную");
+                buttonManual.addEventListener("click", () => {
+                    popup.remove();
+                    showManualInputPopup();
+                });
+                popup.appendChild(buttonManual);
+                const buttonClose = createActionButton("Закрыть", "red");
+                buttonClose.addEventListener("click", () => popup.remove());
+                popup.appendChild(buttonClose);
+                document.body.appendChild(popup);
+            })
+            .catch((error) => {
+                clearInterval(dotInterval);
+                loadingPopup.remove();
+                console.error("Error:", error);
+                showInfoPopup("Ошибка при проверке данных", "red");
+            });
+    }
+
+    function handleAutoSend(popup, managerPercentage, remainingPercentage) {
+        const productId = gs_processProductId();
+        if (!productId) {
+            alert("Не удалось получить ProductId!");
+            return;
+        }
+        popup.remove();
+        const loadingPopup = createLoadingPopup();
+        document.body.appendChild(loadingPopup);
+        let dotCount = 0;
+        const dotInterval = setInterval(() => {
+            dotCount = (dotCount + 1) % 4;
+            loadingPopup.querySelector(".loading-message").textContent = `Загрузка${".".repeat(dotCount)}`;
+        }, 300);
+        checkIfProductIdExists(productId)
+            .then((exists) => {
+                if (exists) {
+                    clearInterval(dotInterval);
+                    loadingPopup.remove();
+                    showInfoPopup("Данные уже внесены!", "red");
+                } else {
+                    return sendToGoogleAppsScript(productId, `${managerPercentage}%`, `${remainingPercentage}%`)
+                        .then(() => {
+                            clearInterval(dotInterval);
+                            loadingPopup.remove();
+                            showInfoPopup("Данные успешно отправлены!", "green");
+                        })
+                        .catch((error) => {
+                            clearInterval(dotInterval);
+                            loadingPopup.remove();
+                            console.error("Error:", error);
+                            showInfoPopup("Ошибка при отправке данных", "red");
+                        });
+                }
+            })
+            .catch((error) => {
+                clearInterval(dotInterval);
+                loadingPopup.remove();
+                console.error("Error:", error);
+                showInfoPopup("Ошибка при проверке данных", "red");
+            });
+    }
+
+    function showManualInputPopup() {
+        const popup = document.createElement("div");
+        popup.style.position = "fixed";
+        popup.style.top = "50%";
+        popup.style.left = "50%";
+        popup.style.transform = "translate(-50%, -50%)";
+        popup.style.padding = "20px";
+        popup.style.backgroundColor = "#f9f9f9";
+        popup.style.border = "1px solid #ddd";
+        popup.style.borderRadius = "8px";
+        popup.style.boxShadow = "0 4px 6px rgba(0, 0, 0, 0.1)";
+        popup.style.zIndex = "1000";
+        popup.style.width = "300px";
+        const percentageLabel = document.createElement("label");
+        percentageLabel.innerText = "Процент премии мне";
+        percentageLabel.style.display = "block";
+        percentageLabel.style.marginBottom = "5px";
+        percentageLabel.style.fontWeight = "bold";
+        percentageLabel.style.textAlign = "center";
+        popup.appendChild(percentageLabel);
+        const percentageInput = document.createElement("input");
+        percentageInput.type = "text";
+        percentageInput.value = "50";
+        percentageInput.style.width = "100%";
+        percentageInput.style.padding = "10px";
+        percentageInput.style.marginTop = "10px";
+        percentageInput.style.marginBottom = "10px";
+        percentageInput.style.border = "1px solid #ccc";
+        percentageInput.style.borderRadius = "4px";
+        percentageInput.style.boxSizing = "border-box";
+        percentageInput.style.textAlign = "center";
+        popup.appendChild(percentageInput);
+        const okButton = createActionButton("OK");
+        okButton.addEventListener("click", () => handleOk(popup, percentageInput.value));
+        popup.appendChild(okButton);
+        const backButton = createActionButton("Назад", "red");
+        backButton.addEventListener("click", () => {
+            popup.remove();
+            showPercentageModal();
+        });
+        popup.appendChild(backButton);
+        document.body.appendChild(popup);
+    }
+
+    function handleOk(popup, percentageInput) {
+        const productId = gs_processProductId();
+        if (!productId) {
+            alert("Не удалось получить ProductId!");
+            return;
+        }
+        const percentage = parseFloat(percentageInput.replace(/%/g, ""));
+        if (isNaN(percentage) || percentage < 0 || percentage > 100) {
+            alert("Неверное значение процента!");
+            return;
+        }
+        popup.remove();
+        const loadingPopup = createLoadingPopup();
+        document.body.appendChild(loadingPopup);
+        let dotCount = 0;
+        const dotInterval = setInterval(() => {
+            dotCount = (dotCount + 1) % 4;
+            loadingPopup.querySelector(".loading-message").textContent = `Загрузка${".".repeat(dotCount)}`;
+        }, 300);
+        checkIfProductIdExists(productId)
+            .then((exists) => {
+                if (exists) {
+                    clearInterval(dotInterval);
+                    loadingPopup.remove();
+                    showInfoPopup("Данные уже внесены!", "red");
+                } else {
+                    return sendToGoogleAppsScript(productId, `${percentage}%`, `${(100 - percentage)}%`)
+                        .then(() => {
+                            clearInterval(dotInterval);
+                            loadingPopup.remove();
+                            showInfoPopup("Данные успешно отправлены!", "green");
+                        })
+                        .catch((error) => {
+                            clearInterval(dotInterval);
+                            loadingPopup.remove();
+                            console.error("Error:", error);
+                            showInfoPopup("Ошибка при отправке данных", "red");
+                        });
+                }
+            })
+            .catch((error) => {
+                clearInterval(dotInterval);
+                loadingPopup.remove();
+                console.error("Error:", error);
+                showInfoPopup("Ошибка при проверке данных", "red");
+            });
+    }
+
+    function createLoadingPopup() {
+        const popup = document.createElement("div");
+        popup.style.position = "fixed";
+        popup.style.top = "50%";
+        popup.style.left = "50%";
+        popup.style.transform = "translate(-50%, -50%)";
+        popup.style.padding = "20px";
+        popup.style.backgroundColor = "#f9f9f9";
+        popup.style.border = "1px solid #ddd";
+        popup.style.borderRadius = "8px";
+        popup.style.boxShadow = "0 4px 6px rgba(0, 0, 0, 0.1)";
+        popup.style.zIndex = "1000";
+        const message = document.createElement("div");
+        message.className = "loading-message";
+        message.style.textAlign = "center";
+        message.style.fontWeight = "bold";
+        message.style.color = "grey";
+        message.textContent = "Загрузка";
+        popup.appendChild(message);
+        document.body.appendChild(popup);
+        return popup;
+    }
+
+    function showInfoPopup(messageText, color) {
+        const popup = document.createElement("div");
+        popup.style.position = "fixed";
+        popup.style.top = "50%";
+        popup.style.left = "50%";
+        popup.style.transform = "translate(-50%, -50%)";
+        popup.style.padding = "20px";
+        popup.style.backgroundColor = "#f9f9f9";
+        popup.style.border = "1px solid #ddd";
+        popup.style.borderRadius = "8px";
+        popup.style.boxShadow = "0 4px 6px rgba(0, 0, 0, 0.1)";
+        popup.style.zIndex = "1000";
+        const message = document.createElement("div");
+        message.style.textAlign = "center";
+        message.style.fontWeight = "bold";
+        message.style.color = color;
+        message.textContent = messageText;
+        popup.appendChild(message);
+        document.body.appendChild(popup);
+        setTimeout(() => popup.remove(), 2500);
+    }
+
+    function checkIfProductIdExists(productId) {
+        return new Promise((resolve, reject) => {
+            const url = `https://sheets.googleapis.com/v4/spreadsheets/${SPREADSHEET_ID}/values/${encodeURIComponent(SHEET_NAME)}?key=${GOOGLE_SHEETS_API_KEY}`;
+            GM_xmlhttpRequest({
+                method: "GET",
+                url,
+                onload: function (response) {
+                    try {
+                        const data = JSON.parse(response.responseText);
+                        const values = data.values || [];
+                        const exists = values.some(row => row[0] === productId);
+                        resolve(exists);
+                    } catch (error) {
+                        reject(new Error("Failed to parse response"));
+                    }
+                },
+                onerror: function (error) {
+                    reject(error);
+                }
+            });
+        });
+    }
+
+    function sendToGoogleAppsScript(productId, managerPercentage, remainingPercentage) {
+        return new Promise((resolve, reject) => {
+            const url = `${APPS_SCRIPT_URL}?sheet=notHalf&action=append&productId=${encodeURIComponent(productId)}&managerPercentage=${encodeURIComponent(managerPercentage)}&remainingPercentage=${encodeURIComponent(remainingPercentage)}`;
+            GM_xmlhttpRequest({
+                method: "POST",
+                url,
+                headers: { "Content-Type": "application/json" },
+                onload: function (response) {
+                    if (response.status === 200 && response.responseText === "success") {
+                        resolve();
+                    } else {
+                        reject(new Error(`Server error: ${response.status}, ${response.responseText}`));
+                    }
+                },
+                onerror: function (error) {
+                    reject(error);
+                }
+            });
+        });
+    }
+
+    const observer = new MutationObserver(checkAndCreateButton);
+    observer.observe(document.body, { childList: true, subtree: true });
+
+    checkAndCreateButton();
+}
+
+notHalfButton();
 
     // Функция для отображения обратной связи (изменение кнопки)
     function showFeedback(button) {
