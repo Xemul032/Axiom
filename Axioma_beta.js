@@ -1,5 +1,5 @@
 // ==UserScript==
-// @name         Проверка заказа 9.5.5
+// @name         Проверка заказа 9.5.6
 // @namespace    http://tampermonkey.net/
 // @version      1.6
 // @description
@@ -5035,7 +5035,7 @@ lockManager();
                     popup.remove();
                     showManualInputPopup();
                 });
-                popup.appendChild(buttonManual);
+                //popup.appendChild(buttonManual);
                 const buttonClose = createActionButton("Закрыть", "red");
                 buttonClose.addEventListener("click", () => popup.remove());
                 popup.appendChild(buttonClose);
