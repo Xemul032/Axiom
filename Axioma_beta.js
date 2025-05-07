@@ -1,5 +1,5 @@
 // ==UserScript==
-// @name         Проверка заказа 9.5.6
+// @name         Проверка заказа 9.5.7
 // @namespace    http://tampermonkey.net/
 // @version      1.6
 // @description
@@ -4766,36 +4766,202 @@ buhToolTip();
 function lockManager() {
     'use strict';
 
-    // CSS-селектор для отслеживаемого элемента
-    const selector = "#Summary > table > tbody > tr > td:nth-child(1) > table.table.table-condensed.table-striped > tbody:nth-child(1) > tr:nth-child(1) > td:nth-child(2) > div";
+    // Основной селектор элемента, который всегда блокируем
+    const selector1 = "#Summary > table > tbody > tr > td:nth-child(1) > table.table.table-condensed.table-striped > tbody:nth-child(1) > tr:nth-child(1) > td:nth-child(2) > div";
 
-    // Функция, которая проверяет наличие элемента и блокирует его
-    function blockElement() {
-        const target = document.querySelector(selector);
-        if (target) {
-            // Устанавливаем стили и атрибуты для полной блокировки взаимодействия
-            target.style.pointerEvents = 'none'; // запрещает клики
-            target.style.userSelect = 'none';    // запрещает выделение
-            target.style.opacity = '0.6';        // визуальная индикация блокировки
+    // Селектор поля с названием "Договор №"
+    const contractInputSelector = "#Top > form > div > div > div > input.ProductName.form-control";
 
-            // Не останавливаем наблюдение, если элемент может исчезать и появляться снова
+    // Селекторы элементов, которые нужно заблокировать при наличии "Договор №"
+    const selector2 = "#Summary > table > tbody > tr > td:nth-child(1) > table.table.table-condensed.table-striped > tbody:nth-child(1) > tr:nth-child(2) > td:nth-child(2) > div";
+    const selector3 = "#Summary > table > tbody > tr > td:nth-child(1) > table.table.table-condensed.table-striped > tbody:nth-child(3) > tr:nth-child(4) > td:nth-child(2) > table > tbody > tr > td:nth-child(1) > div";
+
+
+    // Храним текущий тултип, чтобы можно было его удалить
+    let currentTooltip = null;
+
+    // Вспомогательная функция: получает длительность transition у элемента
+    function getTransitionDuration(element) {
+        const style = window.getComputedStyle(element);
+        const duration = style.transitionDuration || style.webkitTransitionDuration || '0s';
+        const seconds = parseFloat(duration.replace('s', ''));
+        return isNaN(seconds) ? 0 : seconds * 1000;
+    }
+
+    // Функция для создания тултипа
+    function showTooltip(anchor, message) {
+        // Если уже есть активный тултип — убираем его плавно
+        if (currentTooltip && currentTooltip.parentNode) {
+            currentTooltip.style.opacity = '0';
+            setTimeout(() => {
+                if (currentTooltip && currentTooltip.parentNode) {
+                    currentTooltip.remove();
+                }
+                currentTooltip = null;
+            }, getTransitionDuration(currentTooltip));
+        }
+
+        const tooltip = document.createElement('div');
+        tooltip.textContent = message;
+
+        tooltip.style.position = 'absolute';
+        tooltip.style.backgroundColor = 'rgba(0, 0, 0, 0.5)';
+        tooltip.style.color = 'white';
+        tooltip.style.padding = '5px 10px';
+        tooltip.style.borderRadius = '5px';
+        tooltip.style.zIndex = '10000';
+        tooltip.style.opacity = '0';
+        tooltip.style.transition = 'opacity 0.3s ease';
+        tooltip.style.maxWidth = `${window.innerWidth * 0.3}px`;
+        tooltip.style.wordWrap = 'break-word';
+        tooltip.style.whiteSpace = 'normal';
+        tooltip.style.textAlign = 'center';
+
+        // Позиционирование
+        const rect = anchor.getBoundingClientRect();
+        tooltip.style.left = `${rect.left + window.scrollX}px`;
+        tooltip.style.top = `${rect.bottom + window.scrollY}px`;
+
+        document.body.appendChild(tooltip);
+
+        // Плавное появление
+        setTimeout(() => {
+            tooltip.style.opacity = '1';
+        }, 10);
+
+        // Убираем тултип плавно при уходе мыши с него
+        tooltip.addEventListener('mouseleave', () => {
+            tooltip.style.opacity = '0';
+            setTimeout(() => {
+                if (tooltip && tooltip.parentNode) {
+                    tooltip.remove();
+                }
+                if (currentTooltip === tooltip) {
+                    currentTooltip = null;
+                }
+            }, getTransitionDuration(tooltip));
+        });
+
+        // Сохраняем ссылку на текущий тултип
+        currentTooltip = tooltip;
+    }
+
+    // Создание overlay для отлова событий мыши на заблокированном элементе
+    function createOverlayFor(element) {
+        if (!element || element.overlayAttached) return;
+
+        const rect = element.getBoundingClientRect();
+
+        const overlay = document.createElement('div');
+        overlay.style.position = 'absolute';
+        overlay.style.left = `${rect.left}px`;
+        overlay.style.top = `${rect.top}px`;
+        overlay.style.width = `${rect.width}px`;
+        overlay.style.height = `${rect.height}px`;
+        overlay.style.pointerEvents = 'auto';
+        overlay.style.zIndex = '9999';
+        overlay.style.opacity = '0';
+        overlay.style.transition = 'opacity 0.3s ease';
+
+        document.body.appendChild(overlay);
+        element.overlayAttached = true;
+
+        // При наведении показываем тултип (только для selector2 и selector3)
+        overlay.addEventListener('mouseenter', () => {
+            if (element === document.querySelector(selector3)) {
+                // Для selector3 всегда показываем тултип
+                showTooltip(
+                    overlay,
+                    "Данный заказ привязан к договору — нельзя сменить заказчика, юр лицо. Для решения вопроса подойдите к коммерческому директору"
+                );
+            } else if (element === document.querySelector(selector2)) {
+                // Для selector2 проверяем наличие текста "Было списано"
+                const target2 = document.querySelector(selector2);
+                if (target2 && !target2.textContent.includes("Было списано")) {
+                    showTooltip(
+                        overlay,
+                        "Данный заказ привязан к договору — нельзя сменить заказчика, юр лицо. Для решения вопроса подойдите к коммерческому директору"
+                    );
+                }
+            }
+        });
+
+        // При уходе курсора убираем тултип
+        overlay.addEventListener('mouseleave', () => {
+            if (currentTooltip && currentTooltip.parentNode) {
+                currentTooltip.style.opacity = '0';
+                setTimeout(() => {
+                    if (currentTooltip && currentTooltip.parentNode) {
+                        currentTooltip.remove();
+                    }
+                    currentTooltip = null;
+                }, getTransitionDuration(currentTooltip));
+            }
+        });
+
+        // Обновление позиции при изменении размеров окна или скролле
+        const updatePosition = () => {
+            const newRect = element.getBoundingClientRect();
+            overlay.style.left = `${newRect.left}px`;
+            overlay.style.top = `${newRect.top}px`;
+            overlay.style.width = `${newRect.width}px`;
+            overlay.style.height = `${newRect.height}px`;
+        };
+
+        window.addEventListener('resize', updatePosition);
+        window.addEventListener('scroll', updatePosition);
+    }
+
+    // Функция блокировки одного элемента
+    function blockElement(element) {
+        if (!element || element.blocked) return;
+
+        element.blocked = true;
+
+        // Блокируем взаимодействие
+        element.style.pointerEvents = 'none';
+        element.style.userSelect = 'none';
+        element.style.opacity = '0.6';
+
+        // Добавляем overlay для показа тултипа при наведении
+        createOverlayFor(element);
+
+        // Рекурсивно блокируем все дочерние элементы
+        const children = element.querySelectorAll('*');
+        children.forEach(child => {
+            child.style.pointerEvents = 'none';
+            child.style.userSelect = 'none';
+        });
+    }
+
+    // Основная проверка и блокировка
+    function checkAndBlockElements() {
+        // Блокировка первого элемента
+        const target1 = document.querySelector(selector1);
+        if (target1) {
+            blockElement(target1);
+        }
+
+        // Проверяем наличие текста "Договор №"
+        const contractInput = document.querySelector(contractInputSelector);
+        if (contractInput && contractInput.value.includes("Договор №")) {
+            const target2 = document.querySelector(selector2);
+            const target3 = document.querySelector(selector3);
+
+            blockElement(target2);
+            blockElement(target3);
         }
     }
 
     // Наблюдатель за изменениями в DOM
-    const observer = new MutationObserver(() => {
-        blockElement();
-    });
-
-    // Начинаем наблюдать за DOM
+    const observer = new MutationObserver(checkAndBlockElements);
     observer.observe(document.body, {
         childList: true,
         subtree: true
     });
 
-    // Проверяем сразу на случай, если элемент уже существует
-    blockElement();
-
+    // Первоначальный запуск проверки
+    checkAndBlockElements();
 }
 
 lockManager();
