@@ -1,5 +1,5 @@
 // ==UserScript==
-// @name         Проверка заказа 9.5.9
+// @name         Проверка заказа 9.6.0
 // @namespace    http://tampermonkey.net/
 // @version      1.6
 // @description
@@ -440,16 +440,9 @@ function lockManager() {
                 btnToRemove.remove();
             }
 
-            // Скрытие строки TimeFilesInfo
-            const rowToHide = document.querySelector(timeFilesRow);
-            if (rowToHide) {
-                rowToHide.style.display = 'none';
-            }
-
             // Проверка PaySchemaIcon и добавление фин.стопа
             const image = document.querySelector(paySchemaImage);
             const container = document.querySelector("#Summary > table > tbody > tr > td:nth-child(2) > table > tbody");
-
             if (image) {
                 const oldWorkBtn = document.getElementById('workWithFilesBtn');
                 if (oldWorkBtn) oldWorkBtn.remove();
@@ -538,13 +531,24 @@ function lockManager() {
                 }
             }
 
-            // 🔥 Добавленная логика: показываем строку TimeFilesInfo при наличии кнопки #workWithFilesBtn
-            const workWithFilesBtn = document.querySelector("#workWithFilesBtn");
+            // Новая логика: показываем TimeFilesInfo при наличии кнопки или отсутствии payschema-1.png и наличии текста в истории
             const rowToShow = document.querySelector(timeFilesRow);
-            if (workWithFilesBtn && rowToShow) {
-                rowToShow.style.display = '';
-            }
+            if (rowToShow) {
+                const hasWorkButton = !!document.querySelector("#workWithFilesBtn");
 
+                // Условие 1: нет paySchemaImage
+                const paySchemaExists = !!document.querySelector(paySchemaImage);
+
+                // Условие 2: в истории есть nobr с текстом
+                const historyConditionEl = document.querySelector("#History > table:nth-child(1) > tbody > tr:nth-child(3) > td.right.bold");
+                const hasHistoryText = historyConditionEl && historyConditionEl.querySelector('nobr')?.textContent.trim() !== '';
+
+                if (hasWorkButton || (!paySchemaExists && hasHistoryText)) {
+                    rowToShow.style.display = ''; // показываем строку
+                } else {
+                    rowToShow.style.display = 'none'; // скрываем
+                }
+            }
         } catch (e) {
             // Игнорируем ошибки
         } finally {
@@ -560,6 +564,8 @@ function lockManager() {
     checkAndBlockElements();
 }
 lockManager();
+
+
   "use strict";
   let blurOverlay = document.createElement("div");
   blurOverlay.id = "Spinner";
