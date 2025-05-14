@@ -1,5 +1,5 @@
 // ==UserScript==
-// @name         Проверка заказа 9.5.7
+// @name         Проверка заказа 9.5.8
 // @namespace    http://tampermonkey.net/
 // @version      1.6
 // @description
@@ -279,6 +279,312 @@ function confidAgree() {
 }
 
 confidAgree();
+
+function lockManager() {
+    'use strict';
+
+    // Основные селекторы для блокировки
+    const selector1 = "#Summary > table > tbody > tr > td:nth-child(1) > table.table.table-condensed.table-striped > tbody:nth-child(1) > tr:nth-child(1) > td:nth-child(2) > div";
+    const contractInputSelector = "#Top > form > div > div > div > input.ProductName.form-control";
+    const selector2 = "#Summary > table > tbody > tr > td:nth-child(1) > table.table.table-condensed.table-striped > tbody:nth-child(1) > tr:nth-child(2) > td:nth-child(2) > div";
+    const selector3 = "#Summary > table > tbody > tr > td:nth-child(1) > table.table.table-condensed.table-striped > tbody:nth-child(3) > tr:nth-child(4) > td:nth-child(2) > table > tbody > tr > td:nth-child(1) > div";
+
+    // Селекторы для новых действий
+    const buttonToRemove = "#Summary > table > tbody > tr > td:nth-child(1) > div.right > div > button:nth-child(2)";
+    const timeFilesRow = "#Summary > table > tbody > tr > td:nth-child(2) > table > tbody > tr.TimeFilesInfo";
+    const paySchemaImage = "#Top > form > div > div > div > span:nth-child(2) > span.PaySchemaIcon > img";
+    const hiddenButtonInRow = "#Summary > table > tbody > tr > td:nth-child(2) > table > tbody > tr.TimeFilesInfo > td.right > button";
+    const triggerButtonSelector = "#Summary > table > tbody > tr > td:nth-child(1) > div.right > div > button"; // "Запущен в работу"
+    const rightContainerSelector = "#Summary > table > tbody > tr > td:nth-child(1) > div.right";
+    const regButtonSelector = "#RegButton"; // новое условие
+    const hideConditionSelector = "#History > table:nth-child(1) > tbody > tr:nth-child(4) > td.right.bold"; // если <nobr> не пустой → кнопка пропадает
+
+    let currentTooltip = null;
+    let tooltipTimeout = null;
+    let isChecking = false;
+
+    function getTransitionDuration(element) {
+        const style = window.getComputedStyle(element);
+        const duration = style.transitionDuration || style.webkitTransitionDuration || '0s';
+        return isNaN(parseFloat(duration.replace('s', ''))) ? 0 : parseFloat(duration.replace('s', '')) * 1000;
+    }
+
+    function showTooltip(anchor, message) {
+        if (currentTooltip && currentTooltip.parentNode) {
+            clearTimeout(tooltipTimeout);
+            currentTooltip.style.opacity = '0';
+            setTimeout(() => {
+                if (currentTooltip && currentTooltip.parentNode) {
+                    currentTooltip.remove();
+                }
+            }, getTransitionDuration(currentTooltip));
+        }
+
+        const tooltip = document.createElement('div');
+        tooltip.textContent = message;
+        tooltip.style.position = 'absolute';
+        tooltip.style.backgroundColor = 'rgba(0, 0, 0, 0.5)';
+        tooltip.style.color = 'white';
+        tooltip.style.padding = '5px 10px';
+        tooltip.style.borderRadius = '5px';
+        tooltip.style.zIndex = '10000';
+        tooltip.style.opacity = '0';
+        tooltip.style.transition = 'opacity 0.3s ease';
+        tooltip.style.maxWidth = `${window.innerWidth * 0.3}px`;
+        tooltip.style.wordWrap = 'break-word';
+        tooltip.style.whiteSpace = 'normal';
+        tooltip.style.textAlign = 'center';
+
+        const rect = anchor.getBoundingClientRect();
+        tooltip.style.left = `${rect.left + window.scrollX}px`;
+        tooltip.style.top = `${rect.bottom + window.scrollY}px`;
+
+        document.body.appendChild(tooltip);
+
+        setTimeout(() => {
+            tooltip.style.opacity = '1';
+        }, 10);
+
+        // Убираем tooltip после 3 секунд
+        tooltipTimeout = setTimeout(() => {
+            tooltip.style.opacity = '0';
+            setTimeout(() => {
+                if (tooltip === currentTooltip && tooltip.parentNode) {
+                    tooltip.remove();
+                }
+                currentTooltip = null;
+            }, getTransitionDuration(tooltip));
+        }, 3000);
+
+        currentTooltip = tooltip;
+    }
+
+    function createOverlayFor(element) {
+        if (!element || element.overlayAttached) return;
+
+        const rect = element.getBoundingClientRect();
+
+        const overlay = document.createElement('div');
+        overlay.style.position = 'absolute';
+        overlay.style.left = `${rect.left}px`;
+        overlay.style.top = `${rect.top}px`;
+        overlay.style.width = `${rect.width}px`;
+        overlay.style.height = `${rect.height}px`;
+        overlay.style.pointerEvents = 'auto';
+        overlay.style.zIndex = '9999';
+        overlay.style.opacity = '0';
+        overlay.style.transition = 'opacity 0.3s ease';
+        document.body.appendChild(overlay);
+        element.overlayAttached = true;
+
+        overlay.addEventListener('click', (e) => {
+            e.stopPropagation(); // Предотвращаем множественные клики
+            if (element === document.querySelector(selector3)) {
+                showTooltip(
+                    overlay,
+                    "Данный заказ привязан к договору — нельзя сменить заказчика, юр лицо. Для решения вопроса подойдите к коммерческому директору"
+                );
+            } else if (element === document.querySelector(selector2)) {
+                const target2 = document.querySelector(selector2);
+                if (target2 && !target2.textContent.includes("Было списано")) {
+                    showTooltip(
+                        overlay,
+                        "Невозможно сменить заказчика в запущенном заказе!"
+                    );
+                }
+            }
+        });
+    }
+
+    function blockElement(element) {
+        if (!element || element.blocked) return;
+
+        element.blocked = true;
+        element.style.pointerEvents = 'none';
+        element.style.userSelect = 'none';
+        element.style.opacity = '0.6';
+        createOverlayFor(element);
+
+        const children = element.querySelectorAll('*');
+        children.forEach(child => {
+            child.style.pointerEvents = 'none';
+            child.style.userSelect = 'none';
+        });
+
+        // Добавляем обработчик клика для тултипа
+        element.addEventListener('click', (e) => {
+            e.stopPropagation();
+
+            if (element === document.querySelector(selector2)) {
+                const historyConditionEl = document.querySelector("#History > table:nth-child(1) > tbody > tr:nth-child(3) > td.right.bold");
+                const shouldBlockSelector2 = historyConditionEl && historyConditionEl.querySelector('nobr')?.textContent.trim() !== '';
+
+                if (shouldBlockSelector2) {
+                    showTooltip(document.body, "Невозможно сменить заказчика в запущенном заказе!");
+                }
+            }
+
+            if (element === document.querySelector(selector3)) {
+                showTooltip(document.body, "Данный заказ привязан к договору — нельзя сменить заказчика, юр лицо. Для решения вопроса подойдите к коммерческому директору");
+            }
+        });
+    }
+
+    function checkAndBlockElements() {
+        if (isChecking) return;
+        isChecking = true;
+
+        try {
+            const target1 = document.querySelector(selector1);
+            if (target1 && !target1.blocked) {
+                blockElement(target1);
+            }
+
+            const contractInput = document.querySelector(contractInputSelector);
+            if (contractInput && contractInput.value.includes("Договор №")) {
+                const target2 = document.querySelector(selector2);
+                const target3 = document.querySelector(selector3);
+                if (target2 && !target2.blocked) blockElement(target2);
+                if (target3 && !target3.blocked) blockElement(target3);
+            }
+
+            // Блокировка selector2 по наличию текста в nobr из истории
+            const historyConditionEl = document.querySelector("#History > table:nth-child(1) > tbody > tr:nth-child(3) > td.right.bold");
+            const shouldBlockSelector2 = historyConditionEl && historyConditionEl.querySelector('nobr')?.textContent.trim() !== '';
+            const target2 = document.querySelector(selector2);
+
+            if (shouldBlockSelector2 && target2 && !target2.blocked) {
+                blockElement(target2);
+            }
+
+            // Удаление лишней кнопки
+            const btnToRemove = document.querySelector(buttonToRemove);
+            if (btnToRemove) {
+                btnToRemove.remove();
+            }
+
+            // Скрытие строки TimeFilesInfo
+            const rowToHide = document.querySelector(timeFilesRow);
+            if (rowToHide) {
+                rowToHide.style.display = 'none';
+            }
+
+            // Проверка PaySchemaIcon и добавление фин.стопа
+            const image = document.querySelector(paySchemaImage);
+            const container = document.querySelector("#Summary > table > tbody > tr > td:nth-child(2) > table > tbody");
+
+            if (image) {
+                const oldWorkBtn = document.getElementById('workWithFilesBtn');
+                if (oldWorkBtn) oldWorkBtn.remove();
+
+                if (!document.getElementById('financialStopBtn')) {
+                    const financialStopBtn = document.createElement('tr');
+                    financialStopBtn.id = 'financialStopBtn';
+                    financialStopBtn.innerHTML = `<td colspan="2">
+                        <button style="
+                            -webkit-text-size-adjust: 100%;
+                            -webkit-tap-highlight-color: rgba(0,0,0,0);
+                            font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;
+                            line-height: 1.42857143;
+                            font-size: 14px;
+                            border-spacing: 0;
+                            border-collapse: collapse;
+                            box-sizing: border-box;
+                            border: solid 1px #a90000;
+                            background-color: #ff0000;
+                            color: #ffffff;
+                            text-align: center;
+                            padding: 6px 12px;
+                            margin: 10px 0;
+                            width: 100%;
+                            display: block;
+                            cursor: pointer;
+                            transition: all 0.2s ease;
+                        ">Фин.стоп</button>
+                    </td>`;
+                    financialStopBtn.querySelector('button').addEventListener('click', () => {
+                        showTooltip(financialStopBtn.querySelector('button'), 'Заказ стоит на фин.стопе. Обратитесь к коммерческому директору для обсуждения возможности запуска заказа');
+                    });
+                    container.appendChild(financialStopBtn);
+                }
+            } else {
+                const oldFinBtn = document.getElementById('financialStopBtn');
+                if (oldFinBtn) oldFinBtn.remove();
+
+                const regButton = document.querySelector(regButtonSelector);
+                const rightDiv = document.querySelector(rightContainerSelector);
+                const hideConditionEl = document.querySelector(hideConditionSelector);
+                const hideCondition = hideConditionEl && hideConditionEl.querySelector('nobr')?.textContent.trim() !== '';
+                const shouldShowWorkButton = regButton && !hideCondition;
+
+                if (shouldShowWorkButton && !document.getElementById('workWithFilesBtn') && rightDiv) {
+                    const workBtn = document.createElement('button');
+                    workBtn.id = 'workWithFilesBtn';
+                    workBtn.textContent = 'В работу с файлами';
+
+                    Object.assign(workBtn.style, {
+                        '-webkit-text-size-adjust': '100%',
+                        '-webkit-tap-highlight-color': 'rgba(0,0,0,0)',
+                        'box-sizing': 'border-box',
+                        'font': 'inherit',
+                        'text-transform': 'none',
+                        'font-family': 'inherit',
+                        'display': 'inline-block',
+                        'font-weight': '400',
+                        'text-align': 'center',
+                        'white-space': 'nowrap',
+                        'vertical-align': 'middle',
+                        'touch-action': 'manipulation',
+                        'cursor': 'pointer',
+                        'user-select': 'none',
+                        'border': '1px solid transparent',
+                        'color': '#fff',
+                        'background-color': '#5cb85c',
+                        'padding': '10px 16px',
+                        'font-size': '18px',
+                        'line-height': '1.3333333',
+                        'border-radius': '6px',
+                        'text-shadow': '0 -1px 0 rgba(0,0,0,.2)',
+                        'box-shadow': 'inset 0 1px 0 rgba(255,255,255,.15), 0 1px 1px rgba(0,0,0,.075)',
+                        'background-image': 'linear-gradient(to bottom,#5cb85c 0,#419641 100%)',
+                        'background-repeat': 'repeat-x',
+                        'border-color': '#3e8f3e',
+                        'position': 'relative',
+                        'margin-left': '10px',
+
+                    });
+
+                    workBtn.addEventListener('click', () => {
+                        const hiddenBtn = document.querySelector(hiddenButtonInRow);
+                        if (hiddenBtn) hiddenBtn.click();
+                    });
+
+                    const existingButton = document.querySelector(triggerButtonSelector);
+                    if (existingButton) {
+                        existingButton.parentNode.insertBefore(workBtn, existingButton.nextSibling);
+                    } else if (rightDiv) {
+                        rightDiv.appendChild(workBtn);
+                    }
+                }
+            }
+
+        } catch (e) {
+            // Игнорируем ошибки
+        } finally {
+            isChecking = false;
+        }
+    }
+
+    const observer = new MutationObserver(checkAndBlockElements);
+    observer.observe(document.body, {
+        childList: true,
+        subtree: true
+    });
+
+    checkAndBlockElements();
+}
+
+lockManager();
   "use strict";
   let blurOverlay = document.createElement("div");
   blurOverlay.id = "Spinner";
@@ -1701,6 +2007,7 @@ if (
      const btnsgroup2 = document.querySelector(
        "#Summary > table > tbody > tr > td:nth-child(1) > div.right > div > button:nth-child(2)"
      );
+     const btnsgroup3 = document.querySelector("#Summary > table > tbody > tr > td:nth-child(1) > div.right");
      const btnToWorkWFiles = document.querySelector(
        "#Summary > table > tbody > tr > td:nth-child(2) > table > tbody > tr.TimeFilesInfo > td.right > button"
      );
@@ -2007,6 +2314,10 @@ if (
            ) {
 
              newFilesGet.style.display = "none";
+             if (btnsgroup3 !== null) {
+               btnsgroup3.style.display = "none";
+             }
+
              showCenterMessage(
                `Не хватает бумаги для ордера №${
                  index + 1
@@ -2034,6 +2345,9 @@ if (
                stockRemain.innerText.replace(/\s|\&nbsp;/g, "")
              );
              newFilesGet.style.display = "none";
+             if (btnsgroup3 !== null) {
+               btnsgroup3.style.display = "none";
+             }
              showCenterMessage(
                `Не хватает бумаги для ордера №${
                  index + 1
@@ -4072,65 +4386,74 @@ newDesign();
 function hideDiscounts() {
     'use strict';
 
+    // Список пользователей, для которых блокировка НЕ выполняется
+    const excludedUsers = [
+        "Щёкин Александр",
+        "Кандеев Рустам",
+        "Галимов Адель",
+        "Козлов Артём"
+    ];
+
     // Переменная для хранения предыдущего значения текста
     let previousText = null;
 
-    // Функция для поиска и скрытия целевого <td>
-    function hideTD() {
+    // Функция для скрытия целевого <tr>
+    function hideTR() {
         // Проверяем, существует ли #vmClientForm
         const vmClientForm = document.querySelector("#vmClientForm");
         if (!vmClientForm) {
-
             return;
         }
 
-        // Находим все элементы <td> внутри #vmClientForm
-        const tdElements = document.querySelectorAll("#vmClientForm td");
+        // Ищем нужный <tr> по точному CSS-селектору
+        const targetTR = document.querySelector(
+            "#vmClientForm > div:nth-child(1) > div > div:nth-child(2) > div:nth-child(1) > table > tbody > tr:nth-child(1)"
+        );
 
-        // Ищем нужный <td> по его содержимому
-        for (const td of tdElements) {
-            // Проверяем, содержит ли <td> текст "Логотип:" (игнорируем регистр и пробелы)
-            const containsLogoText = td.querySelector("h4")?.textContent.trim().toLowerCase().includes("логотип:");
-            // Проверяем, содержит ли <td> таблицу с текстом "Логотип не загружен" (игнорируем регистр и пробелы)
-            const containsTableText = td.querySelector("table td")?.textContent.trim().toLowerCase().includes("логотип не загружен");
+        if (!targetTR) {
+            return;
+        }
 
-            if (containsLogoText && containsTableText) {
+        // Получаем имя пользователя из меню
+        const userLink = document.querySelector("body > ul > div > li:nth-child(1) > a");
 
+        if (userLink) {
+            const currentUserName = userLink.textContent.trim();
 
-                td.style.pointerEvents = "none";
-
-                return; // Прекращаем поиск, так как элемент найден
+            // Если имя в списке исключений — не блокируем
+            if (excludedUsers.includes(currentUserName)) {
+                targetTR.style.pointerEvents = ""; // Сбрасываем, если был установлен
+                targetTR.style.opacity = ""; // Восстанавливаем прозрачность
+                return;
             }
         }
 
-
+        // Применяем блокировку
+        targetTR.style.pointerEvents = "none";
+        targetTR.style.opacity = "0.5"; // Визуальное обозначение заблокированного состояния
     }
 
     // Функция для добавления эффекта белесого блюра на #vmClientForm
     function applyWhitishBlurEffect(vmClientForm) {
-        // Создаем элемент для белесого фона
         const whitishOverlay = document.createElement("div");
         whitishOverlay.style.position = "absolute";
         whitishOverlay.style.top = "0";
         whitishOverlay.style.left = "0";
         whitishOverlay.style.width = "100%";
         whitishOverlay.style.height = "100%";
-        whitishOverlay.style.backgroundColor = "rgba(255, 255, 255, 0.3)"; // Полупрозрачный белый фон
-        whitishOverlay.style.zIndex = "9999"; // Чтобы затемнение было поверх всех элементов
-        whitishOverlay.style.pointerEvents = "none"; // Чтобы затемнение не блокировало взаимодействие с интерфейсом
+        whitishOverlay.style.backgroundColor = "rgba(255, 255, 255, 0.3)";
+        whitishOverlay.style.zIndex = "9999";
+        whitishOverlay.style.pointerEvents = "none";
 
-        // Добавляем белесый фон в #vmClientForm
-        vmClientForm.style.position = "relative"; // Для корректного позиционирования затемнения
+        vmClientForm.style.position = "relative";
         vmClientForm.appendChild(whitishOverlay);
 
-        // Добавляем стиль блюра
         vmClientForm.style.filter = "blur(2px)";
-        vmClientForm.style.transition = "filter 0.1s ease";
+        vmClientForm.style.transition = "filter 0.3s ease";
 
-        // Убираем эффекты через 2 секунды
         setTimeout(() => {
-            vmClientForm.style.filter = "none"; // Убираем блюр
-            whitishOverlay.remove(); // Удаляем белесый фон
+            vmClientForm.style.filter = "none";
+            whitishOverlay.remove();
         }, 500);
     }
 
@@ -4139,26 +4462,19 @@ function hideDiscounts() {
         mutations.forEach(function(mutation) {
             const vmClientForm = document.querySelector("#vmClientForm");
 
-            // Если #vmClientForm существует
             if (vmClientForm) {
-                // Находим элемент с текстом для отслеживания изменений
-                const textElement = document.querySelector("#vmClientForm > div:nth-child(1) > table > tbody > tr > td:nth-child(1) > p");
+                // Отслеживаем изменение текста в конкретном месте
+                const textElement = document.querySelector(
+                    "#vmClientForm > div:nth-child(1) > table > tbody > tr > td:nth-child(1) > p"
+                );
 
-                // Если элемент с текстом найден
                 if (textElement) {
                     const currentText = textElement.textContent.trim();
 
-                    // Если текст изменился
                     if (currentText !== previousText) {
-
-                        // Применяем эффект белесого блюра
                         applyWhitishBlurEffect(vmClientForm);
-
-                        // Обновляем предыдущее значение текста
                         previousText = currentText;
-
-                        // Вызываем функцию hideTD без задержки
-                        hideTD();
+                        hideTR(); // Вызываем блокировку нужного TR
                     }
                 }
             }
@@ -4167,7 +4483,9 @@ function hideDiscounts() {
 
     // Начинаем наблюдать за изменениями в DOM
     observer.observe(document.body, { childList: true, subtree: true });
-};
+}
+
+// Вызов функции
 hideDiscounts();
 
 
@@ -4638,7 +4956,7 @@ dynamicTooltip();
         if (actItem && actItem.innerText.trim() === "Акт") {
             actItem.style.display = 'none';
 
-        } 
+        }
 
         // Обработка "УПД"
         if (upduItem && clientChosen) {
@@ -4681,7 +4999,7 @@ dynamicTooltip();
                 upduItem.style.cursor = 'not-allowed';
 
             }
-        } 
+        }
     }
 
     // === Ждём открытия меню и запускаем анимацию ===
@@ -4713,7 +5031,7 @@ dynamicTooltip();
                 setupOutsideClickHandler(menu);
                 dropdown.dataset.outsideClickListenerSet = "true";
             }
-        } 
+        }
     }
 
     // === Закрытие меню при клике вне его ===
@@ -4763,208 +5081,7 @@ dynamicTooltip();
 
 buhToolTip();
 
-function lockManager() {
-    'use strict';
 
-    // Основной селектор элемента, который всегда блокируем
-    const selector1 = "#Summary > table > tbody > tr > td:nth-child(1) > table.table.table-condensed.table-striped > tbody:nth-child(1) > tr:nth-child(1) > td:nth-child(2) > div";
-
-    // Селектор поля с названием "Договор №"
-    const contractInputSelector = "#Top > form > div > div > div > input.ProductName.form-control";
-
-    // Селекторы элементов, которые нужно заблокировать при наличии "Договор №"
-    const selector2 = "#Summary > table > tbody > tr > td:nth-child(1) > table.table.table-condensed.table-striped > tbody:nth-child(1) > tr:nth-child(2) > td:nth-child(2) > div";
-    const selector3 = "#Summary > table > tbody > tr > td:nth-child(1) > table.table.table-condensed.table-striped > tbody:nth-child(3) > tr:nth-child(4) > td:nth-child(2) > table > tbody > tr > td:nth-child(1) > div";
-
-
-    // Храним текущий тултип, чтобы можно было его удалить
-    let currentTooltip = null;
-
-    // Вспомогательная функция: получает длительность transition у элемента
-    function getTransitionDuration(element) {
-        const style = window.getComputedStyle(element);
-        const duration = style.transitionDuration || style.webkitTransitionDuration || '0s';
-        const seconds = parseFloat(duration.replace('s', ''));
-        return isNaN(seconds) ? 0 : seconds * 1000;
-    }
-
-    // Функция для создания тултипа
-    function showTooltip(anchor, message) {
-        // Если уже есть активный тултип — убираем его плавно
-        if (currentTooltip && currentTooltip.parentNode) {
-            currentTooltip.style.opacity = '0';
-            setTimeout(() => {
-                if (currentTooltip && currentTooltip.parentNode) {
-                    currentTooltip.remove();
-                }
-                currentTooltip = null;
-            }, getTransitionDuration(currentTooltip));
-        }
-
-        const tooltip = document.createElement('div');
-        tooltip.textContent = message;
-
-        tooltip.style.position = 'absolute';
-        tooltip.style.backgroundColor = 'rgba(0, 0, 0, 0.5)';
-        tooltip.style.color = 'white';
-        tooltip.style.padding = '5px 10px';
-        tooltip.style.borderRadius = '5px';
-        tooltip.style.zIndex = '10000';
-        tooltip.style.opacity = '0';
-        tooltip.style.transition = 'opacity 0.3s ease';
-        tooltip.style.maxWidth = `${window.innerWidth * 0.3}px`;
-        tooltip.style.wordWrap = 'break-word';
-        tooltip.style.whiteSpace = 'normal';
-        tooltip.style.textAlign = 'center';
-
-        // Позиционирование
-        const rect = anchor.getBoundingClientRect();
-        tooltip.style.left = `${rect.left + window.scrollX}px`;
-        tooltip.style.top = `${rect.bottom + window.scrollY}px`;
-
-        document.body.appendChild(tooltip);
-
-        // Плавное появление
-        setTimeout(() => {
-            tooltip.style.opacity = '1';
-        }, 10);
-
-        // Убираем тултип плавно при уходе мыши с него
-        tooltip.addEventListener('mouseleave', () => {
-            tooltip.style.opacity = '0';
-            setTimeout(() => {
-                if (tooltip && tooltip.parentNode) {
-                    tooltip.remove();
-                }
-                if (currentTooltip === tooltip) {
-                    currentTooltip = null;
-                }
-            }, getTransitionDuration(tooltip));
-        });
-
-        // Сохраняем ссылку на текущий тултип
-        currentTooltip = tooltip;
-    }
-
-    // Создание overlay для отлова событий мыши на заблокированном элементе
-    function createOverlayFor(element) {
-        if (!element || element.overlayAttached) return;
-
-        const rect = element.getBoundingClientRect();
-
-        const overlay = document.createElement('div');
-        overlay.style.position = 'absolute';
-        overlay.style.left = `${rect.left}px`;
-        overlay.style.top = `${rect.top}px`;
-        overlay.style.width = `${rect.width}px`;
-        overlay.style.height = `${rect.height}px`;
-        overlay.style.pointerEvents = 'auto';
-        overlay.style.zIndex = '9999';
-        overlay.style.opacity = '0';
-        overlay.style.transition = 'opacity 0.3s ease';
-
-        document.body.appendChild(overlay);
-        element.overlayAttached = true;
-
-        // При наведении показываем тултип (только для selector2 и selector3)
-        overlay.addEventListener('mouseenter', () => {
-            if (element === document.querySelector(selector3)) {
-                // Для selector3 всегда показываем тултип
-                showTooltip(
-                    overlay,
-                    "Данный заказ привязан к договору — нельзя сменить заказчика, юр лицо. Для решения вопроса подойдите к коммерческому директору"
-                );
-            } else if (element === document.querySelector(selector2)) {
-                // Для selector2 проверяем наличие текста "Было списано"
-                const target2 = document.querySelector(selector2);
-                if (target2 && !target2.textContent.includes("Было списано")) {
-                    showTooltip(
-                        overlay,
-                        "Данный заказ привязан к договору — нельзя сменить заказчика, юр лицо. Для решения вопроса подойдите к коммерческому директору"
-                    );
-                }
-            }
-        });
-
-        // При уходе курсора убираем тултип
-        overlay.addEventListener('mouseleave', () => {
-            if (currentTooltip && currentTooltip.parentNode) {
-                currentTooltip.style.opacity = '0';
-                setTimeout(() => {
-                    if (currentTooltip && currentTooltip.parentNode) {
-                        currentTooltip.remove();
-                    }
-                    currentTooltip = null;
-                }, getTransitionDuration(currentTooltip));
-            }
-        });
-
-        // Обновление позиции при изменении размеров окна или скролле
-        const updatePosition = () => {
-            const newRect = element.getBoundingClientRect();
-            overlay.style.left = `${newRect.left}px`;
-            overlay.style.top = `${newRect.top}px`;
-            overlay.style.width = `${newRect.width}px`;
-            overlay.style.height = `${newRect.height}px`;
-        };
-
-        window.addEventListener('resize', updatePosition);
-        window.addEventListener('scroll', updatePosition);
-    }
-
-    // Функция блокировки одного элемента
-    function blockElement(element) {
-        if (!element || element.blocked) return;
-
-        element.blocked = true;
-
-        // Блокируем взаимодействие
-        element.style.pointerEvents = 'none';
-        element.style.userSelect = 'none';
-        element.style.opacity = '0.6';
-
-        // Добавляем overlay для показа тултипа при наведении
-        createOverlayFor(element);
-
-        // Рекурсивно блокируем все дочерние элементы
-        const children = element.querySelectorAll('*');
-        children.forEach(child => {
-            child.style.pointerEvents = 'none';
-            child.style.userSelect = 'none';
-        });
-    }
-
-    // Основная проверка и блокировка
-    function checkAndBlockElements() {
-        // Блокировка первого элемента
-        const target1 = document.querySelector(selector1);
-        if (target1) {
-            blockElement(target1);
-        }
-
-        // Проверяем наличие текста "Договор №"
-        const contractInput = document.querySelector(contractInputSelector);
-        if (contractInput && contractInput.value.includes("Договор №")) {
-            const target2 = document.querySelector(selector2);
-            const target3 = document.querySelector(selector3);
-
-            blockElement(target2);
-            blockElement(target3);
-        }
-    }
-
-    // Наблюдатель за изменениями в DOM
-    const observer = new MutationObserver(checkAndBlockElements);
-    observer.observe(document.body, {
-        childList: true,
-        subtree: true
-    });
-
-    // Первоначальный запуск проверки
-    checkAndBlockElements();
-}
-
-lockManager();
 
      function notHalfButton() {
     'use strict';
@@ -5446,6 +5563,158 @@ lockManager();
 }
 
 notHalfButton();
+function mgiDisCheck() {
+    'use strict';
+
+
+
+    // Функция для скрытия элемента, если он существует
+    function hideElement(selector) {
+        const el = document.querySelector(selector);
+        if (el) el.style.display = 'none';
+    }
+
+    // Функция для отображения элемента
+    function showElement(selector) {
+        const el = document.querySelector(selector);
+        if (el) el.style.display = '';
+    }
+
+    // Основная функция проверки
+    function runFullCheck() {
+        const chatManager = document.getElementById('ChatManager');
+        if (!chatManager) {
+
+            return;
+        }
+
+        // Сбрасываем отображение кнопок перед новой проверкой
+        showElement("#Summary > table > tbody > tr > td:nth-child(1) > div.right > div > button:nth-child(1)");
+        showElement("#Summary > table > tbody > tr > td:nth-child(1) > div.right > div > button:nth-child(2)");
+        showElement("#Summary > table > tbody > tr > td:nth-child(2) > table > tbody > tr.TimeFilesInfo > td.right");
+
+        // 1. Проверка .formblock.OrderXXXXXX на наличие "МГИ"
+        const allFormBlocks = document.querySelectorAll('.formblock');
+        const relevantBlocks = Array.from(allFormBlocks).filter(block =>
+            Array.from(block.classList).some(className => /^Order\d+$/.test(className))
+        );
+
+        const hasMGIInFormblocks = relevantBlocks.some(block => {
+            const text = block.textContent || block.innerText;
+            return text.includes('МГИ');
+        });
+
+        // 2. Проверка #DesignBlockSummary через td внутри tr
+        const designSummary = document.querySelector("#DesignBlockSummary");
+        let hasMGIInSummary = false;
+
+        if (designSummary) {
+            const tds = designSummary.querySelectorAll("tr td");
+            for (const td of tds) {
+                const text = td.textContent || td.innerText;
+                if (/МГИ/i.test(text)) {
+                    hasMGIInSummary = true;
+                    break;
+                }
+            }
+        }
+
+
+
+        // 3. Проверка исключения: строка с особым текстом в #History
+        const historyTable = document.querySelector("#History > table:nth-child(1)");
+        let excludeHiding = false;
+
+        if (historyTable) {
+            const tds = historyTable.querySelectorAll("td");
+            for (const td of tds) {
+                const text = td.textContent.trim();
+                if (text.includes("Макет подходит под MGI, БЕСПЛАТНАЯ ПРОВЕРКА, Менеджер")) {
+                    excludeHiding = true;
+                    break;
+                }
+            }
+        }
+
+        if (excludeHiding) {
+
+            return;
+        }
+
+        // 4. Проверка таблицы #History > table:nth-child(1)
+        if (!historyTable) {
+
+            return;
+        }
+
+        const rows = historyTable.querySelectorAll("tr");
+        let foundMGIRow = false;
+        let nobrHasContent = false;
+
+        const historyKeywords = [/МГИ/i, /MGI/i, /Регина/i, /Резеда/i];
+
+        for (const row of rows) {
+            const tds = row.querySelectorAll("td");
+            let containsKeyword = false;
+
+            for (const td of tds) {
+                const text = td.textContent.trim();
+                if (historyKeywords.some(regex => regex.test(text))) {
+                    containsKeyword = true;
+                    break;
+                }
+            }
+
+            if (containsKeyword) {
+                foundMGIRow = true;
+
+                const targetTd = row.querySelector("td.right.bold");
+                const nobr = targetTd ? targetTd.querySelector("nobr") : null;
+                const nobrText = nobr ? nobr.textContent.trim() : '';
+
+                if (nobr && nobrText !== '') {
+                    nobrHasContent = true;
+                } else {
+                    nobrHasContent = false;
+                }
+            }
+        }
+
+        // Новая логика вывода для истории + скрытие кнопок
+        if (hasMGIInFormblocks) {
+            if (!foundMGIRow) {
+
+                hideElement("#Summary > table > tbody > tr > td:nth-child(2) > table > tbody > tr.TimeFilesInfo > td.right");
+                hideElement("#Summary > table > tbody > tr > td:nth-child(1) > div.right > div > button:nth-child(1)");
+                hideElement("#workWithFilesBtn");
+
+            } else if (foundMGIRow && !nobrHasContent) {
+
+                hideElement("#Summary > table > tbody > tr > td:nth-child(2) > table > tbody > tr.TimeFilesInfo > td.right");
+                hideElement("#workWithFilesBtn");
+
+            } else if (foundMGIRow && nobrHasContent) {
+
+            }
+        }
+    }
+
+    // Отслеживаем появление ChatManager
+    const observer = new MutationObserver(() => {
+        const chatManager = document.getElementById('ChatManager');
+        if (chatManager) {
+
+            runFullCheck();
+        }
+    });
+
+    observer.observe(document.body, {
+        childList: true,
+        subtree: true
+    });
+
+}
+mgiDisCheck();
 
     // Функция для отображения обратной связи (изменение кнопки)
     function showFeedback(button) {
