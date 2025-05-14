@@ -290,7 +290,7 @@ function lockManager() {
     // Селекторы для новых действий
     const buttonToRemove = "#Summary > table > tbody > tr > td:nth-child(1) > div.right > div > button:nth-child(2)";
     const timeFilesRow = "#Summary > table > tbody > tr > td:nth-child(2) > table > tbody > tr.TimeFilesInfo";
-    const paySchemaImage = "#Top > form > div > div > div > span:nth-child(2) > span.PaySchemaIcon > img";
+    const paySchemaImage = "#Top > form > div > div > div > span:nth-child(2) > span.PaySchemaIcon > img[src='img/payschema/payschema-1.png']";
     const hiddenButtonInRow = "#Summary > table > tbody > tr > td:nth-child(2) > table > tbody > tr.TimeFilesInfo > td.right > button";
     const triggerButtonSelector = "#Summary > table > tbody > tr > td:nth-child(1) > div.right > div > button"; // "Запущен в работу"
     const rightContainerSelector = "#Summary > table > tbody > tr > td:nth-child(1) > div.right";
