@@ -1,5 +1,5 @@
 // ==UserScript==
-// @name         Проверка заказа 9.5.8
+// @name         Проверка заказа 9.5.9
 // @namespace    http://tampermonkey.net/
 // @version      1.6
 // @description
@@ -282,13 +282,11 @@ confidAgree();
 
 function lockManager() {
     'use strict';
-
     // Основные селекторы для блокировки
     const selector1 = "#Summary > table > tbody > tr > td:nth-child(1) > table.table.table-condensed.table-striped > tbody:nth-child(1) > tr:nth-child(1) > td:nth-child(2) > div";
     const contractInputSelector = "#Top > form > div > div > div > input.ProductName.form-control";
     const selector2 = "#Summary > table > tbody > tr > td:nth-child(1) > table.table.table-condensed.table-striped > tbody:nth-child(1) > tr:nth-child(2) > td:nth-child(2) > div";
     const selector3 = "#Summary > table > tbody > tr > td:nth-child(1) > table.table.table-condensed.table-striped > tbody:nth-child(3) > tr:nth-child(4) > td:nth-child(2) > table > tbody > tr > td:nth-child(1) > div";
-
     // Селекторы для новых действий
     const buttonToRemove = "#Summary > table > tbody > tr > td:nth-child(1) > div.right > div > button:nth-child(2)";
     const timeFilesRow = "#Summary > table > tbody > tr > td:nth-child(2) > table > tbody > tr.TimeFilesInfo";
@@ -298,7 +296,6 @@ function lockManager() {
     const rightContainerSelector = "#Summary > table > tbody > tr > td:nth-child(1) > div.right";
     const regButtonSelector = "#RegButton"; // новое условие
     const hideConditionSelector = "#History > table:nth-child(1) > tbody > tr:nth-child(4) > td.right.bold"; // если <nobr> не пустой → кнопка пропадает
-
     let currentTooltip = null;
     let tooltipTimeout = null;
     let isChecking = false;
@@ -319,7 +316,6 @@ function lockManager() {
                 }
             }, getTransitionDuration(currentTooltip));
         }
-
         const tooltip = document.createElement('div');
         tooltip.textContent = message;
         tooltip.style.position = 'absolute';
@@ -334,17 +330,13 @@ function lockManager() {
         tooltip.style.wordWrap = 'break-word';
         tooltip.style.whiteSpace = 'normal';
         tooltip.style.textAlign = 'center';
-
         const rect = anchor.getBoundingClientRect();
         tooltip.style.left = `${rect.left + window.scrollX}px`;
         tooltip.style.top = `${rect.bottom + window.scrollY}px`;
-
         document.body.appendChild(tooltip);
-
         setTimeout(() => {
             tooltip.style.opacity = '1';
         }, 10);
-
         // Убираем tooltip после 3 секунд
         tooltipTimeout = setTimeout(() => {
             tooltip.style.opacity = '0';
@@ -355,15 +347,12 @@ function lockManager() {
                 currentTooltip = null;
             }, getTransitionDuration(tooltip));
         }, 3000);
-
         currentTooltip = tooltip;
     }
 
     function createOverlayFor(element) {
         if (!element || element.overlayAttached) return;
-
         const rect = element.getBoundingClientRect();
-
         const overlay = document.createElement('div');
         overlay.style.position = 'absolute';
         overlay.style.left = `${rect.left}px`;
@@ -376,7 +365,6 @@ function lockManager() {
         overlay.style.transition = 'opacity 0.3s ease';
         document.body.appendChild(overlay);
         element.overlayAttached = true;
-
         overlay.addEventListener('click', (e) => {
             e.stopPropagation(); // Предотвращаем множественные клики
             if (element === document.querySelector(selector3)) {
@@ -398,32 +386,26 @@ function lockManager() {
 
     function blockElement(element) {
         if (!element || element.blocked) return;
-
         element.blocked = true;
         element.style.pointerEvents = 'none';
         element.style.userSelect = 'none';
         element.style.opacity = '0.6';
         createOverlayFor(element);
-
         const children = element.querySelectorAll('*');
         children.forEach(child => {
             child.style.pointerEvents = 'none';
             child.style.userSelect = 'none';
         });
-
         // Добавляем обработчик клика для тултипа
         element.addEventListener('click', (e) => {
             e.stopPropagation();
-
             if (element === document.querySelector(selector2)) {
                 const historyConditionEl = document.querySelector("#History > table:nth-child(1) > tbody > tr:nth-child(3) > td.right.bold");
                 const shouldBlockSelector2 = historyConditionEl && historyConditionEl.querySelector('nobr')?.textContent.trim() !== '';
-
                 if (shouldBlockSelector2) {
                     showTooltip(document.body, "Невозможно сменить заказчика в запущенном заказе!");
                 }
             }
-
             if (element === document.querySelector(selector3)) {
                 showTooltip(document.body, "Данный заказ привязан к договору — нельзя сменить заказчика, юр лицо. Для решения вопроса подойдите к коммерческому директору");
             }
@@ -433,13 +415,11 @@ function lockManager() {
     function checkAndBlockElements() {
         if (isChecking) return;
         isChecking = true;
-
         try {
             const target1 = document.querySelector(selector1);
             if (target1 && !target1.blocked) {
                 blockElement(target1);
             }
-
             const contractInput = document.querySelector(contractInputSelector);
             if (contractInput && contractInput.value.includes("Договор №")) {
                 const target2 = document.querySelector(selector2);
@@ -447,16 +427,13 @@ function lockManager() {
                 if (target2 && !target2.blocked) blockElement(target2);
                 if (target3 && !target3.blocked) blockElement(target3);
             }
-
             // Блокировка selector2 по наличию текста в nobr из истории
             const historyConditionEl = document.querySelector("#History > table:nth-child(1) > tbody > tr:nth-child(3) > td.right.bold");
             const shouldBlockSelector2 = historyConditionEl && historyConditionEl.querySelector('nobr')?.textContent.trim() !== '';
             const target2 = document.querySelector(selector2);
-
             if (shouldBlockSelector2 && target2 && !target2.blocked) {
                 blockElement(target2);
             }
-
             // Удаление лишней кнопки
             const btnToRemove = document.querySelector(buttonToRemove);
             if (btnToRemove) {
@@ -476,7 +453,6 @@ function lockManager() {
             if (image) {
                 const oldWorkBtn = document.getElementById('workWithFilesBtn');
                 if (oldWorkBtn) oldWorkBtn.remove();
-
                 if (!document.getElementById('financialStopBtn')) {
                     const financialStopBtn = document.createElement('tr');
                     financialStopBtn.id = 'financialStopBtn';
@@ -510,18 +486,15 @@ function lockManager() {
             } else {
                 const oldFinBtn = document.getElementById('financialStopBtn');
                 if (oldFinBtn) oldFinBtn.remove();
-
                 const regButton = document.querySelector(regButtonSelector);
                 const rightDiv = document.querySelector(rightContainerSelector);
                 const hideConditionEl = document.querySelector(hideConditionSelector);
                 const hideCondition = hideConditionEl && hideConditionEl.querySelector('nobr')?.textContent.trim() !== '';
                 const shouldShowWorkButton = regButton && !hideCondition;
-
                 if (shouldShowWorkButton && !document.getElementById('workWithFilesBtn') && rightDiv) {
                     const workBtn = document.createElement('button');
                     workBtn.id = 'workWithFilesBtn';
                     workBtn.textContent = 'В работу с файлами';
-
                     Object.assign(workBtn.style, {
                         '-webkit-text-size-adjust': '100%',
                         '-webkit-tap-highlight-color': 'rgba(0,0,0,0)',
@@ -551,14 +524,11 @@ function lockManager() {
                         'border-color': '#3e8f3e',
                         'position': 'relative',
                         'margin-left': '10px',
-
                     });
-
                     workBtn.addEventListener('click', () => {
                         const hiddenBtn = document.querySelector(hiddenButtonInRow);
                         if (hiddenBtn) hiddenBtn.click();
                     });
-
                     const existingButton = document.querySelector(triggerButtonSelector);
                     if (existingButton) {
                         existingButton.parentNode.insertBefore(workBtn, existingButton.nextSibling);
@@ -566,6 +536,13 @@ function lockManager() {
                         rightDiv.appendChild(workBtn);
                     }
                 }
+            }
+
+            // 🔥 Добавленная логика: показываем строку TimeFilesInfo при наличии кнопки #workWithFilesBtn
+            const workWithFilesBtn = document.querySelector("#workWithFilesBtn");
+            const rowToShow = document.querySelector(timeFilesRow);
+            if (workWithFilesBtn && rowToShow) {
+                rowToShow.style.display = '';
             }
 
         } catch (e) {
@@ -580,10 +557,8 @@ function lockManager() {
         childList: true,
         subtree: true
     });
-
     checkAndBlockElements();
 }
-
 lockManager();
   "use strict";
   let blurOverlay = document.createElement("div");
