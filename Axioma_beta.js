@@ -1,5 +1,5 @@
 // ==UserScript==
-// @name         Проверка заказа 9.6.1
+// @name         Проверка заказа 9.6.2
 // @namespace    http://tampermonkey.net/
 // @version      1.6
 // @description
@@ -399,9 +399,7 @@ function lockManager() {
                           transition: all 0.2s ease;
                       ">Фин.стоп</button>
                   </td>`;
-                  financialStopBtn.querySelector('button').addEventListener('click', () => {
-                      alert('Заказ стоит на фин.стопе. Обратитесь к коммерческому директору.');
-                  });
+                  
                   container.appendChild(financialStopBtn);
               }
           } else {
