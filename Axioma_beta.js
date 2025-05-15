@@ -1,5 +1,5 @@
 // ==UserScript==
-// @name         Проверка заказа 9.6.0
+// @name         Проверка заказа 9.6.1
 // @namespace    http://tampermonkey.net/
 // @version      1.6
 // @description
@@ -281,287 +281,214 @@ function confidAgree() {
 confidAgree();
 
 function lockManager() {
-    'use strict';
-    // Основные селекторы для блокировки
-    const selector1 = "#Summary > table > tbody > tr > td:nth-child(1) > table.table.table-condensed.table-striped > tbody:nth-child(1) > tr:nth-child(1) > td:nth-child(2) > div";
-    const contractInputSelector = "#Top > form > div > div > div > input.ProductName.form-control";
-    const selector2 = "#Summary > table > tbody > tr > td:nth-child(1) > table.table.table-condensed.table-striped > tbody:nth-child(1) > tr:nth-child(2) > td:nth-child(2) > div";
-    const selector3 = "#Summary > table > tbody > tr > td:nth-child(1) > table.table.table-condensed.table-striped > tbody:nth-child(3) > tr:nth-child(4) > td:nth-child(2) > table > tbody > tr > td:nth-child(1) > div";
-    // Селекторы для новых действий
-    const buttonToRemove = "#Summary > table > tbody > tr > td:nth-child(1) > div.right > div > button:nth-child(2)";
-    const timeFilesRow = "#Summary > table > tbody > tr > td:nth-child(2) > table > tbody > tr.TimeFilesInfo";
-    const paySchemaImage = "#Top > form > div > div > div > span:nth-child(2) > span.PaySchemaIcon > img[src='img/payschema/payschema-1.png']";
-    const hiddenButtonInRow = "#Summary > table > tbody > tr > td:nth-child(2) > table > tbody > tr.TimeFilesInfo > td.right > button";
-    const triggerButtonSelector = "#Summary > table > tbody > tr > td:nth-child(1) > div.right > div > button"; // "Запущен в работу"
-    const rightContainerSelector = "#Summary > table > tbody > tr > td:nth-child(1) > div.right";
-    const regButtonSelector = "#RegButton"; // новое условие
-    const hideConditionSelector = "#History > table:nth-child(1) > tbody > tr:nth-child(4) > td.right.bold"; // если <nobr> не пустой → кнопка пропадает
-    let currentTooltip = null;
-    let tooltipTimeout = null;
-    let isChecking = false;
+  'use strict';
 
-    function getTransitionDuration(element) {
-        const style = window.getComputedStyle(element);
-        const duration = style.transitionDuration || style.webkitTransitionDuration || '0s';
-        return isNaN(parseFloat(duration.replace('s', ''))) ? 0 : parseFloat(duration.replace('s', '')) * 1000;
-    }
+  // Селекторы для блокировки элементов
+  const selector1 = "#Summary > table > tbody > tr > td:nth-child(1) > table.table.table-condensed.table-striped > tbody:nth-child(1) > tr:nth-child(1) > td:nth-child(2) > div";
+  const contractInputSelector = "#Top > form > div > div > div > input.ProductName.form-control";
+  const selector2 = "#Summary > table > tbody > tr > td:nth-child(1) > table.table.table-condensed.table-striped > tbody:nth-child(1) > tr:nth-child(2) > td:nth-child(2) > div";
+  const selector3 = "#Summary > table > tbody > tr > td:nth-child(1) > table.table.table-condensed.table-striped > tbody:nth-child(3) > tr:nth-child(4) > td:nth-child(2) > table > tbody > tr > td:nth-child(1) > div";
 
-    function showTooltip(anchor, message) {
-        if (currentTooltip && currentTooltip.parentNode) {
-            clearTimeout(tooltipTimeout);
-            currentTooltip.style.opacity = '0';
-            setTimeout(() => {
-                if (currentTooltip && currentTooltip.parentNode) {
-                    currentTooltip.remove();
-                }
-            }, getTransitionDuration(currentTooltip));
-        }
-        const tooltip = document.createElement('div');
-        tooltip.textContent = message;
-        tooltip.style.position = 'absolute';
-        tooltip.style.backgroundColor = 'rgba(0, 0, 0, 0.5)';
-        tooltip.style.color = 'white';
-        tooltip.style.padding = '5px 10px';
-        tooltip.style.borderRadius = '5px';
-        tooltip.style.zIndex = '10000';
-        tooltip.style.opacity = '0';
-        tooltip.style.transition = 'opacity 0.3s ease';
-        tooltip.style.maxWidth = `${window.innerWidth * 0.3}px`;
-        tooltip.style.wordWrap = 'break-word';
-        tooltip.style.whiteSpace = 'normal';
-        tooltip.style.textAlign = 'center';
-        const rect = anchor.getBoundingClientRect();
-        tooltip.style.left = `${rect.left + window.scrollX}px`;
-        tooltip.style.top = `${rect.bottom + window.scrollY}px`;
-        document.body.appendChild(tooltip);
-        setTimeout(() => {
-            tooltip.style.opacity = '1';
-        }, 10);
-        // Убираем tooltip после 3 секунд
-        tooltipTimeout = setTimeout(() => {
-            tooltip.style.opacity = '0';
-            setTimeout(() => {
-                if (tooltip === currentTooltip && tooltip.parentNode) {
-                    tooltip.remove();
-                }
-                currentTooltip = null;
-            }, getTransitionDuration(tooltip));
-        }, 3000);
-        currentTooltip = tooltip;
-    }
+  // Другие селекторы
+  const buttonToRemove = "#Summary > table > tbody > tr > td:nth-child(1) > div.right > div > button:nth-child(2)";
+  const timeFilesRow = "#Summary > table > tbody > tr > td:nth-child(2) > table > tbody > tr.TimeFilesInfo";
+  const paySchemaImage = "#Top > form > div > div > div > span:nth-child(2) > span.PaySchemaIcon > img[src='img/payschema/payschema-1.png']";
+  const hiddenButtonInRow = "#Summary > table > tbody > tr > td:nth-child(2) > table > tbody > tr.TimeFilesInfo > td.right > button";
+  const triggerButtonSelector = "#Summary > table > tbody > tr > td:nth-child(1) > div.right > div > button"; // "Запущен в работу"
+  const rightContainerSelector = "#Summary > table > tbody > tr > td:nth-child(1) > div.right";
+  const regButtonSelector = "#RegButton";
+  const hideConditionSelector = "#History > table:nth-child(1) > tbody > tr:nth-child(4) > td.right.bold";
 
-    function createOverlayFor(element) {
-        if (!element || element.overlayAttached) return;
-        const rect = element.getBoundingClientRect();
-        const overlay = document.createElement('div');
-        overlay.style.position = 'absolute';
-        overlay.style.left = `${rect.left}px`;
-        overlay.style.top = `${rect.top}px`;
-        overlay.style.width = `${rect.width}px`;
-        overlay.style.height = `${rect.height}px`;
-        overlay.style.pointerEvents = 'auto';
-        overlay.style.zIndex = '9999';
-        overlay.style.opacity = '0';
-        overlay.style.transition = 'opacity 0.3s ease';
-        document.body.appendChild(overlay);
-        element.overlayAttached = true;
-        overlay.addEventListener('click', (e) => {
-            e.stopPropagation(); // Предотвращаем множественные клики
-            if (element === document.querySelector(selector3)) {
-                showTooltip(
-                    overlay,
-                    "Данный заказ привязан к договору — нельзя сменить заказчика, юр лицо. Для решения вопроса подойдите к коммерческому директору"
-                );
-            } else if (element === document.querySelector(selector2)) {
-                const target2 = document.querySelector(selector2);
-                if (target2 && !target2.textContent.includes("Было списано")) {
-                    showTooltip(
-                        overlay,
-                        "Невозможно сменить заказчика в запущенном заказе!"
-                    );
-                }
-            }
-        });
-    }
+  let isChecking = false;
 
-    function blockElement(element) {
-        if (!element || element.blocked) return;
-        element.blocked = true;
-        element.style.pointerEvents = 'none';
-        element.style.userSelect = 'none';
-        element.style.opacity = '0.6';
-        createOverlayFor(element);
-        const children = element.querySelectorAll('*');
-        children.forEach(child => {
-            child.style.pointerEvents = 'none';
-            child.style.userSelect = 'none';
-        });
-        // Добавляем обработчик клика для тултипа
-        element.addEventListener('click', (e) => {
-            e.stopPropagation();
-            if (element === document.querySelector(selector2)) {
-                const historyConditionEl = document.querySelector("#History > table:nth-child(1) > tbody > tr:nth-child(3) > td.right.bold");
-                const shouldBlockSelector2 = historyConditionEl && historyConditionEl.querySelector('nobr')?.textContent.trim() !== '';
-                if (shouldBlockSelector2) {
-                    showTooltip(document.body, "Невозможно сменить заказчика в запущенном заказе!");
-                }
-            }
-            if (element === document.querySelector(selector3)) {
-                showTooltip(document.body, "Данный заказ привязан к договору — нельзя сменить заказчика, юр лицо. Для решения вопроса подойдите к коммерческому директору");
-            }
-        });
-    }
+  // Функция блокировки элемента
+  function blockElement(element) {
+      if (!element || element.blocked) return;
+      element.blocked = true;
+      element.style.pointerEvents = 'none';
+      element.style.userSelect = 'none';
+      element.style.opacity = '0.6';
 
-    function checkAndBlockElements() {
-        if (isChecking) return;
-        isChecking = true;
-        try {
-            const target1 = document.querySelector(selector1);
-            if (target1 && !target1.blocked) {
-                blockElement(target1);
-            }
-            const contractInput = document.querySelector(contractInputSelector);
-            if (contractInput && contractInput.value.includes("Договор №")) {
-                const target2 = document.querySelector(selector2);
-                const target3 = document.querySelector(selector3);
-                if (target2 && !target2.blocked) blockElement(target2);
-                if (target3 && !target3.blocked) blockElement(target3);
-            }
-            // Блокировка selector2 по наличию текста в nobr из истории
-            const historyConditionEl = document.querySelector("#History > table:nth-child(1) > tbody > tr:nth-child(3) > td.right.bold");
-            const shouldBlockSelector2 = historyConditionEl && historyConditionEl.querySelector('nobr')?.textContent.trim() !== '';
-            const target2 = document.querySelector(selector2);
-            if (shouldBlockSelector2 && target2 && !target2.blocked) {
-                blockElement(target2);
-            }
-            // Удаление лишней кнопки
-            const btnToRemove = document.querySelector(buttonToRemove);
-            if (btnToRemove) {
-                btnToRemove.remove();
-            }
+      const children = element.querySelectorAll('*');
+      children.forEach(child => {
+          child.style.pointerEvents = 'none';
+          child.style.userSelect = 'none';
+      });
+  }
 
-            // Проверка PaySchemaIcon и добавление фин.стопа
-            const image = document.querySelector(paySchemaImage);
-            const container = document.querySelector("#Summary > table > tbody > tr > td:nth-child(2) > table > tbody");
-            if (image) {
-                const oldWorkBtn = document.getElementById('workWithFilesBtn');
-                if (oldWorkBtn) oldWorkBtn.remove();
-                if (!document.getElementById('financialStopBtn')) {
-                    const financialStopBtn = document.createElement('tr');
-                    financialStopBtn.id = 'financialStopBtn';
-                    financialStopBtn.innerHTML = `<td colspan="2">
-                        <button style="
-                            -webkit-text-size-adjust: 100%;
-                            -webkit-tap-highlight-color: rgba(0,0,0,0);
-                            font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;
-                            line-height: 1.42857143;
-                            font-size: 14px;
-                            border-spacing: 0;
-                            border-collapse: collapse;
-                            box-sizing: border-box;
-                            border: solid 1px #a90000;
-                            background-color: #ff0000;
-                            color: #ffffff;
-                            text-align: center;
-                            padding: 6px 12px;
-                            margin: 10px 0;
-                            width: 100%;
-                            display: block;
-                            cursor: pointer;
-                            transition: all 0.2s ease;
-                        ">Фин.стоп</button>
-                    </td>`;
-                    financialStopBtn.querySelector('button').addEventListener('click', () => {
-                        showTooltip(financialStopBtn.querySelector('button'), 'Заказ стоит на фин.стопе. Обратитесь к коммерческому директору для обсуждения возможности запуска заказа');
-                    });
-                    container.appendChild(financialStopBtn);
-                }
-            } else {
-                const oldFinBtn = document.getElementById('financialStopBtn');
-                if (oldFinBtn) oldFinBtn.remove();
-                const regButton = document.querySelector(regButtonSelector);
-                const rightDiv = document.querySelector(rightContainerSelector);
-                const hideConditionEl = document.querySelector(hideConditionSelector);
-                const hideCondition = hideConditionEl && hideConditionEl.querySelector('nobr')?.textContent.trim() !== '';
-                const shouldShowWorkButton = regButton && !hideCondition;
-                if (shouldShowWorkButton && !document.getElementById('workWithFilesBtn') && rightDiv) {
-                    const workBtn = document.createElement('button');
-                    workBtn.id = 'workWithFilesBtn';
-                    workBtn.textContent = 'В работу с файлами';
-                    Object.assign(workBtn.style, {
-                        '-webkit-text-size-adjust': '100%',
-                        '-webkit-tap-highlight-color': 'rgba(0,0,0,0)',
-                        'box-sizing': 'border-box',
-                        'font': 'inherit',
-                        'text-transform': 'none',
-                        'font-family': 'inherit',
-                        'display': 'inline-block',
-                        'font-weight': '400',
-                        'text-align': 'center',
-                        'white-space': 'nowrap',
-                        'vertical-align': 'middle',
-                        'touch-action': 'manipulation',
-                        'cursor': 'pointer',
-                        'user-select': 'none',
-                        'border': '1px solid transparent',
-                        'color': '#fff',
-                        'background-color': '#5cb85c',
-                        'padding': '10px 16px',
-                        'font-size': '18px',
-                        'line-height': '1.3333333',
-                        'border-radius': '6px',
-                        'text-shadow': '0 -1px 0 rgba(0,0,0,.2)',
-                        'box-shadow': 'inset 0 1px 0 rgba(255,255,255,.15), 0 1px 1px rgba(0,0,0,.075)',
-                        'background-image': 'linear-gradient(to bottom,#5cb85c 0,#419641 100%)',
-                        'background-repeat': 'repeat-x',
-                        'border-color': '#3e8f3e',
-                        'position': 'relative',
-                        'margin-left': '10px',
-                    });
-                    workBtn.addEventListener('click', () => {
-                        const hiddenBtn = document.querySelector(hiddenButtonInRow);
-                        if (hiddenBtn) hiddenBtn.click();
-                    });
-                    const existingButton = document.querySelector(triggerButtonSelector);
-                    if (existingButton) {
-                        existingButton.parentNode.insertBefore(workBtn, existingButton.nextSibling);
-                    } else if (rightDiv) {
-                        rightDiv.appendChild(workBtn);
-                    }
-                }
-            }
+  // Функция разблокировки элемента
+  function unblockElement(element) {
+      if (!element || !element.blocked) return;
+      element.blocked = false;
+      element.style.pointerEvents = '';
+      element.style.userSelect = '';
+      element.style.opacity = '';
 
-            // Новая логика: показываем TimeFilesInfo при наличии кнопки или отсутствии payschema-1.png и наличии текста в истории
-            const rowToShow = document.querySelector(timeFilesRow);
-            if (rowToShow) {
-                const hasWorkButton = !!document.querySelector("#workWithFilesBtn");
+      const children = element.querySelectorAll('*');
+      children.forEach(child => {
+          child.style.pointerEvents = '';
+          child.style.userSelect = '';
+      });
+  }
 
-                // Условие 1: нет paySchemaImage
-                const paySchemaExists = !!document.querySelector(paySchemaImage);
+  // Основная функция проверки и блокировки
+  function checkAndBlockElements() {
+      if (isChecking) return;
+      isChecking = true;
 
-                // Условие 2: в истории есть nobr с текстом
-                const historyConditionEl = document.querySelector("#History > table:nth-child(1) > tbody > tr:nth-child(3) > td.right.bold");
-                const hasHistoryText = historyConditionEl && historyConditionEl.querySelector('nobr')?.textContent.trim() !== '';
+      try {
+          // Блокируем первый элемент всегда
+          const target1 = document.querySelector(selector1);
+          if (target1 && !target1.blocked) {
+              blockElement(target1);
+          }
 
-                if (hasWorkButton || (!paySchemaExists && hasHistoryText)) {
-                    rowToShow.style.display = ''; // показываем строку
-                } else {
-                    rowToShow.style.display = 'none'; // скрываем
-                }
-            }
-        } catch (e) {
-            // Игнорируем ошибки
-        } finally {
-            isChecking = false;
-        }
-    }
+          // Проверяем наличие "Договор №" в поле ввода
+          const contractInput = document.querySelector(contractInputSelector);
+          const hasContractNumber = contractInput && contractInput.value.includes("Договор №");
 
-    const observer = new MutationObserver(checkAndBlockElements);
-    observer.observe(document.body, {
-        childList: true,
-        subtree: true
-    });
-    checkAndBlockElements();
+          // Получаем элементы для блокировки
+          const target2 = document.querySelector(selector2);
+          const target3 = document.querySelector(selector3);
+
+          // Блокируем или разблокируем selector2 и selector3
+          if (hasContractNumber) {
+              if (target2 && !target2.blocked) blockElement(target2);
+              if (target3 && !target3.blocked) blockElement(target3);
+          } else {
+              if (target2 && target2.blocked) unblockElement(target2);
+              if (target3 && target3.blocked) unblockElement(target3);
+          }
+
+          // Удаляем лишнюю кнопку
+          const btnToRemove = document.querySelector(buttonToRemove);
+          if (btnToRemove) {
+              btnToRemove.remove();
+          }
+
+          // Логика работы с PaySchemaIcon и фин.стопом
+          const image = document.querySelector(paySchemaImage);
+          const container = document.querySelector("#Summary > table > tbody > tr > td:nth-child(2) > table > tbody");
+
+          if (image) {
+              const oldWorkBtn = document.getElementById('workWithFilesBtn');
+              if (oldWorkBtn) oldWorkBtn.remove();
+
+              if (!document.getElementById('financialStopBtn')) {
+                  const financialStopBtn = document.createElement('tr');
+                  financialStopBtn.id = 'financialStopBtn';
+                  financialStopBtn.innerHTML = `<td colspan="2">
+                      <button style="
+                          -webkit-text-size-adjust: 100%;
+                          -webkit-tap-highlight-color: rgba(0,0,0,0);
+                          font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;
+                          line-height: 1.42857143;
+                          font-size: 14px;
+                          border-spacing: 0;
+                          border-collapse: collapse;
+                          box-sizing: border-box;
+                          border: solid 1px #a90000;
+                          background-color: #ff0000;
+                          color: #ffffff;
+                          text-align: center;
+                          padding: 6px 12px;
+                          margin: 10px 0;
+                          width: 100%;
+                          display: block;
+                          cursor: pointer;
+                          transition: all 0.2s ease;
+                      ">Фин.стоп</button>
+                  </td>`;
+                  financialStopBtn.querySelector('button').addEventListener('click', () => {
+                      alert('Заказ стоит на фин.стопе. Обратитесь к коммерческому директору.');
+                  });
+                  container.appendChild(financialStopBtn);
+              }
+          } else {
+              const oldFinBtn = document.getElementById('financialStopBtn');
+              if (oldFinBtn) oldFinBtn.remove();
+
+              const regButton = document.querySelector(regButtonSelector);
+              const rightDiv = document.querySelector(rightContainerSelector);
+              const hideConditionEl = document.querySelector(hideConditionSelector);
+              const hideCondition = hideConditionEl && hideConditionEl.querySelector('nobr')?.textContent.trim() !== '';
+              const shouldShowWorkButton = regButton && !hideCondition;
+
+              if (shouldShowWorkButton && !document.getElementById('workWithFilesBtn') && rightDiv) {
+                  const workBtn = document.createElement('button');
+                  workBtn.id = 'workWithFilesBtn';
+                  workBtn.textContent = 'В работу с файлами';
+                  Object.assign(workBtn.style, {
+                      '-webkit-text-size-adjust': '100%',
+                      '-webkit-tap-highlight-color': 'rgba(0,0,0,0)',
+                      'box-sizing': 'border-box',
+                      'font': 'inherit',
+                      'text-transform': 'none',
+                      'font-family': 'inherit',
+                      'display': 'inline-block',
+                      'font-weight': '400',
+                      'text-align': 'center',
+                      'white-space': 'nowrap',
+                      'vertical-align': 'middle',
+                      'touch-action': 'manipulation',
+                      'cursor': 'pointer',
+                      'user-select': 'none',
+                      'border': '1px solid transparent',
+                      'color': '#fff',
+                      'background-color': '#5cb85c',
+                      'padding': '10px 16px',
+                      'font-size': '18px',
+                      'line-height': '1.3333333',
+                      'border-radius': '6px',
+                      'text-shadow': '0 -1px 0 rgba(0,0,0,.2)',
+                      'box-shadow': 'inset 0 1px 0 rgba(255,255,255,.15), 0 1px 1px rgba(0,0,0,.075)',
+                      'background-image': 'linear-gradient(to bottom,#5cb85c 0,#419641 100%)',
+                      'background-repeat': 'repeat-x',
+                      'border-color': '#3e8f3e',
+                      'position': 'relative',
+                      'margin-left': '10px'
+                  });
+
+                  workBtn.addEventListener('click', () => {
+                      const hiddenBtn = document.querySelector(hiddenButtonInRow);
+                      if (hiddenBtn) hiddenBtn.click();
+                  });
+
+                  const existingButton = document.querySelector(triggerButtonSelector);
+                  if (existingButton) {
+                      existingButton.parentNode.insertBefore(workBtn, existingButton.nextSibling);
+                  } else if (rightDiv) {
+                      rightDiv.appendChild(workBtn);
+                  }
+              }
+          }
+
+          // Логика отображения/скрытия TimeFilesInfo
+          const rowToShow = document.querySelector(timeFilesRow);
+          if (rowToShow) {
+              const hasWorkButton = !!document.querySelector("#workWithFilesBtn");
+              const paySchemaExists = !!document.querySelector(paySchemaImage);
+              const historyConditionEl = document.querySelector("#History > table:nth-child(1) > tbody > tr:nth-child(3) > td.right.bold");
+              const hasHistoryText = historyConditionEl && historyConditionEl.querySelector('nobr')?.textContent.trim() !== '';
+              rowToShow.style.display = hasWorkButton || (!paySchemaExists && hasHistoryText) ? '' : 'none';
+          }
+
+      } catch (e) {
+          console.warn('Ошибка в checkAndBlockElements:', e);
+      } finally {
+          isChecking = false;
+      }
+  }
+
+  // Наблюдатель за изменениями DOM
+  const observer = new MutationObserver(checkAndBlockElements);
+  observer.observe(document.body, {
+      childList: true,
+      subtree: true
+  });
+
+  // Первичная проверка
+  checkAndBlockElements();
 }
 lockManager();
 
