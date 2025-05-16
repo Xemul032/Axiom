@@ -1,5 +1,5 @@
 // ==UserScript==
-// @name         Проверка заказа 9.6.2
+// @name         Проверка заказа 9.6.3
 // @namespace    http://tampermonkey.net/
 // @version      1.6
 // @description
@@ -5621,6 +5621,83 @@ function mgiDisCheck() {
 
 }
 mgiDisCheck();
+
+function hideFin () {
+    'use strict';
+
+    const selectors = {
+        btnDebt: "#vmClientForm > div:nth-child(1) > div > div:nth-child(2) > div:nth-child(3) > div.btn-group > button:nth-child(3)",
+        btnSave: "#vmClientForm > div:nth-child(1) > div > div:nth-child(2) > div:nth-child(3) > div.btn-group > button.btn.btn-success",
+        tr6: "#vmClientForm > div:nth-child(1) > div > div:nth-child(2) > div:nth-child(3) > table > tbody > tr:nth-child(6)",
+        tr5: "#vmClientForm > div:nth-child(1) > div > div:nth-child(2) > div:nth-child(3) > table > tbody > tr:nth-child(5)",
+        tr4: "#vmClientForm > div:nth-child(1) > div > div:nth-child(2) > div:nth-child(3) > table > tbody > tr:nth-child(4)",
+        tr3: "#vmClientForm > div:nth-child(1) > div > div:nth-child(2) > div:nth-child(3) > table > tbody > tr:nth-child(3)",
+    };
+
+    function manipulateRows(hideTr5 = false) {
+        // Блокируемые строки (всё кроме tr5)
+        [selectors.tr3, selectors.tr4, selectors.tr6].forEach(selector => {
+            const row = document.querySelector(selector);
+            if (row) {
+                row.style.pointerEvents = hideTr5 ? '' : 'none';
+            }
+        });
+
+        // Скрываемая строка (tr5)
+        const row5 = document.querySelector(selectors.tr5);
+        if (row5) {
+            row5.style.display = hideTr5 ? '' : 'none';
+        }
+    }
+
+    function hideCreditOption() {
+        const listboxContainers = document.querySelectorAll('[id$="__listbox"]');
+
+        listboxContainers.forEach(container => {
+            const creditLi = Array.from(container.querySelectorAll('li')).find(li =>
+                li.textContent.trim() === 'Кредит'
+            );
+
+            if (creditLi) {
+                creditLi.style.display = 'none';
+            }
+        });
+    }
+
+    function checkElements() {
+        const debtBtn = document.querySelector(selectors.btnDebt);
+        const saveBtn = document.querySelector(selectors.btnSave);
+
+        if (debtBtn && saveBtn) {
+            manipulateRows(false); // Заблокировать и скрыть
+            hideCreditOption();
+        } else {
+            manipulateRows(true); // Разрешить всё
+        }
+    }
+
+    function setupObserver() {
+        const observer = new MutationObserver(() => {
+            checkElements();
+        });
+
+        observer.observe(document.body, { childList: true, subtree: true });
+    }
+
+    function startPollingCreditOption(interval = 1000) {
+        setInterval(() => {
+            hideCreditOption();
+        }, interval);
+    }
+
+    // Инициализация
+    checkElements();
+    setupObserver();
+    startPollingCreditOption();
+
+}
+
+hideFin();
 
     // Функция для отображения обратной связи (изменение кнопки)
     function showFeedback(button) {
