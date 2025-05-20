@@ -1,5 +1,5 @@
 // ==UserScript==
-// @name         Проверка заказа 9.6.3
+// @name         Проверка заказа 9.6.4
 // @namespace    http://tampermonkey.net/
 // @version      1.6
 // @description
