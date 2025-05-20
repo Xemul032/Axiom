@@ -4328,39 +4328,27 @@ function hideDiscounts() {
 
             // Если имя в списке исключений — не блокируем
             if (excludedUsers.includes(currentUserName)) {
-                targetTR.style.pointerEvents = ""; // Сбрасываем, если был установлен
-                targetTR.style.opacity = ""; // Восстанавливаем прозрачность
+                targetTR.style.pointerEvents = ""; // Восстанавливаем доступность
+                targetTR.style.opacity = "";
                 return;
             }
         }
 
-        // Применяем блокировку
+        // Блокируем всё содержимое строки
         targetTR.style.pointerEvents = "none";
-        targetTR.style.opacity = "0.5"; // Визуальное обозначение заблокированного состояния
-    }
+        targetTR.style.opacity = "1";
 
-    // Функция для добавления эффекта белесого блюра на #vmClientForm
-    function applyWhitishBlurEffect(vmClientForm) {
-        const whitishOverlay = document.createElement("div");
-        whitishOverlay.style.position = "absolute";
-        whitishOverlay.style.top = "0";
-        whitishOverlay.style.left = "0";
-        whitishOverlay.style.width = "100%";
-        whitishOverlay.style.height = "100%";
-        whitishOverlay.style.backgroundColor = "rgba(255, 255, 255, 0.3)";
-        whitishOverlay.style.zIndex = "9999";
-        whitishOverlay.style.pointerEvents = "none";
+        // Разблокируем конкретную вложенную строку
+        const exceptionTR = targetTR.querySelector(
+            "td:nth-child(1) > table > tbody > tr:nth-child(2)"
+        );
 
-        vmClientForm.style.position = "relative";
-        vmClientForm.appendChild(whitishOverlay);
-
-        vmClientForm.style.filter = "blur(2px)";
-        vmClientForm.style.transition = "filter 0.3s ease";
-
-        setTimeout(() => {
-            vmClientForm.style.filter = "none";
-            whitishOverlay.remove();
-        }, 500);
+        if (exceptionTR) {
+            // Разрешаем взаимодействие
+            exceptionTR.style.pointerEvents = "auto";
+            // Восстанавливаем нормальную видимость
+            exceptionTR.style.opacity = "1";
+        }
     }
 
     // MutationObserver для отслеживания динамических изменений в DOM
@@ -4378,7 +4366,6 @@ function hideDiscounts() {
                     const currentText = textElement.textContent.trim();
 
                     if (currentText !== previousText) {
-                        applyWhitishBlurEffect(vmClientForm);
                         previousText = currentText;
                         hideTR(); // Вызываем блокировку нужного TR
                     }
