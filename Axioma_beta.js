@@ -1,5 +1,5 @@
 // ==UserScript==
-// @name         Проверка заказа 9.6.4
+// @name         Проверка заказа 9.6.5
 // @namespace    http://tampermonkey.net/
 // @version      1.6
 // @description
@@ -399,7 +399,7 @@ function lockManager() {
                           transition: all 0.2s ease;
                       ">Фин.стоп</button>
                   </td>`;
-                  
+
                   container.appendChild(financialStopBtn);
               }
           } else {
@@ -3259,23 +3259,59 @@ function createBonusRow() {
   return row;
 }
 
-// Функция для скрытия всех элементов, кроме указанных строк
 function removeUnwantedElements(targetTableBody) {
-        // Проходим по всем строкам таблицы
-        const rows = targetTableBody.querySelectorAll('tr');
-        rows.forEach(row => {
-            // Получаем текст строки и проверяем его содержимое
-            const rowText = row.textContent || row.innerText || '';
-            if (
-    !rowText.includes('Корректировка суммы') &&
-    !rowText.includes('Юр. лицо') &&
-    !rowText.includes('Доступно бонусов') &&
-    !document.querySelector('.bonus-row')
-) {
-                row.style.display = 'none'; // Скрываем строку
-            }
-        });
+    // Проверяем наличие "активного" селекта
+    const activeSelect = document.querySelector(
+        "#Fin > table > tbody:nth-child(4) > tr > td:nth-child(1) > table > tbody > tr:nth-child(5) > td.right > select"
+    );
+
+    // Проверяем, виден ли он пользователю
+    if (!activeSelect || !isElementVisible(activeSelect)) {
+        return;
     }
+
+    // 1. Скрываем ненужные строки таблицы
+    const rows = targetTableBody.querySelectorAll('tr');
+    rows.forEach(row => {
+        const rowText = row.textContent || row.innerText || '';
+        if (
+            !rowText.includes('Корректировка суммы') &&
+            !rowText.includes('Юр. лицо') &&
+            !rowText.includes('Схема') &&
+            !rowText.includes('Доступно бонусов') &&
+            !document.querySelector('.bonus-row')
+        ) {
+            row.style.display = 'none';
+        }
+    });
+
+    // 2. Скрываем <option value="3">Кредит</option> из нужных <select>
+    const allRows = targetTableBody.querySelectorAll('tr');
+
+    allRows.forEach((row) => {
+        const select = row.querySelector('select');
+        if (select) {
+            const onchangeAttr = select.getAttribute('onchange') || '';
+
+            // Более гибкое регулярное выражение
+            if (/SetProductValue\s*\(\s*{[^{}]*ProductId/i.test(onchangeAttr)) {
+                const creditOption = Array.from(select.options).find(option =>
+                    option.textContent.trim().toLowerCase() === 'кредит' && option.value === '3'
+                );
+
+                if (creditOption) {
+                    // Скрываем элемент через стиль
+                    creditOption.style.display = 'none';
+                }
+            }
+        }
+    });
+}
+
+// Вспомогательная функция для проверки видимости элемента
+function isElementVisible(element) {
+    return element && element.offsetParent !== null;
+}
 
 // Функция для добавления строки с бонусами в таблицу
 function addBonusRowToTable(targetTable) {
