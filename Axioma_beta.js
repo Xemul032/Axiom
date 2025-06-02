@@ -1,5 +1,5 @@
 // ==UserScript==
-// @name         Проверка заказа 9.6.4
+// @name         Проверка заказа 9.6.5
 // @namespace    http://tampermonkey.net/
 // @version      1.6
 // @description
@@ -3775,13 +3775,21 @@ closeOldBill();
     `);
 
     // Функция для получения productID
-    function gs_processProductId() {
-        const productIdElement = document.querySelector("#ProductId");
-        if (productIdElement) {
-            return productIdElement.textContent.trim();
+function gs_processProductId() {
+    const productIdElement = document.querySelector("#ProductId");
+    if (productIdElement) {
+        let text = productIdElement.textContent.trim();
+
+        // Удаляем все нецифровые символы
+        const numericId = text.replace(/[^0-9]/g, '');
+
+        // Если после очистки есть цифры — возвращаем, иначе null
+        if (numericId) {
+            return numericId;
         }
-        return null;
     }
+    return null;
+}
 
     // Функция для получения имени пользователя
     function getUserName() {
