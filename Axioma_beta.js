@@ -1,5 +1,5 @@
 // ==UserScript==
-// @name         Проверка заказа 9.6.5
+// @name         Проверка заказа 9.6.6
 // @namespace    http://tampermonkey.net/
 // @version      1.6
 // @description
@@ -399,7 +399,7 @@ function lockManager() {
                           transition: all 0.2s ease;
                       ">Фин.стоп</button>
                   </td>`;
-                  
+
                   container.appendChild(financialStopBtn);
               }
           } else {
@@ -5436,26 +5436,32 @@ buhToolTip();
         });
     }
 
-    function sendToGoogleAppsScript(productId, managerPercentage, remainingPercentage) {
-        return new Promise((resolve, reject) => {
-            const url = `${APPS_SCRIPT_URL}?sheet=notHalf&action=append&productId=${encodeURIComponent(productId)}&managerPercentage=${encodeURIComponent(managerPercentage)}&remainingPercentage=${encodeURIComponent(remainingPercentage)}`;
-            GM_xmlhttpRequest({
-                method: "POST",
-                url,
-                headers: { "Content-Type": "application/json" },
-                onload: function (response) {
-                    if (response.status === 200 && response.responseText === "success") {
-                        resolve();
-                    } else {
-                        reject(new Error(`Server error: ${response.status}, ${response.responseText}`));
-                    }
-                },
-                onerror: function (error) {
-                    reject(error);
+function sendToGoogleAppsScript(productId, managerPercentage, remainingPercentage) {
+    return new Promise((resolve, reject) => {
+        const url = `${APPS_SCRIPT_URL}?sheet=notHalf&action=append&productId=${encodeURIComponent(productId)}&managerPercentage=${encodeURIComponent(managerPercentage)}&remainingPercentage=${encodeURIComponent(remainingPercentage)}`;
+
+        GM_xmlhttpRequest({
+            method: "POST",
+            url,
+            headers: {
+                // Меняем на правильный Content-Type для POST без тела
+                "Content-Type": "application/x-www-form-urlencoded"
+            },
+            // Можно оставить пустое тело, так как данные в URL
+            data: "",  // обязательно, если требуется тело запроса
+            onload: function(response) {
+                if (response.status === 200 && response.responseText === "success") {
+                    resolve();
+                } else {
+                    reject(new Error(`Server error: ${response.status}, ${response.responseText}`));
                 }
-            });
+            },
+            onerror: function(error) {
+                reject(error);
+            }
         });
-    }
+    });
+}
 
     const observer = new MutationObserver(checkAndCreateButton);
     observer.observe(document.body, { childList: true, subtree: true });
