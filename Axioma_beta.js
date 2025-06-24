@@ -1,5 +1,5 @@
 // ==UserScript==
-// @name         Проверка заказа 9.6.8
+// @name         Проверка заказа 9.6.9
 // @namespace    http://tampermonkey.net/
 // @version      1.6
 // @description
@@ -706,75 +706,7 @@ lockManager();
     document.head.appendChild(new4Style);
   }, 100);
 
-  function checkForTextAndDate() {
-    const searchText = "Номенклатура";
-    const searchText1 = "Номенклатура по умолчанию";
-    const bodyText = document.body.innerText;
 
-    if (bodyText.includes(searchText) && !bodyText.includes(searchText1)) {
-
-      const orderLogs =  document.querySelector("#TopButtons > div.btn-group.btn-group-sm.dropdown.open > ul > li:nth-child(2) > a")
-        if (orderLogs){ orderLogs.style.display='none'}
-      const input = document.getElementById("DateReady");
-      const input2 = document.querySelector(
-        "#Summary > table > tbody > tr > td:nth-child(1) > table > tbody:nth-child(3) > tr:nth-child(9) > td.PlanBlock > span.DateReady"
-      );
-
-      let changeDate = false;
-      let changeDate2 = false;
-
-      const dateReadyInput = document.querySelector(
-        "input#DateReady.center.datepicker.DateReady.hasDatepicker"
-      );
-      const DateReady1 = document.querySelector(
-        "#Summary > table > tbody > tr > td:nth-child(1) > table > tbody:nth-child(3) > tr:nth-child(9) > td.PlanBlock > span.DateReady"
-      );
-      // Проверка каждую секунду
-      if (dateReadyInput) {
-        let previousValue = input.value;
-        let currentValue = null;
-        setInterval(() => {
-          currentValue = input.value;
-          if (currentValue !== previousValue) {
-            changeDate = true;
-
-
-            previousValue = currentValue;
-          }
-          if (changeDate == true) {
-            showCenterMessage("Дата сдачи заказа изменилась!"); // Показываем сообщение в центре экрана
-            if (DateReady1.classList.contains("changed") == true) {
-              DateReady1.classList.remove("changed");
-            }
-            changeDate = false;
-          } else {
-            changeDate = false;
-          }
-        }, 1000);
-      } else if (input2) {
-        let currentValue = null;
-        let previousValue2 = input2.innerText;
-        setInterval(() => {
-          currentValue = input2.innerText;
-          if (currentValue !== previousValue2) {
-            changeDate = true;
-
-
-            previousValue2 = currentValue;
-          }
-          if (changeDate == true) {
-            showCenterMessage("Дата сдачи заказа изменилась!"); // Показываем сообщение в центре экрана
-            if (DateReady1.classList.contains("changed") == true) {
-              DateReady1.classList.remove("changed");
-            }
-            changeDate = false;
-          } else {
-            changeDate = false;
-          }
-        }, 1000);
-      }
-    }
-  }
 
   // Создание кнопки для проверки заказа
   const orderCheckButton = document.createElement("button");
