@@ -1,5 +1,5 @@
 // ==UserScript==
-// @name         Проверка заказа 9.6.7
+// @name         Проверка заказа 9.6.8
 // @namespace    http://tampermonkey.net/
 // @version      1.6
 // @description
@@ -2865,9 +2865,9 @@ if (
   }
 
   // Запускаем проверку при загрузке страницы
-  window.addEventListener("load", checkForTextAndDate);
+  window.addEventListener("load");
   setInterval(checkForText, 500); // Проверка наличия текста каждую секунду
-  setInterval(checkForTextAndDate, 5000); // Проверка даты каждые 2 секунды
+
   setInterval(checkForcolorCheck, 100);
   setInterval(checkingClients, 100);
   setInterval(addOneDay, 0);
