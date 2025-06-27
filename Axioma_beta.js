@@ -1,5 +1,5 @@
 // ==UserScript==
-// @name         Проверка заказа 9.7.0
+// @name         Проверка заказа 9.7.1
 // @namespace    http://tampermonkey.net/
 // @version      1.6
 // @description
@@ -6734,6 +6734,745 @@ const otherMatches = selectedTypes.length > 0 ? allData.filter(item => {
 
 };
 smartSerch ();
+
+     
+
+function perezakazBtn () {
+    'use strict';
+
+    let button = null;
+    const UNIQUE_PREFIX = 'custom-save-data-';
+
+    // Используйте URL веб-приложения из Google Apps Script
+    const SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbzCQ6W3fOLGa-y1RgWeMjVEhqW1dAjtt3CS_8bEtcYZleHVhhim1wQfRZhFqAEj3fsu/exec';
+
+    // === Добавляем изолированные стили ===
+    function addStyles() {
+        const style = document.createElement('style');
+        style.textContent = `
+            .${UNIQUE_PREFIX}modal {
+                position: fixed !important;
+                top: 0 !important;
+                left: 0 !important;
+                right: 0 !important;
+                bottom: 0 !important;
+                background: rgba(0, 0, 0, 0.7) !important;
+                display: flex !important;
+                align-items: center !important;
+                justify-content: center !important;
+                z-index: 10000 !important;
+                backdrop-filter: blur(5px) !important;
+                animation: ${UNIQUE_PREFIX}fadeIn 0.3s ease-out !important;
+            }
+
+            .${UNIQUE_PREFIX}modal-content {
+                background: linear-gradient(135deg, #0091D3 0%, #005189 100%) !important;
+                padding: 0 !important;
+                border-radius: 16px !important;
+                width: 400px !important;
+                max-width: 90vw !important;
+                box-shadow: 0 20px 40px rgba(0, 0, 0, 0.4) !important;
+                transform: scale(0.9) !important;
+                animation: ${UNIQUE_PREFIX}modalSlideIn 0.3s ease-out forwards !important;
+                overflow: hidden !important;
+                font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif !important;
+                box-sizing: border-box !important;
+            }
+
+            .${UNIQUE_PREFIX}modal-header {
+                background: rgba(255, 255, 255, 0.1) !important;
+                padding: 20px !important;
+                text-align: center !important;
+                border-bottom: 1px solid rgba(255, 255, 255, 0.2) !important;
+            }
+
+            .${UNIQUE_PREFIX}modal-header h3 {
+                margin: 0 !important;
+                color: white !important;
+                font-size: 20px !important;
+                font-weight: 600 !important;
+                text-shadow: 0 2px 4px rgba(0, 0, 0, 0.3) !important;
+                font-family: inherit !important;
+            }
+
+            .${UNIQUE_PREFIX}modal-body {
+                padding: 25px !important;
+                background: white !important;
+            }
+
+            .${UNIQUE_PREFIX}input-group {
+                margin-bottom: 20px !important;
+            }
+
+            .${UNIQUE_PREFIX}input-label {
+                display: block !important;
+                margin-bottom: 8px !important;
+                font-weight: 600 !important;
+                color: #333 !important;
+                font-size: 14px !important;
+                font-family: inherit !important;
+            }
+
+            .${UNIQUE_PREFIX}custom-input {
+                width: 100% !important;
+                padding: 12px 16px !important;
+                border: 2px solid #e1e5e9 !important;
+                border-radius: 8px !important;
+                font-size: 14px !important;
+                transition: all 0.3s ease !important;
+                box-sizing: border-box !important;
+                font-family: inherit !important;
+                background: white !important;
+                color: #333 !important;
+            }
+
+            .${UNIQUE_PREFIX}custom-input:focus {
+                outline: none !important;
+                border-color: #0091D3 !important;
+                box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1) !important;
+            }
+
+            .${UNIQUE_PREFIX}modal-buttons {
+                display: flex !important;
+                gap: 12px !important;
+                justify-content: center !important;
+                margin-top: 20px !important;
+            }
+
+            .${UNIQUE_PREFIX}btn {
+                padding: 12px 24px !important;
+                border: none !important;
+                border-radius: 8px !important;
+                font-size: 14px !important;
+                font-weight: 600 !important;
+                cursor: pointer !important;
+                transition: all 0.3s ease !important;
+                min-width: 100px !important;
+                font-family: inherit !important;
+                text-decoration: none !important;
+                display: inline-flex !important;
+                align-items: center !important;
+                justify-content: center !important;
+            }
+
+            .${UNIQUE_PREFIX}btn-primary {
+                background: linear-gradient(135deg, #0091D3 0%, #005189 100%) !important;
+                color: white !important;
+                box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4) !important;
+            }
+
+            .${UNIQUE_PREFIX}btn-primary:hover {
+                transform: translateY(-2px) !important;
+                box-shadow: 0 8px 20px rgba(102, 126, 234, 0.6) !important;
+            }
+
+            .${UNIQUE_PREFIX}btn-secondary {
+                background: #f8f9fa !important;
+                color: #6c757d !important;
+                border: 2px solid #e9ecef !important;
+            }
+
+            .${UNIQUE_PREFIX}btn-secondary:hover {
+                background: #e9ecef !important;
+                color: #495057 !important;
+                transform: translateY(-1px) !important;
+            }
+
+            .${UNIQUE_PREFIX}success-message {
+                position: fixed !important;
+                top: 20px !important;
+                right: 20px !important;
+                background: linear-gradient(135deg, #4CAF50 0%, #45a049 100%) !important;
+                color: white !important;
+                padding: 16px 24px !important;
+                border-radius: 8px !important;
+                z-index: 10001 !important;
+                box-shadow: 0 8px 24px rgba(76, 175, 80, 0.4) !important;
+                animation: ${UNIQUE_PREFIX}slideInRight 0.5s ease-out !important;
+                font-weight: 600 !important;
+                font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif !important;
+                font-size: 14px !important;
+            }
+
+            .${UNIQUE_PREFIX}error-message {
+                position: fixed !important;
+                top: 20px !important;
+                right: 20px !important;
+                background: linear-gradient(135deg, #f44336 0%, #d32f2f 100%) !important;
+                color: white !important;
+                padding: 16px 24px !important;
+                border-radius: 8px !important;
+                z-index: 10001 !important;
+                box-shadow: 0 8px 24px rgba(244, 67, 54, 0.4) !important;
+                animation: ${UNIQUE_PREFIX}slideInRight 0.5s ease-out !important;
+                font-weight: 600 !important;
+                font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif !important;
+                font-size: 14px !important;
+            }
+
+            .${UNIQUE_PREFIX}loading {
+                opacity: 0.7 !important;
+                pointer-events: none !important;
+            }
+
+            .${UNIQUE_PREFIX}spinner {
+                display: inline-block !important;
+                width: 16px !important;
+                height: 16px !important;
+                border: 2px solid #ffffff !important;
+                border-radius: 50% !important;
+                border-top-color: transparent !important;
+                animation: ${UNIQUE_PREFIX}spin 1s ease-in-out infinite !important;
+                margin-right: 8px !important;
+            }
+
+            @keyframes ${UNIQUE_PREFIX}fadeIn {
+                from { opacity: 0; }
+                to { opacity: 1; }
+            }
+
+            @keyframes ${UNIQUE_PREFIX}modalSlideIn {
+                from {
+                    transform: scale(0.7) translateY(-20px);
+                    opacity: 0;
+                }
+                to {
+                    transform: scale(1) translateY(0);
+                    opacity: 1;
+                }
+            }
+
+            @keyframes ${UNIQUE_PREFIX}slideInRight {
+                from {
+                    transform: translateX(100%);
+                    opacity: 0;
+                }
+                to {
+                    transform: translateX(0);
+                    opacity: 1;
+                }
+            }
+
+            @keyframes ${UNIQUE_PREFIX}spin {
+                to { transform: rotate(360deg); }
+            }
+
+.${UNIQUE_PREFIX}main-button {
+    -webkit-text-size-adjust: 100% !important;
+    -webkit-tap-highlight-color: rgba(0,0,0,0) !important;
+    font-family: "Helvetica Neue",Helvetica,Arial,sans-serif !important;
+    border-spacing: 0 !important;
+    border-collapse: collapse !important;
+    box-sizing: border-box !important;
+    text-decoration: none !important;
+    display: inline-block !important;
+    margin-bottom: 0 !important;
+    font-weight: 400 !important;
+    text-align: center !important;
+    white-space: nowrap !important;
+    vertical-align: middle !important;
+    touch-action: manipulation !important;
+    cursor: pointer !important;
+    user-select: none !important;
+    border: 1px solid transparent !important;
+    color: #333 !important;
+    background-color: #fff !important;
+    box-shadow: inset 0 1px 0 rgba(255,255,255,.15),0 1px 1px rgba(0,0,0,.075) !important;
+    text-shadow: 0 1px 0 #fff !important;
+    background-image: linear-gradient(to bottom,#fff 0,#e0e0e0 100%) !important;
+    background-repeat: repeat-x !important;
+    border-color: #ccc !important;
+    padding: 5px 10px !important;
+    font-size: 12px !important;
+    line-height: 1.5 !important;
+    position: relative !important;
+    float: left !important;
+    margin-left: -1px !important;
+    border-radius: 0 !important;
+}
+
+.${UNIQUE_PREFIX}main-button:hover {
+    background-image: linear-gradient(to bottom,#e0e0e0 0,#d0d0d0 100%) !important;
+    border-color: #adadad !important;
+}
+
+.${UNIQUE_PREFIX}main-button:active {
+    background-image: linear-gradient(to bottom,#d0d0d0 0,#e0e0e0 100%) !important;
+    box-shadow: inset 0 3px 5px rgba(0,0,0,.125) !important;
+}
+        `;
+        document.head.appendChild(style);
+    }
+
+    // === Проверяем текст в строке таблицы ===
+    function hasContractorLabel() {
+        const el = document.querySelector("#Doc > div.bigform > div.row > div:nth-child(2) > table > tbody > tr:nth-child(2)");
+        return el && el.textContent.trim().includes("Подрядчик");
+    }
+
+    // === Проверяем изображение ===
+    function isForbiddenImageVisible() {
+        const statusImg = document.querySelector("#StatusIcon > img");
+        return statusImg && statusImg.src.includes("img/status/status-outsource-calc.png");
+    }
+
+    // === Получаем текст по селектору ===
+    function getText(selector) {
+        const el = document.querySelector(selector);
+        return el ? el.textContent.trim() : '';
+    }
+
+    // === Показываем уведомление ===
+    function showNotification(message, type = 'success') {
+        const notification = document.createElement('div');
+        notification.className = type === 'success' ? `${UNIQUE_PREFIX}success-message` : `${UNIQUE_PREFIX}error-message`;
+        notification.innerHTML = `
+            <div style="display: flex !important; align-items: center !important;">
+                <span style="margin-right: 10px !important;">${type === 'success' ? '✅' : '❌'}</span>
+                <span>${message}</span>
+            </div>
+        `;
+        document.body.appendChild(notification);
+
+        setTimeout(() => {
+            notification.style.animation = `${UNIQUE_PREFIX}slideInRight 0.3s ease-out reverse`;
+            setTimeout(() => {
+                if (notification.parentNode) {
+                    notification.remove();
+                }
+            }, 300);
+        }, 4000);
+    }
+
+    // === Создаём модальное окно ===
+    function showModal(onSubmit) {
+        const modal = document.createElement('div');
+        modal.className = `${UNIQUE_PREFIX}modal`;
+
+        modal.innerHTML = `
+            <div class="${UNIQUE_PREFIX}modal-content">
+                <div class="${UNIQUE_PREFIX}modal-header">
+                    <h3>📋 Счёт от подрядчика</h3>
+                </div>
+                <div class="${UNIQUE_PREFIX}modal-body">
+                    <div class="${UNIQUE_PREFIX}input-group">
+                        <label class="${UNIQUE_PREFIX}input-label"Счёт от подрядчика</label>
+                        <input type="text" class="${UNIQUE_PREFIX}custom-input" id="${UNIQUE_PREFIX}invoiceInput" placeholder="Счёт № . . ." />
+                    </div>
+                    <div class="${UNIQUE_PREFIX}modal-buttons">
+                          <button class="${UNIQUE_PREFIX}btn ${UNIQUE_PREFIX}btn-primary" id="${UNIQUE_PREFIX}submitBtn">
+                          <span id="${UNIQUE_PREFIX}submitText">Сохранить</span>
+                        <button class="${UNIQUE_PREFIX}btn ${UNIQUE_PREFIX}btn-secondary" id="${UNIQUE_PREFIX}cancelBtn">Отмена</button>
+
+
+                        </button>
+                    </div>
+                </div>
+            </div>
+        `;
+
+        const input = modal.querySelector(`#${UNIQUE_PREFIX}invoiceInput`);
+        const submitBtn = modal.querySelector(`#${UNIQUE_PREFIX}submitBtn`);
+        const cancelBtn = modal.querySelector(`#${UNIQUE_PREFIX}cancelBtn`);
+        const submitText = modal.querySelector(`#${UNIQUE_PREFIX}submitText`);
+
+        // Фокус на input при открытии
+        setTimeout(() => input.focus(), 100);
+
+        // Обработка Enter
+        input.addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') {
+                submitBtn.click();
+            }
+        });
+
+        submitBtn.onclick = () => {
+            const value = input.value.trim();
+            if (!value) {
+                input.style.borderColor = '#f44336';
+                input.focus();
+                return;
+            }
+
+            // Показываем загрузку
+            submitBtn.classList.add(`${UNIQUE_PREFIX}loading`);
+            submitText.innerHTML = `<span class="${UNIQUE_PREFIX}spinner"></span>Сохранение...`;
+
+            onSubmit(value, () => {
+                if (modal.parentNode) {
+                    document.body.removeChild(modal);
+                }
+            });
+        };
+        cancelBtn.onclick = () => {
+            if (modal.parentNode) {
+                document.body.removeChild(modal);
+            }
+        };
+
+        // Закрытие по клику вне модального окна
+        modal.onclick = (e) => {
+            if (e.target === modal) {
+                if (modal.parentNode) {
+                    document.body.removeChild(modal);
+                }
+            }
+        };
+
+        document.body.appendChild(modal);
+    }
+
+    // === Функция проверки наличия строки в таблице ===
+    function checkIfRowExists(textFromDoc, callback) {
+        GM_xmlhttpRequest({
+            method: 'GET',
+            url: `${SCRIPT_URL}?action=check&textFromDoc=${encodeURIComponent(textFromDoc)}`,
+            headers: {
+                'Cache-Control': 'no-cache'
+            },
+            timeout: 30000,
+            onload: function (response) {
+
+
+                try {
+                    // Проверяем статус ответа
+                    if (response.status !== 200) {
+                        console.error('HTTP ошибка:', response.status, response.statusText);
+                        callback(false);
+                        return;
+                    }
+
+                    // Проверяем, что ответ не HTML
+                    const responseText = response.responseText.trim();
+                    if (responseText.startsWith('<!DOCTYPE') || responseText.startsWith('<html')) {
+                        console.error('Сервер вернул HTML:', responseText.substring(0, 200));
+                        callback(false);
+                        return;
+                    }
+
+                    // Парсим JSON
+                    const data = JSON.parse(responseText);
+                    callback(data.exists || false);
+
+                } catch (e) {
+                    console.error('Ошибка при обработке ответа:', e);
+                    console.error('Ответ сервера:', response.responseText);
+                    // Если не можем проверить, считаем что записи нет
+                    callback(false);
+                }
+            },
+            onerror: function (error) {
+                console.error('Ошибка сетевого запроса:', error);
+                // Если не можем проверить, считаем что записи нет (позволяем сохранить)
+                callback(false);
+            },
+            ontimeout: function () {
+                console.error('Таймаут запроса');
+                callback(false);
+            }
+        });
+    }
+
+    // === Функция сохранения данных ===
+    function saveData(payload, callback) {
+        GM_xmlhttpRequest({
+            method: 'POST',
+            url: SCRIPT_URL,
+            data: JSON.stringify(payload),
+            headers: {
+                'Content-Type': 'application/json',
+                'Cache-Control': 'no-cache'
+            },
+            timeout: 30000,
+            onload: function (response) {
+
+                try {
+                    // Проверяем успешный статус
+                    if (response.status === 200 || response.status === 201) {
+                        const responseText = response.responseText.trim();
+
+                        // Проверяем содержимое ответа
+                        if (responseText === 'OK' || responseText.includes('OK')) {
+                            callback(true, 'Перезаказ внесён в таблицу');
+                            return;
+                        }
+                    }
+
+                    // Если статус не успешный или содержимое не OK
+                    callback(false, 'Ошибка при сохранении данных');
+
+                } catch (e) {
+                    console.error('Ошибка при обработке ответа сохранения:', e);
+                    callback(false, 'Ошибка при обработке ответа сервера');
+                }
+            },
+            onerror: function (error) {
+                console.error('Ошибка сетевого запроса при сохранении:', error);
+                callback(false, 'Ошибка подключения к серверу');
+            },
+            ontimeout: function () {
+                console.error('Таймаут запроса сохранения');
+                callback(false, 'Превышено время ожидания ответа');
+            }
+        });
+    }
+
+    // === Обработчик клика по кнопке ===
+    function handleButtonClick() {
+        const textFromDoc = getText("#Doc > div.form-group > div > div > span:nth-child(1)");
+        const menuItemText = getText("body > ul > div > li:nth-child(1) > a");
+        const contractorText = getText("#Contractor_chosen > a > span");
+
+
+        if (!textFromDoc || !menuItemText || !contractorText) {
+            showNotification('Не все данные доступны. Попробуйте позже.', 'error');
+            return;
+        }
+
+        showModal((invoiceNumber, closeModal) => {
+
+
+            checkIfRowExists(textFromDoc, (exists) => {
+                if (exists) {
+                    showNotification('Перезаказ уже внесен!', 'error');
+                    closeModal();
+                    return;
+                }
+
+                const payload = {
+                    action: 'save',
+                    invoiceNumber,
+                    textFromDoc,
+                    menuItemText,
+                    contractorText
+                };
+
+                saveData(payload, (success, message) => {
+                    if (success) {
+                        showNotification(message, 'success');
+                    } else {
+                        showNotification(message, 'error');
+                    }
+                    closeModal();
+                });
+            });
+        });
+    }
+
+    // === Проверяем и добавляем кнопку ===
+    function checkAndToggleButton() {
+        const topButtons = document.querySelector("#TopButtons");
+        if (!topButtons) return;
+
+        const meetsStatusLabelCondition = !isForbiddenImageVisible();
+        const meetsLabelTextCondition = hasContractorLabel();
+        const shouldShowButton = meetsStatusLabelCondition && meetsLabelTextCondition;
+
+        if (shouldShowButton && !button) {
+            button = document.createElement("button");
+            button.textContent = "💾 В таблицу перезаказов";
+            button.className = `${UNIQUE_PREFIX}main-button`;
+
+            button.addEventListener("click", handleButtonClick);
+            topButtons.appendChild(button);
+        } else if (!shouldShowButton && button) {
+            if (button.parentNode) {
+                button.remove();
+            }
+            button = null;
+        }
+    }
+
+    // === Инициализация ===
+    function init() {
+        addStyles();
+        checkAndToggleButton();
+
+        // === Наблюдатель за изменениями DOM ===
+        const observer = new MutationObserver(() => {
+            checkAndToggleButton();
+        });
+
+        observer.observe(document.body, {
+            childList: true,
+            subtree: true,
+            attributes: true
+        });
+    }
+
+    // Запускаем после загрузки DOM
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', init);
+    } else {
+        init();
+    }
+};
+
+perezakazBtn ();
+
+
+
+
+
+function lockPerezakaz () {
+    'use strict';
+
+    let isButtonPressed = false;
+
+    const textColor = "rgb(128, 0, 0)";
+    const bgColor = "rgb(255, 224, 224)";
+
+    // === Список элементов для блокировки ===
+    function getElementsToBlock() {
+        return [
+            document.querySelector("#Description"),
+            document.querySelector("#Summa"),
+            document.querySelector("#Cost"),
+            document.querySelector("#Quantity"),
+            document.querySelector("#LabelForContractor > td:nth-child(2)"),
+            document.querySelector("#LabelForSumma > td:nth-child(2) > span"),
+        ].filter(Boolean); // Отфильтровываем null/undefined
+    }
+
+    // === Функция блокировки элементов ===
+    function blockElements(elements) {
+        elements.forEach(el => {
+            if (el.__blocked) return;
+
+            if (el.tagName === 'INPUT' || el.tagName === 'TEXTAREA' || el.tagName === 'SELECT') {
+                el.disabled = true;
+                el.style.color = textColor;
+            } else {
+                el.style.pointerEvents = "none";
+                el.style.opacity = "0.6";
+            }
+
+            if (!el.style.backgroundColor) {
+                el.style.backgroundColor = bgColor;
+            }
+
+            el.__blocked = true;
+        });
+    }
+
+    // === Функция разблокировки элементов ===
+    function unblockElements(elements) {
+        elements.forEach(el => {
+            if (!el.__blocked) return;
+
+            if (el.tagName === 'INPUT' || el.tagName === 'TEXTAREA' || el.tagName === 'SELECT') {
+                el.disabled = false;
+                el.style.color = "";
+            } else {
+                el.style.pointerEvents = "";
+                el.style.opacity = "";
+            }
+
+            el.style.backgroundColor = "";
+
+            el.__blocked = false;
+        });
+    }
+
+    // === Основная функция проверки ===
+    function checkFormLock() {
+        const description = document.querySelector("#Description");
+        if (!description) return;
+
+        const text = description.value.trim();
+        const elementsToBlock = getElementsToBlock();
+
+        if (text.includes("Проверено")) {
+            blockElements(elementsToBlock);
+        } else {
+            unblockElements(elementsToBlock);
+        }
+    }
+
+    // === Проверка кнопки и Quantity ===
+    function checkLabel() {
+        const quantityInput = document.querySelector("#Quantity");
+        const labelElement = document.querySelector("#LabelForQuantity");
+        const button = document.querySelector("#TopButtons > a:nth-child(1)");
+
+        let isEmptyOrZero = false;
+        if (quantityInput) {
+            const value = quantityInput.value.trim();
+            const numValue = parseFloat(value);
+            isEmptyOrZero = value === "" || isNaN(numValue) || numValue <= 0;
+        }
+
+        if (!labelElement) return;
+
+        const labelCell = labelElement.querySelector("td:nth-child(1)");
+
+        if (isButtonPressed && isEmptyOrZero) {
+            labelElement.style.backgroundColor = bgColor;
+            if (labelCell) labelCell.style.color = textColor;
+            if (quantityInput) quantityInput.style.color = textColor;
+
+            blockButton(button);
+
+            labelElement.scrollIntoView({ behavior: "smooth", block: "center" });
+        } else {
+            labelElement.style.backgroundColor = "";
+            if (labelCell) labelCell.style.color = "";
+            if (quantityInput) quantityInput.style.color = "";
+
+            unblockButton(button);
+        }
+    }
+
+    function blockButton(button) {
+        if (button && !button.disabled) {
+            button.disabled = true;
+            button.style.opacity = "0.6";
+            button.style.pointerEvents = "none";
+            button.title = "Введите корректное количество перед продолжением";
+        }
+    }
+
+    function unblockButton(button) {
+        if (button && button.disabled) {
+            button.disabled = false;
+            button.style.opacity = "";
+            button.style.pointerEvents = "";
+            button.title = "";
+        }
+    }
+
+    // === Обработчик клика по кнопке ===
+    function setupButtonClickHandler() {
+        const buttonSelector = "#TopButtons > a:nth-child(1)";
+        const interval = setInterval(() => {
+            const buttons = document.querySelectorAll(buttonSelector);
+            buttons.forEach(button => {
+                if (!button.__clickHandlerSet) {
+                    button.addEventListener("click", () => {
+                        isButtonPressed = true;
+                        checkLabel();
+                    });
+                    button.__clickHandlerSet = true;
+                }
+            });
+
+            if (buttons.length > 0) clearInterval(interval);
+        }, 500);
+    }
+
+    // === Инициализация ===
+    function init() {
+        setupButtonClickHandler();
+
+        setInterval(checkLabel, 500);
+        setInterval(checkFormLock, 500);
+    }
+
+    window.addEventListener("load", () => {
+        setTimeout(init, 1000);
+    });
+};
+lockPerezakaz ();
 
     // Функция для отображения обратной связи (изменение кнопки)
     function showFeedback(button) {
