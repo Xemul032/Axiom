@@ -1,5 +1,5 @@
 // ==UserScript==
-// @name         Проверка заказа 9.7.1
+// @name         Проверка заказа 9.7.2
 // @namespace    http://tampermonkey.net/
 // @version      1.6
 // @description
@@ -7315,6 +7315,7 @@ perezakazBtn ();
 
 
 function lockPerezakaz () {
+   console.log('Вызов lockPerezakaz');
     'use strict';
 
     let isButtonPressed = false;
@@ -7468,39 +7469,9 @@ function lockPerezakaz () {
         setInterval(checkFormLock, 500);
     }
 
-// === Наблюдатель за появлением #Description ===
-function observeDescriptionElement(callback) {
-    const targetNode = document.body;
-    const config = { childList: true, subtree: true };
-
-    const observer = new MutationObserver(mutationsList => {
-        for (const mutation of mutationsList) {
-            if (mutation.type === 'childList') {
-                const descriptionElement = document.querySelector("#Description");
-                if (descriptionElement) {
-                    observer.disconnect(); // перестаём наблюдать, элемент найден
-                    callback();
-                }
-            }
-        }
+    window.addEventListener("load", () => {
+        setTimeout(init, 1000);
     });
-
-    observer.observe(targetNode, config);
-
-    // Проверка на случай, если элемент уже существует
-    const descriptionElement = document.querySelector("#Description");
-    if (descriptionElement) {
-        observer.disconnect();
-        callback();
-    }
-}
-
-// === Запуск скрипта после появления #Description ===
-window.addEventListener("load", () => {
-    observeDescriptionElement(() => {
-        setTimeout(init, 500); // небольшая задержка для стабильности
-    });
-});
 };
 
 lockPerezakaz ();
