@@ -1,5 +1,5 @@
 // ==UserScript==
-// @name         Проверка заказа 9.7.3
+// @name         Проверка заказа 9.7.1
 // @namespace    http://tampermonkey.net/
 // @version      1.6
 // @description
@@ -6736,170 +6736,9 @@ const otherMatches = selectedTypes.length > 0 ? allData.filter(item => {
 smartSerch ();
 
 
-     
 
 function perezakazBtn () {
     'use strict';
-
-        function lockPerezakaz () {
-    'use strict';
-
-    let isButtonPressed = false;
-
-    const textColor = "rgb(128, 0, 0)";
-    const bgColor = "rgb(255, 224, 224)";
-
-    // === Список элементов для блокировки ===
-    function getElementsToBlock() {
-        return [
-            document.querySelector("#Description"),
-            document.querySelector("#Summa"),
-            document.querySelector("#Cost"),
-            document.querySelector("#Quantity"),
-            document.querySelector("#LabelForContractor > td:nth-child(2)"),
-            document.querySelector("#LabelForSumma > td:nth-child(2) > span"),
-        ].filter(Boolean); // Отфильтровываем null/undefined
-    }
-
-    // === Функция блокировки элементов ===
-    function blockElements(elements) {
-        elements.forEach(el => {
-            if (el.__blocked) return;
-
-            if (el.tagName === 'INPUT' || el.tagName === 'TEXTAREA' || el.tagName === 'SELECT') {
-                el.disabled = true;
-                el.style.color = textColor;
-            } else {
-                el.style.pointerEvents = "none";
-                el.style.opacity = "0.6";
-            }
-
-            if (!el.style.backgroundColor) {
-                el.style.backgroundColor = bgColor;
-            }
-
-            el.__blocked = true;
-        });
-    }
-
-    // === Функция разблокировки элементов ===
-    function unblockElements(elements) {
-        elements.forEach(el => {
-            if (!el.__blocked) return;
-
-            if (el.tagName === 'INPUT' || el.tagName === 'TEXTAREA' || el.tagName === 'SELECT') {
-                el.disabled = false;
-                el.style.color = "";
-            } else {
-                el.style.pointerEvents = "";
-                el.style.opacity = "";
-            }
-
-            el.style.backgroundColor = "";
-
-            el.__blocked = false;
-        });
-    }
-
-    // === Основная функция проверки ===
-    function checkFormLock() {
-        const description = document.querySelector("#Description");
-        if (!description) return;
-
-        const text = description.value.trim();
-        const elementsToBlock = getElementsToBlock();
-
-        if (text.includes("Проверено")) {
-            blockElements(elementsToBlock);
-        } else {
-            unblockElements(elementsToBlock);
-        }
-    }
-
-    // === Проверка кнопки и Quantity ===
-    function checkLabel() {
-        const quantityInput = document.querySelector("#Quantity");
-        const labelElement = document.querySelector("#LabelForQuantity");
-        const button = document.querySelector("#TopButtons > a:nth-child(1)");
-
-        let isEmptyOrZero = false;
-        if (quantityInput) {
-            const value = quantityInput.value.trim();
-            const numValue = parseFloat(value);
-            isEmptyOrZero = value === "" || isNaN(numValue) || numValue <= 0;
-        }
-
-        if (!labelElement) return;
-
-        const labelCell = labelElement.querySelector("td:nth-child(1)");
-
-        if (isButtonPressed && isEmptyOrZero) {
-            labelElement.style.backgroundColor = bgColor;
-            if (labelCell) labelCell.style.color = textColor;
-            if (quantityInput) quantityInput.style.color = textColor;
-
-            blockButton(button);
-
-            labelElement.scrollIntoView({ behavior: "smooth", block: "center" });
-        } else {
-            labelElement.style.backgroundColor = "";
-            if (labelCell) labelCell.style.color = "";
-            if (quantityInput) quantityInput.style.color = "";
-
-            unblockButton(button);
-        }
-    }
-
-    function blockButton(button) {
-        if (button && !button.disabled) {
-            button.disabled = true;
-            button.style.opacity = "0.6";
-            button.style.pointerEvents = "none";
-            button.title = "Введите корректное количество перед продолжением";
-        }
-    }
-
-    function unblockButton(button) {
-        if (button && button.disabled) {
-            button.disabled = false;
-            button.style.opacity = "";
-            button.style.pointerEvents = "";
-            button.title = "";
-        }
-    }
-
-    // === Обработчик клика по кнопке ===
-    function setupButtonClickHandler() {
-        const buttonSelector = "#TopButtons > a:nth-child(1)";
-        const interval = setInterval(() => {
-            const buttons = document.querySelectorAll(buttonSelector);
-            buttons.forEach(button => {
-                if (!button.__clickHandlerSet) {
-                    button.addEventListener("click", () => {
-                        isButtonPressed = true;
-                        checkLabel();
-                    });
-                    button.__clickHandlerSet = true;
-                }
-            });
-
-            if (buttons.length > 0) clearInterval(interval);
-        }, 500);
-    }
-
-    // === Инициализация ===
-    function init() {
-        setupButtonClickHandler();
-
-        setInterval(checkLabel, 500);
-        setInterval(checkFormLock, 500);
-    }
-
-    window.addEventListener("load", () => {
-        setTimeout(init, 100);
-    });
-};
-lockPerezakaz ();
 
     let button = null;
     const UNIQUE_PREFIX = 'custom-save-data-';
@@ -7472,6 +7311,199 @@ lockPerezakaz ();
 perezakazBtn ();
 
 
+
+
+
+function lockPerezakaz () {
+    'use strict';
+
+    let isButtonPressed = false;
+
+    const textColor = "rgb(128, 0, 0)";
+    const bgColor = "rgb(255, 224, 224)";
+
+    // === Список элементов для блокировки ===
+    function getElementsToBlock() {
+        return [
+            document.querySelector("#Description"),
+            document.querySelector("#Summa"),
+            document.querySelector("#Cost"),
+            document.querySelector("#Quantity"),
+            document.querySelector("#LabelForContractor > td:nth-child(2)"),
+            document.querySelector("#LabelForSumma > td:nth-child(2) > span"),
+        ].filter(Boolean); // Отфильтровываем null/undefined
+    }
+
+    // === Функция блокировки элементов ===
+    function blockElements(elements) {
+        elements.forEach(el => {
+            if (el.__blocked) return;
+
+            if (el.tagName === 'INPUT' || el.tagName === 'TEXTAREA' || el.tagName === 'SELECT') {
+                el.disabled = true;
+                el.style.color = textColor;
+            } else {
+                el.style.pointerEvents = "none";
+                el.style.opacity = "0.6";
+            }
+
+            if (!el.style.backgroundColor) {
+                el.style.backgroundColor = bgColor;
+            }
+
+            el.__blocked = true;
+        });
+    }
+
+    // === Функция разблокировки элементов ===
+    function unblockElements(elements) {
+        elements.forEach(el => {
+            if (!el.__blocked) return;
+
+            if (el.tagName === 'INPUT' || el.tagName === 'TEXTAREA' || el.tagName === 'SELECT') {
+                el.disabled = false;
+                el.style.color = "";
+            } else {
+                el.style.pointerEvents = "";
+                el.style.opacity = "";
+            }
+
+            el.style.backgroundColor = "";
+
+            el.__blocked = false;
+        });
+    }
+
+    // === Основная функция проверки ===
+    function checkFormLock() {
+        const description = document.querySelector("#Description");
+        if (!description) return;
+
+        const text = description.value.trim();
+        const elementsToBlock = getElementsToBlock();
+
+        if (text.includes("Проверено")) {
+            blockElements(elementsToBlock);
+        } else {
+            unblockElements(elementsToBlock);
+        }
+    }
+
+    // === Проверка кнопки и Quantity ===
+    function checkLabel() {
+        const quantityInput = document.querySelector("#Quantity");
+        const labelElement = document.querySelector("#LabelForQuantity");
+        const button = document.querySelector("#TopButtons > a:nth-child(1)");
+
+        let isEmptyOrZero = false;
+        if (quantityInput) {
+            const value = quantityInput.value.trim();
+            const numValue = parseFloat(value);
+            isEmptyOrZero = value === "" || isNaN(numValue) || numValue <= 0;
+        }
+
+        if (!labelElement) return;
+
+        const labelCell = labelElement.querySelector("td:nth-child(1)");
+
+        if (isButtonPressed && isEmptyOrZero) {
+            labelElement.style.backgroundColor = bgColor;
+            if (labelCell) labelCell.style.color = textColor;
+            if (quantityInput) quantityInput.style.color = textColor;
+
+            blockButton(button);
+
+            labelElement.scrollIntoView({ behavior: "smooth", block: "center" });
+        } else {
+            labelElement.style.backgroundColor = "";
+            if (labelCell) labelCell.style.color = "";
+            if (quantityInput) quantityInput.style.color = "";
+
+            unblockButton(button);
+        }
+    }
+
+    function blockButton(button) {
+        if (button && !button.disabled) {
+            button.disabled = true;
+            button.style.opacity = "0.6";
+            button.style.pointerEvents = "none";
+            button.title = "Введите корректное количество перед продолжением";
+        }
+    }
+
+    function unblockButton(button) {
+        if (button && button.disabled) {
+            button.disabled = false;
+            button.style.opacity = "";
+            button.style.pointerEvents = "";
+            button.title = "";
+        }
+    }
+
+    // === Обработчик клика по кнопке ===
+    function setupButtonClickHandler() {
+        const buttonSelector = "#TopButtons > a:nth-child(1)";
+        const interval = setInterval(() => {
+            const buttons = document.querySelectorAll(buttonSelector);
+            buttons.forEach(button => {
+                if (!button.__clickHandlerSet) {
+                    button.addEventListener("click", () => {
+                        isButtonPressed = true;
+                        checkLabel();
+                    });
+                    button.__clickHandlerSet = true;
+                }
+            });
+
+            if (buttons.length > 0) clearInterval(interval);
+        }, 500);
+    }
+
+    // === Инициализация ===
+    function init() {
+        setupButtonClickHandler();
+
+        setInterval(checkLabel, 500);
+        setInterval(checkFormLock, 500);
+    }
+
+// === Наблюдатель за появлением #Description ===
+function observeDescriptionElement(callback) {
+    const targetNode = document.body;
+    const config = { childList: true, subtree: true };
+
+    const observer = new MutationObserver(mutationsList => {
+        for (const mutation of mutationsList) {
+            if (mutation.type === 'childList') {
+                const descriptionElement = document.querySelector("#Description");
+                if (descriptionElement) {
+                    observer.disconnect(); // перестаём наблюдать, элемент найден
+                    callback();
+                }
+            }
+        }
+    });
+
+    observer.observe(targetNode, config);
+
+    // Проверка на случай, если элемент уже существует
+    const descriptionElement = document.querySelector("#Description");
+    if (descriptionElement) {
+        observer.disconnect();
+        callback();
+    }
+}
+
+// === Запуск скрипта после появления #Description ===
+window.addEventListener("load", () => {
+    observeDescriptionElement(() => {
+        setTimeout(init, 500); // небольшая задержка для стабильности
+    });
+});
+};
+
+lockPerezakaz ();
 
     // Функция для отображения обратной связи (изменение кнопки)
     function showFeedback(button) {
