@@ -1,5 +1,5 @@
 // ==UserScript==
-// @name         Проверка заказа 9.7.1 debug
+// @name         Проверка заказа 9.7.2
 // @namespace    http://tampermonkey.net/
 // @version      1.6
 // @description
@@ -7475,7 +7475,7 @@ function lockPerezakaz() {
         const observer = new MutationObserver((mutations, obs) => {
             const labelExists = !!document.querySelector("#LabelForContractor");
             if (labelExists) {
-                console.log("Элемент #LabelForContractor найден в DOM. Запускаем логику.");
+
                 init();
 
             }
