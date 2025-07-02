@@ -1,5 +1,5 @@
 // ==UserScript==
-// @name         Проверка заказа 9.7.3
+// @name         Проверка заказа 9.7.4
 // @namespace    http://tampermonkey.net/
 // @version      1.6
 // @description
@@ -569,14 +569,14 @@ lockManager();
           document.body.appendChild(blurOverlay);
           document.body.appendChild(loaderContainer);
 
-          blur = true;
-          if (blur) {
-            setTimeout(() => {
-              document.body.removeChild(blurOverlay);
-              document.body.removeChild(loaderContainer);
-              blur = false;
-            }, 1000);
-          }
+blur = true;
+if (blur) {
+  setTimeout(() => {
+    blurOverlay?.remove();
+    loaderContainer?.remove();
+    blur = false;
+  }, 1000);
+}
 
 
           // Получаем индекс элемента, на который нажали
@@ -7173,6 +7173,795 @@ function lockPerezakaz() {
 
 // Вызов функции
 lockPerezakaz();
+      function prolongaror() {
+    'use strict';
+
+    // === Настройки скидок для техпроцессов ===
+    const DISCOUNTS = {
+        onlyDigital: 15,
+        onlyOffset: 15,
+        onlyNoPrint: 15,
+        digitalAndNoPrint: 15,
+        offsetOrMixed: 15,
+        noDiscount: 0
+    };
+
+    // === Маппинг категорий техпроцессов ===
+    const TYPE_MAP = {
+        "цифра": [
+            "Цифра",
+            "Цифра (ТАСМА)",
+            "ЧБ-печать (ТАСМА)",
+            "Цифра (ТАСМА) 330 х 320 мм",
+            "XL (до 762 мм)",
+            "Цифра + БЕЛЫЙ/ЛАК (ТАСМА)"
+        ],
+        "офсет": [
+            "Офсет B2",
+            "Офсет B2 + PANTONE"
+        ],
+        "копи": [
+            "Цифра (Копицентр)",
+            "ЧБ-печать (Копицентр)",
+            "⚡️МАЛЫЕ ТИРАЖИ ЦИФРА⚡️",
+            "⚡️МАЛЫЕ ТИРАЖИ ХL⚡️",
+            "Чертежи (Копицентр)",
+            "⚡️МАЛЫЕ ТИРАЖИ ЧБ ЦИФРА⚡️",
+            "СБОРКА (КОПИЦЕНТР)"
+        ],
+        "без печати": [
+            "Без печати"
+        ]
+    };
+
+    function getType(processName) {
+        for (const [type, names] of Object.entries(TYPE_MAP)) {
+            if (names.includes(processName)) return type;
+        }
+        return null;
+    }
+
+    let hasCopyProcess = false;
+    let currentDiscount = 0;
+
+    function checkSelectedProcesses() {
+        const table = document.querySelector("table.list");
+        if (!table) return [];
+        const headerRow = table.querySelector("thead tr");
+        if (!headerRow) return [];
+        const headerCells = headerRow.querySelectorAll("th");
+        const columnHeaders = [];
+        let currentPosition = 0;
+        headerCells.forEach(th => {
+            const text = th.textContent.trim();
+            const colspan = parseInt(th.getAttribute('colspan') || '1');
+            for (let i = 0; i < colspan; i++) {
+                columnHeaders[currentPosition + i] = text;
+            }
+            currentPosition += colspan;
+        });
+        const bodyRows = table.querySelectorAll("tbody tr");
+        const selectedProcesses = [];
+        for (let rowIndex = 0; rowIndex < bodyRows.length; rowIndex++) {
+            const row = bodyRows[rowIndex];
+            const cells = row.querySelectorAll("td");
+            for (let cellIndex = 0; cellIndex < cells.length; cellIndex++) {
+                const cell = cells[cellIndex];
+                if (cell.classList.contains("numeric") && cell.classList.contains("selected")) {
+                    const link = cell.querySelector("a");
+                    const value = link ? link.textContent.replace(/\s+/g, ' ').trim() : cell.textContent.trim();
+                    let processName = "";
+                    const parentTh = Array.from(headerCells).find(th => {
+                        const index = Array.from(headerCells).indexOf(th);
+                        const colspan = parseInt(th.getAttribute('colspan') || '1');
+                        const end = index + colspan;
+                        const cellIndexInTable = calculateColumnPosition(cell);
+                        return cellIndexInTable >= index && cellIndexInTable < end;
+                    });
+                    if (parentTh) processName = parentTh.textContent.trim();
+                    selectedProcesses.push({ processName, value, rowIndex });
+                }
+            }
+        }
+        hasCopyProcess = selectedProcesses.some(p => {
+            const type = getType(p.processName);
+            return type === "копи";
+        });
+        applyDiscountLogic(selectedProcesses);
+        return selectedProcesses;
+    }
+
+    function calculateColumnPosition(cell) {
+        const row = cell.parentElement;
+        const cells = Array.from(row.children);
+        let columnIndex = 0;
+        for (let i = 0; i < cells.indexOf(cell); i++) {
+            const prevCell = cells[i];
+            const colspan = parseInt(prevCell.getAttribute('colspan') || '1');
+            columnIndex += colspan;
+        }
+        return columnIndex;
+    }
+
+    function applyDiscountLogic(processes) {
+        const types = new Set();
+        processes.forEach(proc => {
+            const type = getType(proc.processName);
+            if (type) types.add(type);
+        });
+        let discount = 0;
+        if (types.size === 0) {
+            discount = 0;
+        } else if (types.has("офсет")) {
+            discount = DISCOUNTS.offsetOrMixed;
+        } else if (types.size === 1) {
+            const type = [...types][0];
+            if (type === "цифра") {
+                discount = DISCOUNTS.onlyDigital;
+            } else if (type === "без печати") {
+                discount = DISCOUNTS.onlyNoPrint;
+            }
+        } else if (types.size === 2 && types.has("цифра") && types.has("без печати")) {
+            discount = DISCOUNTS.digitalAndNoPrint;
+        } else {
+            discount = 0;
+        }
+        currentDiscount = discount;
+    }
+
+    function findSaveButtonByText() {
+        const buttons = document.querySelectorAll("button.btn.btn-success.btn-lg");
+        for (const button of buttons) {
+            if (button.textContent.trim() === "Рассчитать") {
+                return button;
+            }
+        }
+        return null;
+    }
+
+    // === Основной функционал удлинения срока ===
+    let blockCreated = false;
+
+    function waitForElement(selector, callback, attempts = 0, maxAttempts = 20) {
+        const element = document.querySelector(selector);
+        if (element) {
+            callback(element);
+        } else if (attempts < maxAttempts) {
+            setTimeout(() => waitForElement(selector, callback, attempts + 1, maxAttempts), 500);
+        }
+    }
+
+    function parseCustomDate(str) {
+        const months = {
+            января: 0,
+            февраля: 1,
+            марта: 2,
+            апреля: 3,
+            мая: 4,
+            июня: 5,
+            июля: 6,
+            августа: 7,
+            сентября: 8,
+            октября: 9,
+            ноября: 10,
+            декабря: 11
+        };
+        const [dayStr, monthStr] = str.split(' ');
+        const day = parseInt(dayStr);
+        const month = months[monthStr.toLowerCase()];
+        const year = new Date().getFullYear();
+        if (isNaN(day) || month === undefined) return null;
+        return new Date(year, month, day);
+    }
+
+    function formatDate(date) {
+        const options = { day: 'numeric', month: 'long' };
+        return date.toLocaleDateString('ru-RU', options);
+    }
+
+    function getDayWord(num) {
+        const remainder = num % 100;
+        if (remainder >= 11 && remainder <= 14) return 'дней';
+        const digit = num % 10;
+        switch (digit) {
+            case 1:
+                return 'день';
+            case 2:
+            case 3:
+            case 4:
+                return 'дня';
+            default:
+                return 'дней';
+        }
+    }
+
+    function isSingleClientRow() {
+        const tbody = document.querySelector("#SelectClient > div.AxClientSelector_ClientTips > table > tbody");
+        if (!tbody) return false;
+        const rows = tbody.querySelectorAll("tr");
+        return rows.length === 1;
+    }
+
+    // === Создание блока долгого заказа ===
+    function createLongOrderPriceBlock() {
+        const table = document.querySelector("table.list");
+        if (!table) return;
+        checkSelectedProcesses(); // Обновляем флаг hasCopyProcess и текущую скидку
+
+        const targetElement = document.querySelector('#result > div > div > table > tbody > tr:nth-child(2) > td:nth-child(2) > table > tbody > tr:nth-child(6) > td');
+        if (!targetElement) return;
+        if (targetElement.querySelector('.long-order-block')) return;
+
+        const block = document.createElement('div');
+        block.className = 'long-order-block';
+        block.style.backgroundColor = '#17A2B8';
+        block.style.padding = '15px';
+        block.style.borderRadius = '8px';
+        block.style.boxShadow = '0 4px 6px rgba(0, 0, 0, 0.1)';
+        block.style.color = 'white';
+        block.style.marginTop = '15px';
+
+        const priceSection = document.createElement('div');
+        priceSection.style.textAlign = 'center';
+        priceSection.style.marginBottom = '15px';
+
+        const priceHeader = document.createElement('h4');
+        priceHeader.id = 'price-header';
+        priceHeader.textContent = `Цена долгого заказа`;
+        priceHeader.style.fontSize = '18px';
+        priceHeader.style.margin = '0 0 10px 0';
+        priceHeader.style.color = '#FFFFFF';
+
+        const sumElement = document.createElement('div');
+        sumElement.style.color = '#FFD700';
+        sumElement.style.fontSize = '24px';
+        sumElement.style.fontWeight = 'bold';
+
+        const copyButton = document.createElement('button');
+        copyButton.textContent = 'Скопировать цену';
+        copyButton.style.marginTop = '10px';
+        copyButton.style.padding = '8px 16px';
+        copyButton.style.backgroundColor = '#28a745';
+        copyButton.style.color = '#FFFFFF';
+        copyButton.style.border = 'none';
+        copyButton.style.borderRadius = '4px';
+        copyButton.style.cursor = 'pointer';
+        copyButton.style.fontSize = '14px';
+
+        priceSection.appendChild(priceHeader);
+        priceSection.appendChild(sumElement);
+        priceSection.appendChild(copyButton);
+
+        const dateSection = document.createElement('div');
+        dateSection.style.textAlign = 'center';
+
+        const dateHeader = document.createElement('h4');
+        dateHeader.textContent = 'Увеличить срок';
+        dateHeader.style.fontSize = '18px';
+        dateHeader.style.margin = '0 0 10px 0';
+        dateHeader.style.color = '#FFFFFF';
+
+        const dateButton = document.createElement('button');
+        dateButton.textContent = hasCopyProcess ? 'Удлиненный заказ недоступен!' : 'Узнать дату сдачи';
+        dateButton.disabled = hasCopyProcess;
+        dateButton.style.marginTop = '10px';
+        dateButton.style.padding = '8px 16px';
+        dateButton.style.backgroundColor = hasCopyProcess ? '#6c757d' : '#007bff';
+        dateButton.style.color = '#FFFFFF';
+        dateButton.style.border = 'none';
+        dateButton.style.borderRadius = '4px';
+        dateButton.style.cursor = hasCopyProcess ? 'not-allowed' : 'pointer';
+        dateButton.style.fontSize = '14px';
+
+        const dateResult = document.createElement('div');
+        dateResult.style.marginTop = '10px';
+        dateResult.style.fontSize = '16px';
+        dateResult.style.fontWeight = 'bold';
+
+        dateSection.appendChild(dateHeader);
+        dateSection.appendChild(dateButton);
+        dateSection.appendChild(dateResult);
+
+        block.appendChild(priceSection);
+        block.appendChild(document.createElement('hr'));
+        block.appendChild(dateSection);
+        targetElement.appendChild(block);
+
+        let originalSumValue = '';
+
+        function formatNumberWithSpaces(number) {
+            return number.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ' ');
+        }
+
+        function updateSum() {
+            const itogElement = document.getElementById('itog');
+            if (!itogElement) return;
+            const itogText = itogElement.textContent;
+            const itogValue = parseFloat(itogText.replace(/[^0-9.,]/g, '').replace(',', '.'));
+            const inputElement = document.querySelector('#result > div > div > table > tbody > tr:nth-child(2) > td:nth-child(2) > table > tbody > tr:nth-child(5) > td.right > input');
+            let inputValue = parseFloat(inputElement?.value || 0);
+            let basePrice;
+            if (inputValue < 0) {
+                inputValue = Math.abs(inputValue);
+                basePrice = itogValue + inputValue;
+            } else {
+                basePrice = itogValue - inputValue;
+            }
+            const discountMultiplier = 1 - currentDiscount / 100;
+            originalSumValue = (basePrice * discountMultiplier).toFixed(2);
+            if (parseFloat(originalSumValue) < 7500) {
+                sumElement.innerHTML = 'Минимальная сумма <br>для долгого срока <br>7500 ₽';
+                sumElement.style.textAlign = 'center';
+                sumElement.style.display = 'block';
+                copyButton.style.display = 'none';
+                dateButton.disabled = true;
+                dateButton.style.backgroundColor = '#6c757d';
+                dateButton.style.cursor = 'not-allowed';
+                return;
+            }
+            priceHeader.textContent = `Цена долгого заказа`;
+            sumElement.textContent = `${formatNumberWithSpaces(originalSumValue)} (-${currentDiscount}%)`;
+        }
+
+        copyButton.addEventListener('click', () => {
+            if (!originalSumValue) return;
+            navigator.clipboard.writeText(originalSumValue)
+                .then(() => {
+                    copyButton.textContent = 'Скопировано!';
+                    setTimeout(() => copyButton.textContent = 'Скопировать цену', 2000);
+                })
+                .catch(err => console.error('Ошибка при копировании:', err));
+        });
+
+        dateButton.addEventListener('click', onDateButtonClick);
+
+        function onDateButtonClick() {
+            const tbody = document.querySelector("#result > div > div > table > tbody > tr:nth-child(2) > td:nth-child(2) > table > tbody");
+            if (!tbody) return;
+            const rows = tbody.querySelectorAll("tr");
+            if (rows.length === 0) return;
+            const lastRow = rows[rows.length - 1];
+            const dateCell = lastRow.querySelector("td.right b");
+            if (!dateCell) return;
+            const rawDateText = dateCell.textContent.trim();
+            const parsedDate = parseCustomDate(rawDateText);
+            if (!parsedDate) {
+                dateResult.textContent = 'Ошибка при чтении даты.';
+                return;
+            }
+            const today = new Date();
+            today.setHours(0, 0, 0, 0);
+            const diffDays = Math.ceil((parsedDate - today) / (1000 * 60 * 60 * 24));
+            const extendedDays = (diffDays * 2)+1;
+            const daysToAdd = extendedDays - diffDays;
+            const extendedDate = new Date(today);
+            extendedDate.setDate(extendedDate.getDate() + extendedDays);
+            dateResult.innerHTML = `
+                Увеличенный срок: <strong>${formatDate(extendedDate)}</strong><br>
+            `;
+            dateButton.textContent = 'Подтверждаю';
+            dateButton.disabled = !isSingleClientRow();
+            dateButton.style.backgroundColor = isSingleClientRow() ? '#007bff' : '#6c757d';
+            dateButton.style.cursor = isSingleClientRow() ? 'pointer' : 'not-allowed';
+            dateButton.removeEventListener('click', onDateButtonClick);
+            dateButton.addEventListener('click', handleAddOperationClick);
+        }
+
+        function showOverlay() {
+            const overlay = document.createElement('div');
+            overlay.id = 'custom-overlay';
+            overlay.style.position = 'fixed';
+            overlay.style.top = '0';
+            overlay.style.left = '0';
+            overlay.style.width = '100%';
+            overlay.style.height = '100%';
+            overlay.style.background = 'rgba(0, 0, 0, 0.7)';
+            overlay.style.backdropFilter = 'blur(5px)';
+            overlay.style.zIndex = '99999';
+            overlay.style.display = 'flex';
+            overlay.style.justifyContent = 'center';
+            overlay.style.alignItems = 'center';
+            overlay.style.flexDirection = 'column';
+
+            const messageHTML = `<img src="https://raw.githubusercontent.com/Xemul032/Axiom/refs/heads/main/animlogo.gif " width="270px" height="270px"/> <br/> <br/> <h3 style="color: white;">Увеличиваем срок</h3>`;
+            overlay.innerHTML = messageHTML;
+            document.body.appendChild(overlay);
+        }
+
+        function hideOverlay() {
+            const overlay = document.getElementById('custom-overlay');
+            if (overlay) overlay.remove();
+        }
+
+        function handleAddOperationClick() {
+            showOverlay(); // Показываем overlay
+
+            const pencilButton = document.querySelector("#result > div > div > table > tbody > tr:nth-child(1) > td.control > div > button:nth-child(2)");
+            if (pencilButton) pencilButton.click();
+
+            const tbody = document.querySelector("#result > div > div > table > tbody > tr:nth-child(2) > td:nth-child(2) > table > tbody");
+            if (!tbody) return;
+            const rows = tbody.querySelectorAll("tr");
+            if (rows.length === 0) return;
+            const lastRow = rows[rows.length - 1];
+            const dateCell = lastRow.querySelector("td.right b");
+            if (!dateCell) return;
+            const rawDateText = dateCell.textContent.trim();
+            const parsedDate = parseCustomDate(rawDateText);
+            if (!parsedDate) return;
+
+            const today = new Date();
+            today.setHours(0, 0, 0, 0);
+            const diffDays = Math.ceil((parsedDate - today) / (1000 * 60 * 60 * 24));
+            const extendedDays = diffDays * 2;
+            const daysToAdd = extendedDays - diffDays;
+
+            setTimeout(() => {
+                const productPostpress = document.querySelector("#ProductPostpress");
+                if (!productPostpress) return;
+                const selectElement = productPostpress.querySelector("#PostpressId");
+                if (!selectElement) return;
+
+                const targetValue = `[Long] +${daysToAdd} ${getDayWord(daysToAdd)}`;
+                let targetOption = Array.from(selectElement.options).find(opt => opt.textContent.trim() === targetValue);
+                if (!targetOption) {
+                    targetOption = document.createElement("option");
+                    targetOption.value = targetValue;
+                    targetOption.textContent = targetValue;
+                    selectElement.appendChild(targetOption);
+                }
+
+                selectElement.value = targetOption.value;
+                selectElement.dispatchEvent(new Event('change', { bubbles: true }));
+
+                const chosenContainer = productPostpress.querySelector("#PostpressId_chosen");
+                if (chosenContainer) {
+                    const chosenLink = chosenContainer.querySelector("a");
+                    const chosenSpan = chosenContainer.querySelector("a > span");
+                    if (chosenLink) chosenLink.setAttribute("title", targetValue);
+                    if (chosenSpan) chosenSpan.textContent = targetValue;
+                }
+
+                const targetButton = productPostpress.querySelector("table > thead > tr:nth-child(4) > td:nth-child(7) > button");
+                if (targetButton) targetButton.click();
+
+                const saveButton = findSaveButtonByText();
+                if (saveButton) {
+                    saveButton.click();
+                }
+
+                // Убираем overlay через 3 секунды
+                setTimeout(hideOverlay, 2000);
+            }, 2000);
+        }
+
+        const observer = new MutationObserver(mutations => {
+            mutations.forEach(mutation => {
+                if (mutation.type === 'characterData' || mutation.type === 'childList') {
+                    updateSum();
+                }
+            });
+        });
+
+        const itogElement = document.getElementById('itog');
+        const inputElement = document.querySelector('#result > div > div > table > tbody > tr:nth-child(2) > td:nth-child(2) > table > tbody > tr:nth-child(5) > td.right > input');
+
+        if (itogElement) {
+            observer.observe(itogElement, {
+                characterData: true,
+                childList: true,
+                subtree: true
+            });
+        }
+
+        if (inputElement) {
+            observer.observe(inputElement, {
+                attributes: true,
+                attributeFilter: ['value'],
+                subtree: true
+            });
+        }
+
+        updateSum();
+        blockCreated = true;
+    }
+
+    window.addEventListener('load', () => {
+        setTimeout(() => {
+            if (document.getElementById('itog') && !document.querySelector('.long-order-block')) {
+                createLongOrderPriceBlock();
+            }
+        }, 1000);
+    });
+
+    setInterval(() => {
+        if (!document.querySelector('.long-order-block')) {
+            createLongOrderPriceBlock();
+        }
+    }, 200);
+};
+
+prolongaror();
+
+function turtle () {
+    'use strict';
+
+    // === Переменные для ProductId и постпечатей ===
+    let lastProductId = '';
+    let lastProcessedTable = null;
+
+    // === Переменные для дат ===
+    const selectorDate1 = "#History > table:nth-child(1) > tbody > tr:nth-child(3) > td.right.bold";
+    const selectorDate2 = "#Summary > table > tbody > tr > td:nth-child(1) > table > tbody:nth-child(3) > tr:nth-child(9) > td.PlanBlock > span.DateReady";
+
+    let date1Element = null;
+    let date2Element = null;
+
+    // === Функции для работы с постпечатями ===
+
+    function findTableAfterFormBlock() {
+        const formBlock = document.querySelector('div.formblock');
+        if (!formBlock) return null;
+
+        let nextElement = formBlock.nextElementSibling;
+        while (nextElement) {
+            if (nextElement.tagName === 'TABLE') return nextElement;
+            nextElement = nextElement.nextElementSibling;
+        }
+
+        return null;
+    }
+
+    function findPostPrintMessage() {
+        const formBlock = document.querySelector('div.formblock');
+        if (!formBlock) return null;
+
+        let nextElement = formBlock.nextElementSibling;
+        while (nextElement && nextElement.tagName !== 'TABLE') {
+            if (
+                nextElement.classList &&
+                nextElement.classList.contains('head2') &&
+                nextElement.textContent.trim() === 'Постпечатные операции отсутствуют'
+            ) {
+                return nextElement;
+            }
+            nextElement = nextElement.nextElementSibling;
+        }
+
+        return null;
+    }
+
+    function calculateDelayFromLongOperations(table) {
+        const rows = table.querySelectorAll("tr");
+        let longCount = 0;
+
+        for (let row of rows) {
+            const cells = row.querySelectorAll("td");
+            for (let cell of cells) {
+                if (cell.textContent.includes("[Long]")) {
+                    longCount++;
+                }
+            }
+        }
+
+        return longCount * 3; // например, +3 дня за каждую Long-операцию
+    }
+
+    function checkPostPrintOperations() {
+        const currentTable = findTableAfterFormBlock();
+        const currentMessage = findPostPrintMessage();
+
+        const productIdEl = document.querySelector("#ProductId");
+        if (!productIdEl) return;
+
+        let currentText = productIdEl.textContent.trim();
+
+        // Проверяем наличие [Long]
+        let hasLong = false;
+        let delayDays = 0;
+
+        if (currentTable) {
+            hasLong = calculateDelayFromLongOperations(currentTable) > 0;
+            delayDays = calculateDelayFromLongOperations(currentTable);
+        }
+
+        // Убираем старый эмодзи, если он был
+        let newText = currentText.replace("🐢", "").trim();
+
+        // Добавляем эмодзи, если есть Long
+        if (hasLong) {
+            newText += "🐢";
+        }
+
+        if (newText !== currentText) {
+            productIdEl.textContent = newText;
+        }
+
+        // Логика определения состояния постпечатей
+        if (currentTable && currentTable !== lastProcessedTable) {
+            lastProcessedTable = currentTable;
+        } else if (currentMessage) {
+            if (lastProcessedTable !== 'message') {
+                lastProcessedTable = 'message';
+            }
+        } else {
+            const formBlockExists = document.querySelector('div.formblock') !== null;
+            if (formBlockExists && lastProcessedTable !== null && lastProcessedTable !== 'message') {
+                lastProcessedTable = null;
+            }
+        }
+    }
+
+    function handleProductChange() {
+        const productIdEl = document.querySelector('#ProductId');
+        if (!productIdEl) return;
+
+        const currentProductId = productIdEl.textContent.trim().replace("🐢", "").trim();
+        if (currentProductId !== lastProductId) {
+            lastProductId = currentProductId;
+            lastProcessedTable = null;
+        }
+
+        checkPostPrintOperations();
+    }
+
+    // === Функции для работы с датами ===
+
+    function parseDate1(rawDateStr) {
+        const months = {
+            января: "01", февраля: "02", марта: "03", апреля: "04",
+            мая: "05", июня: "06", июля: "07", августа: "08",
+            сентября: "09", октября: "10", ноября: "11", декабря: "12"
+        };
+
+        const parts = rawDateStr.split(' ');
+        if (parts.length < 3) return null;
+
+        const day = parts[0].padStart(2, '0');
+        const month = months[parts[1]];
+        const year = parts[2];
+
+        return `${day}.${month}.${year}`;
+    }
+
+    function parseDate2(rawDateStr) {
+        const match = rawDateStr.match(/(\d{2})\/(\d{2})\/(\d{4})/);
+        if (!match) return null;
+
+        const [, dd, mm, yyyy] = match;
+        return `${dd}.${mm}.${yyyy}`;
+    }
+
+    function convertToDateObject(dateStr) {
+        const [day, month, year] = dateStr.split('.');
+        return new Date(year, month - 1, day);
+    }
+
+    function logDatesAndDifference() {
+        if (!date1Element || !date2Element) return;
+
+        const rawDate1 = date1Element.textContent.trim();
+        const rawDate2 = date2Element.textContent.trim();
+
+        const formattedDate1 = parseDate1(rawDate1);
+        const formattedDate2 = parseDate2(rawDate2);
+
+        if (!formattedDate1 || !formattedDate2) return;
+
+        const dateObj1 = convertToDateObject(formattedDate1);
+        const dateObj2 = convertToDateObject(formattedDate2);
+
+        if (isNaN(dateObj1.getTime()) || isNaN(dateObj2.getTime())) return;
+
+        const diffTime = Math.abs(dateObj2 - dateObj1);
+        const totalDiffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+
+        // Получаем таблицу с постпечатями
+        const currentTable = findTableAfterFormBlock();
+        let delayDays = 0;
+
+        if (currentTable) {
+            delayDays = calculateDelayFromLongOperations(currentTable);
+        }
+
+        const trueDuration = totalDiffDays - delayDays;
+    }
+
+    function startWatching(selector, callback) {
+        let lastFound = null;
+
+        const observer = new MutationObserver(() => {
+            const element = document.querySelector(selector);
+            if (element && element !== lastFound) {
+                lastFound = element;
+                callback(element);
+            } else if (!element && lastFound) {
+                lastFound = null;
+            }
+        });
+
+        observer.observe(document.body, { childList: true, subtree: true });
+
+        setInterval(() => {
+            const element = document.querySelector(selector);
+            if (element && element !== lastFound) {
+                lastFound = element;
+                callback(element);
+            } else if (!element && lastFound) {
+                lastFound = null;
+            }
+        }, 2000);
+    }
+
+    // === Инициализация наблюдений ===
+
+    // Слежка за ProductId
+    const productObserver = new MutationObserver(() => {
+        handleProductChange();
+    });
+    productObserver.observe(document.body, {
+        childList: true,
+        subtree: true,
+        characterData: true
+    });
+
+    handleProductChange(); // Инициализация
+
+    // Слежка за датами
+    startWatching(selectorDate1, (element) => {
+        date1Element = element;
+        logDatesAndDifference();
+    });
+
+    startWatching(selectorDate2, (element) => {
+        date2Element = element;
+        logDatesAndDifference();
+    });
+};
+turtle ();
+
+function noDelete () {
+    'use strict';
+
+    const checkElements = () => {
+        const productPostpress = document.querySelector("#ProductPostpress");
+        if (!productPostpress) return;
+
+        const postpressList = productPostpress.querySelector("#PostpressList");
+        if (!postpressList) return;
+
+        const rows = postpressList.querySelectorAll("tr");
+        rows.forEach(row => {
+            const firstTd = row.querySelector("td");
+            if (firstTd && firstTd.textContent.trim().includes("[Long]")) {
+                const deleteButton = row.querySelector("button[onclick*='PostpressDelete']");
+                if (deleteButton) {
+                    deleteButton.style.display = 'none';
+                }
+            } else {
+                const deleteButton = row.querySelector("button[onclick*='PostpressDelete']");
+                if (deleteButton) {
+                    deleteButton.style.display = '';
+                }
+            }
+        });
+    };
+
+    // Периодическая проверка появления элементов
+    setInterval(checkElements, 500);
+
+    // Отслеживание изменений в DOM
+    const observer = new MutationObserver(() => {
+        checkElements();
+    });
+
+    observer.observe(document.body, {
+        childList: true,
+        subtree: true
+    });
+};
+noDelete ();
+
 
     // Функция для отображения обратной связи (изменение кнопки)
     function showFeedback(button) {
