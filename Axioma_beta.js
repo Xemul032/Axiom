@@ -1,5 +1,5 @@
 // ==UserScript==
-// @name         Проверка заказа 9.7.4
+// @name         Проверка заказа 9.7.5
 // @namespace    http://tampermonkey.net/
 // @version      1.6
 // @description
@@ -6612,10 +6612,7 @@ const otherMatches = selectedTypes.length > 0 ? allData.filter(item => {
                             <div style="font-size: 48px; margin-bottom: 20px;">${sheet.icon}</div>
                             <div style="font-size: 18px; font-weight: 600; margin-bottom: 10px;">Подходящие ${sheet.title} не найдены</div>
                             <div>Попробуйте изменить параметры поиска или выбрать другие типы</div>
-                            <div style="margin-top: 15px; font-size: 14px; color: #888;">
-                                Искали: ${length}×${width}×${height} мм (±${TOLERANCES.MINUS}/-${TOLERANCES.PLUS} мм)
                             </div>
-                        </div>
                     `;
                     return;
                 }
