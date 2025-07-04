@@ -1,5 +1,5 @@
 // ==UserScript==
-// @name         Проверка заказа 9.7.5
+// @name         Проверка заказа 9.7.6
 // @namespace    http://tampermonkey.net/
 // @version      1.6
 // @description
@@ -5412,7 +5412,7 @@ function sendToGoogleAppsScript(productId, managerPercentage, remainingPercentag
     checkAndCreateButton();
 }
 
-notHalfButton();
+// notHalfButton();
 function mgiDisCheck() {
     'use strict';
 
