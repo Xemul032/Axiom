@@ -1,5 +1,5 @@
 // ==UserScript==
-// @name         Проверка заказа 9.7.7
+// @name         Проверка заказа 9.7.8
 // @namespace    http://tampermonkey.net/
 // @version      1.6
 // @description
@@ -6682,7 +6682,7 @@ function perezakazBtn () {
     'use strict';
     let button = null;
     const UNIQUE_PREFIX = 'custom-save-data-';
-    const SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbzCQ6W3fOLGa-y1RgWeMjVEhqW1dAjtt3CS_8bEtcYZleHVhhim1wQfRZhFqAEj3fsu/exec ';
+    const SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbzCQ6W3fOLGa-y1RgWeMjVEhqW1dAjtt3CS_8bEtcYZleHVhhim1wQfRZhFqAEj3fsu/exec';
 
     function addStyles() {
         const style = document.createElement('style');
