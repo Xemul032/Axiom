@@ -1,5 +1,5 @@
 // ==UserScript==
-// @name         Проверка заказа 9.7.8
+// @name         Проверка заказа 9.7.9
 // @namespace    http://tampermonkey.net/
 // @version      1.6
 // @description
@@ -7902,6 +7902,124 @@ function noDelete () {
     });
 };
 noDelete ();
+
+
+
+function hideRepeat () {
+    'use strict';
+
+    // Селектор для проверки текста (условие)
+    const TARGET_SELECTOR = 'body > ul > div > li:nth-child(1) > a';
+
+    // Селекторы для скрываемых кнопок
+    const REPEAT_BUTTON_SELECTOR = '.btn.btn-default.RepeatButton';
+    const REG_BUTTON_SELECTOR = 'button.RegButton'; // Упрощённый и более надёжный селектор
+
+    // Разрешённые имена/тексты
+    const ALLOWED_NAMES = [
+        'тест',
+        'Абдрахманова Лейсан',
+        'Мухаметшина Раиля'
+    ];
+
+    // Проверяем, содержится ли один из разрешённых текстов в целевом элементе
+    function shouldHide() {
+        const targetElement = document.querySelector(TARGET_SELECTOR);
+        if (!targetElement) return false;
+
+        const text = targetElement.textContent.trim();
+        return ALLOWED_NAMES.some(name => text.includes(name));
+    }
+
+    // Скрываем элемент, если он есть и ещё не скрыт
+    function hideElement(selector) {
+        const element = document.querySelector(selector);
+        if (element && !element.hasAttribute('data-hidden-by-tampermonkey')) {
+            element.style.display = 'none';
+            element.setAttribute('data-hidden-by-tampermonkey', 'true');
+
+        }
+    }
+
+    // Основная функция: скрываем кнопки, если условие выполняется
+    function hideButtonsIfAllowed() {
+        if (shouldHide()) {
+            hideElement(REPEAT_BUTTON_SELECTOR);
+            hideElement(REG_BUTTON_SELECTOR);
+        }
+    }
+
+    // Запускаем проверку сразу
+    hideButtonsIfAllowed();
+
+    // Наблюдаем за ЛЮБЫМИ изменениями в DOM: добавление узлов, изменение текста
+    const observer = new MutationObserver(function (mutations) {
+        let shouldCheck = false;
+
+        mutations.forEach(function (mutation) {
+            // Изменение дочерних узлов (добавление/удаление)
+            if (mutation.type === 'childList') {
+                for (let node of mutation.addedNodes) {
+                    if (node.nodeType === 1) {
+                        // Если добавлен целевой элемент или его контейнер
+                        if (node === document.querySelector(TARGET_SELECTOR) || node.querySelector(TARGET_SELECTOR)) {
+                            shouldCheck = true;
+                        }
+                        // Если добавлены кнопки
+                        if (
+                            node.matches &&
+                            (
+                                node.matches(REPEAT_BUTTON_SELECTOR) ||
+                                node.matches(REG_BUTTON_SELECTOR) ||
+                                node.querySelector(REPEAT_BUTTON_SELECTOR) ||
+                                node.querySelector(REG_BUTTON_SELECTOR)
+                            )
+                        ) {
+                            shouldCheck = true;
+                        }
+                    }
+                }
+                for (let node of mutation.removedNodes) {
+                    if (node.nodeType === 1) {
+                        // Если был удалён целевой элемент — возможно, он появится снова
+                        if (node === document.querySelector(TARGET_SELECTOR) || node.querySelector(TARGET_SELECTOR)) {
+                            shouldCheck = true;
+                        }
+                    }
+                }
+            }
+
+            // Изменение текста внутри узлов
+            if (mutation.type === 'characterData') {
+                let node = mutation.target;
+                let parent = node.parentElement;
+                if (parent && parent.matches && parent.matches(TARGET_SELECTOR)) {
+                    shouldCheck = true;
+                }
+            }
+        });
+
+        if (shouldCheck) {
+            // Даем время DOM обновиться
+            setTimeout(hideButtonsIfAllowed, 50);
+        }
+    });
+
+    // Подключаем наблюдатель с отслеживанием:
+    // - добавления/удаления узлов
+    // - изменения текста (characterData)
+    observer.observe(document.body, {
+        childList: true,
+        subtree: true,
+        characterData: true
+    });
+
+    // Резервная проверка каждые 500 мс (можно отключить, если не нужно)
+    // Уменьшил интервал, чтобы быстрее реагировать
+    setInterval(hideButtonsIfAllowed, 500);
+};
+
+hideRepeat();
 
 
     // Функция для отображения обратной связи (изменение кнопки)
