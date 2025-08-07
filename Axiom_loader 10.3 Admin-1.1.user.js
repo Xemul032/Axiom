@@ -1,5 +1,5 @@
 // ==UserScript==
-// @name         Axiom_loader 10.3 Admin
+// @name         Axiom_loader 10.4 Admin
 // @namespace    http://tampermonkey.net/
 // @version      1.1
 // @description
@@ -157,7 +157,7 @@ hideRepeat();
         }
 
         const text = element.innerText.trim();
-        if (["тест", "Абдрахманова Лейсан", "Мухаметшина Раиль"].includes(text)) {
+        if (["тест", "Абдрахманова Лейсан", "Мухаметшина Раиля"].includes(text)) {
             blockElement = true;
             return { execute: false, blockElement };
         }
