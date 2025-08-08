@@ -1,5 +1,5 @@
 // ==UserScript==
-// @name         Проверка заказа 9.8.0
+// @name         Проверка заказа 9.8.1
 // @namespace    http://tampermonkey.net/
 // @version      1.6
 // @description
@@ -279,6 +279,1220 @@ function confidAgree() {
 }
 
 confidAgree();
+
+function montages() {
+    'use strict';
+    const SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbzt9bAtaWRRXyAtq6a1J3eFWjWoBPDWrw9s_0MOWnrfSaGRToux4THTN77BAN9aR0lH/exec';
+    const TYPES_SHEET_URL = 'https://docs.google.com/spreadsheets/d/1IPo3ysUMbU0LOVTHKY3PuLW9DRutL_cduurf0Ztt47o/gviz/tq?tqx=out:csv&sheet=types';
+    const selector = "#Top > form > div > div > div > input:nth-child(5)";
+    const UNIQUE_PREFIX = 'custom-save-data-montage-';
+    let buttonAdded = false;
+    let createdButton = null;
+    let productIdCache = new Set();
+    let isProcessing = false;
+    let typesCache = [];
+    // Кэш для проверки дат (время жизни 30 секунд)
+    let dateCache = new Map();
+    const DATE_CACHE_TTL = 30000; // 30 секунд
+
+    addStyles();
+
+    function addStyles() {
+        const style = document.createElement('style');
+        style.textContent = `
+            button.${UNIQUE_PREFIX}main-button {
+                font-family: "Helvetica Neue",Helvetica,Arial,sans-serif !important;
+                display: inline-block !important;
+                margin-bottom: 0 !important;
+                font-weight: 400 !important;
+                text-align: center !important;
+                white-space: nowrap !important;
+                vertical-align: middle !important;
+                cursor: pointer !important;
+                user-select: none !important;
+                border: 1px solid transparent !important;
+                color: #333 !important;
+                background-color: #fff !important;
+                box-shadow: inset 0 1px 0 rgba(255,255,255,.15),0 1px 1px rgba(0,0,0,.075) !important;
+                text-shadow: 0 1px 0 #fff !important;
+                background-image: linear-gradient(to bottom,#fff 0,#e0e0e0 100%) !important;
+                background-repeat: repeat-x !important;
+                border-color: #ccc !important;
+                padding: 5px 10px !important;
+                font-size: 12px !important;
+                line-height: 1.5 !important;
+                position: relative !important;
+                float: left !important;
+                margin-left: -1px !important;
+                border-radius: 0 !important;
+                transition: all 0.3s ease !important;
+            }
+
+            button.${UNIQUE_PREFIX}main-button:hover:not(:disabled) {
+                background-image: linear-gradient(to bottom,#e0e0e0 0,#d0d0d0 100%) !important;
+                border-color: #adadad !important;
+            }
+
+            button.${UNIQUE_PREFIX}main-button:active:not(:disabled) {
+                background-image: linear-gradient(to bottom,#d0d0d0 0,#e0e0e0 100%) !important;
+                box-shadow: inset 0 3px 5px rgba(0,0,0,.125) !important;
+            }
+
+            button.${UNIQUE_PREFIX}main-button:disabled {
+                opacity: 0.6 !important;
+                cursor: not-allowed !important;
+            }
+
+            div.${UNIQUE_PREFIX}date-indicator {
+                margin-top: 8px !important;
+                padding: 8px 12px !important;
+                border-radius: 6px !important;
+                font-size: 13px !important;
+                font-family: Arial, sans-serif !important;
+                font-weight: 500 !important;
+                text-align: center !important;
+                min-height: 20px !important;
+                display: flex !important;
+                align-items: center !important;
+                justify-content: center !important;
+                transition: all 0.3s ease !important;
+                box-sizing: border-box !important;
+            }
+
+            div.${UNIQUE_PREFIX}date-indicator.${UNIQUE_PREFIX}free {
+                background-color: #e8f5e8 !important;
+                color: #2e7d32 !important;
+                border: 1px solid #a5d6a7 !important;
+            }
+
+            div.${UNIQUE_PREFIX}date-indicator.${UNIQUE_PREFIX}partial {
+                background-color: #fff3e0 !important;
+                color: #f57c00 !important;
+                border: 1px solid #ffcc02 !important;
+            }
+
+            div.${UNIQUE_PREFIX}date-indicator.${UNIQUE_PREFIX}full {
+                background-color: #ffebee !important;
+                color: #c62828 !important;
+                border: 1px solid #ef5350 !important;
+            }
+
+            div.${UNIQUE_PREFIX}date-indicator.${UNIQUE_PREFIX}empty {
+                background-color: #f5f5f5 !important;
+                color: #757575 !important;
+                border: 1px solid #e0e0e0 !important;
+            }
+
+            div.${UNIQUE_PREFIX}date-indicator.${UNIQUE_PREFIX}loading {
+                background-color: #f0f0f0 !important;
+                color: #666 !important;
+                border: 1px solid #ddd !important;
+            }
+
+            span.${UNIQUE_PREFIX}spinner {
+                display: inline-block !important;
+                width: 16px !important;
+                height: 16px !important;
+                border: 2px solid #f3f3f3 !important;
+                border-top: 2px solid #333 !important;
+                border-radius: 50% !important;
+                animation: ${UNIQUE_PREFIX}spin 1s linear infinite !important;
+                margin-right: 8px !important;
+                vertical-align: middle !important;
+            }
+
+            span.${UNIQUE_PREFIX}spinner.${UNIQUE_PREFIX}spinner-white {
+                border: 2px solid rgba(255,255,255,0.3) !important;
+                border-top: 2px solid #fff !important;
+            }
+
+            @keyframes ${UNIQUE_PREFIX}spin {
+                0% { transform: rotate(0deg); }
+                100% { transform: rotate(360deg); }
+            }
+
+            div.${UNIQUE_PREFIX}click-blocker {
+                position: fixed !important;
+                top: 0 !important;
+                left: 0 !important;
+                width: 100% !important;
+                height: 100% !important;
+                z-index: 99998 !important;
+                background: transparent !important;
+                cursor: wait !important;
+                pointer-events: all !important;
+            }
+
+            button.${UNIQUE_PREFIX}loading-button {
+                position: relative !important;
+                pointer-events: none !important;
+                opacity: 0.8 !important;
+            }
+
+            input.${UNIQUE_PREFIX}input-error,
+            select.${UNIQUE_PREFIX}input-error,
+            textarea.${UNIQUE_PREFIX}input-error {
+                border-color: #dc3545 !important;
+                background-color: #fff5f5 !important;
+                box-shadow: 0 0 0 0.2rem rgba(220, 53, 69, 0.25) !important;
+            }
+
+            input.${UNIQUE_PREFIX}input-error-shake,
+            select.${UNIQUE_PREFIX}input-error-shake,
+            textarea.${UNIQUE_PREFIX}input-error-shake {
+                animation: ${UNIQUE_PREFIX}shake 0.5s ease-in-out !important;
+            }
+
+            @keyframes ${UNIQUE_PREFIX}shake {
+                0%, 100% { transform: translateX(0); }
+                25% { transform: translateX(-5px); }
+                75% { transform: translateX(5px); }
+            }
+
+            div.${UNIQUE_PREFIX}error-message {
+                color: #dc3545 !important;
+                font-size: 14px !important;
+                margin-top: 8px !important;
+                padding: 8px 12px !important;
+                background-color: #f8d7da !important;
+                border: 1px solid #f5c6cb !important;
+                border-radius: 4px !important;
+                display: none !important;
+                font-family: Arial, sans-serif !important;
+            }
+
+            div.${UNIQUE_PREFIX}error-message.${UNIQUE_PREFIX}show {
+                display: block !important;
+            }
+
+            div.${UNIQUE_PREFIX}modal-overlay {
+                position: fixed !important;
+                top: 0 !important;
+                left: 0 !important;
+                width: 100% !important;
+                height: 100% !important;
+                background: rgba(0,0,0,0.7) !important;
+                display: flex !important;
+                justify-content: center !important;
+                align-items: center !important;
+                z-index: 99999 !important;
+                font-family: Arial, sans-serif !important;
+            }
+
+            div.${UNIQUE_PREFIX}modal-content {
+                background: #fff !important;
+                padding: 24px !important;
+                border-radius: 12px !important;
+                width: 800px !important;
+                max-width: 95% !important;
+                box-shadow: 0 8px 24px rgba(0,0,0,0.2) !important;
+                font-family: Arial, sans-serif !important;
+                display: flex !important;
+                flex-direction: column !important;
+                gap: 0 !important;
+            }
+
+            div.${UNIQUE_PREFIX}modal-body {
+                display: flex !important;
+                gap: 20px !important;
+                margin-bottom: 20px !important;
+            }
+
+            div.${UNIQUE_PREFIX}modal-column {
+                flex: 1 !important;
+            }
+
+            div.${UNIQUE_PREFIX}modal-column h4 {
+                margin: 0 0 16px 0 !important;
+                font-size: 16px !important;
+                color: #333 !important;
+                border-bottom: 2px solid #eee !important;
+                padding-bottom: 8px !important;
+                font-family: Arial, sans-serif !important;
+            }
+
+            div.${UNIQUE_PREFIX}modal-buttons {
+                display: flex !important;
+                gap: 10px !important;
+                justify-content: flex-end !important;
+                margin-top: 16px !important;
+            }
+
+            div.${UNIQUE_PREFIX}modal-buttons button {
+                flex: 1 !important;
+                padding: 12px !important;
+                border: none !important;
+                border-radius: 6px !important;
+                cursor: pointer !important;
+                font-size: 14px !important;
+                transition: background-color 0.3s ease !important;
+                font-family: Arial, sans-serif !important;
+            }
+
+            span.${UNIQUE_PREFIX}required-star {
+                color: #dc3545 !important;
+                font-weight: bold !important;
+            }
+
+            div.${UNIQUE_PREFIX}custom-input-container {
+                margin-top: 8px !important;
+                display: none !important;
+            }
+
+            div.${UNIQUE_PREFIX}custom-input-container.${UNIQUE_PREFIX}show {
+                display: block !important;
+            }
+
+            input.${UNIQUE_PREFIX}custom-input {
+                width: 100% !important;
+                padding: 10px !important;
+                border: 2px solid #4CAF50 !important;
+                border-radius: 6px !important;
+                font-size: 14px !important;
+                background-color: #f9fff9 !important;
+                box-sizing: border-box !important;
+                font-family: Arial, sans-serif !important;
+            }
+
+            input.${UNIQUE_PREFIX}custom-input:focus {
+                border-color: #2e7d32 !important;
+                outline: none !important;
+                background-color: #fff !important;
+            }
+
+            input.${UNIQUE_PREFIX}modal-input,
+            select.${UNIQUE_PREFIX}modal-select,
+            textarea.${UNIQUE_PREFIX}modal-textarea {
+                width: 100% !important;
+                padding: 10px !important;
+                border: 2px solid #ccc !important;
+                border-radius: 6px !important;
+                margin-top: 4px !important;
+                font-size: 14px !important;
+                box-sizing: border-box !important;
+                font-family: Arial, sans-serif !important;
+            }
+
+            input.${UNIQUE_PREFIX}modal-input:focus,
+            select.${UNIQUE_PREFIX}modal-select:focus,
+            textarea.${UNIQUE_PREFIX}modal-textarea:focus {
+                border-color: #4CAF50 !important;
+                outline: none !important;
+            }
+
+            label.${UNIQUE_PREFIX}modal-label {
+                display: block !important;
+                margin-bottom: 12px !important;
+                font-weight: 500 !important;
+                color: #333 !important;
+                font-family: Arial, sans-serif !important;
+            }
+
+            div.${UNIQUE_PREFIX}change-date-container {
+                width: 100% !important;
+                margin: 20px 0 !important;
+            }
+
+            input.${UNIQUE_PREFIX}change-date-input {
+                width: 100% !important;
+                padding: 12px !important;
+                border: 2px solid #ccc !important;
+                border-radius: 8px !important;
+                font-size: 16px !important;
+                margin-bottom: 8px !important;
+                box-sizing: border-box !important;
+                transition: border-color 0.3s ease !important;
+                font-family: Arial, sans-serif !important;
+            }
+
+            input.${UNIQUE_PREFIX}change-date-input:focus {
+                border-color: #4CAF50 !important;
+                outline: none !important;
+            }
+
+            div.${UNIQUE_PREFIX}change-date-buttons {
+                display: flex !important;
+                gap: 12px !important;
+                margin-top: 16px !important;
+            }
+
+            button.${UNIQUE_PREFIX}change-date-button {
+                flex: 1 !important;
+                padding: 12px 16px !important;
+                border: none !important;
+                border-radius: 8px !important;
+                font-size: 16px !important;
+                font-weight: 500 !important;
+                cursor: pointer !important;
+                transition: all 0.3s ease !important;
+                text-align: center !important;
+                font-family: Arial, sans-serif !important;
+            }
+
+            button.${UNIQUE_PREFIX}change-date-button.${UNIQUE_PREFIX}confirm {
+                background: #4CAF50 !important;
+                color: white !important;
+            }
+
+            button.${UNIQUE_PREFIX}change-date-button.${UNIQUE_PREFIX}confirm:hover:not(:disabled) {
+                background: #45a049 !important;
+            }
+
+            button.${UNIQUE_PREFIX}change-date-button.${UNIQUE_PREFIX}confirm:disabled {
+                background: #cccccc !important;
+                cursor: not-allowed !important;
+                opacity: 0.6 !important;
+            }
+
+            button.${UNIQUE_PREFIX}change-date-button.${UNIQUE_PREFIX}cancel {
+                background: #f44336 !important;
+                color: white !important;
+            }
+
+            button.${UNIQUE_PREFIX}change-date-button.${UNIQUE_PREFIX}cancel:hover {
+                background: #da190b !important;
+            }
+
+            div.${UNIQUE_PREFIX}change-date-help {
+                font-size: 14px !important;
+                color: #666 !important;
+                margin-top: 8px !important;
+                text-align: center !important;
+                font-family: Arial, sans-serif !important;
+            }
+        `;
+        document.head.appendChild(style);
+    }
+
+    // Функция для очистки устаревшего кэша
+    function cleanDateCache() {
+        const now = Date.now();
+        for (const [key, data] of dateCache.entries()) {
+            if (now - data.timestamp > DATE_CACHE_TTL) {
+                dateCache.delete(key);
+            }
+        }
+    }
+
+    // Функция получения данных о дате с кэшированием
+    function getCachedDateInfo(date) {
+        cleanDateCache();
+        const cached = dateCache.get(date);
+        if (cached && (Date.now() - cached.timestamp < DATE_CACHE_TTL)) {
+            return cached.data;
+        }
+        return null;
+    }
+
+    // Функция сохранения данных о дате в кэш
+    function setCachedDateInfo(date, data) {
+        dateCache.set(date, {
+            data: data,
+            timestamp: Date.now()
+        });
+    }
+
+    function loadTypesFromSheet(callback) {
+        if (typesCache.length > 0) return callback(typesCache);
+        GM_xmlhttpRequest({
+            method: 'GET',
+            url: TYPES_SHEET_URL,
+            timeout: 10000,
+            onload: function(response) {
+                try {
+                    const csv = response.responseText;
+                    const lines = csv.split('\n');
+                    const types = [];
+                    for (let i = 1; i < lines.length; i++) {
+                        const line = lines[i].trim();
+                        if (line && line !== '""' && line !== '') {
+                            const cleanLine = line.replace(/^"|"$/g, '').trim();
+                            if (cleanLine) types.push(cleanLine);
+                        }
+                    }
+                    typesCache = types;
+                    callback(types);
+                } catch (e) {
+                    console.error('Ошибка парсинга CSV:', e);
+                    callback([]);
+                }
+            },
+            onerror: (err) => {
+                console.error('Ошибка загрузки типов:', err);
+                callback([]);
+            },
+            ontimeout: () => {
+                console.error('Таймаут загрузки типов');
+                callback([]);
+            }
+        });
+    }
+
+    function createClickBlocker() {
+        const blocker = document.createElement('div');
+        blocker.className = `${UNIQUE_PREFIX}click-blocker`;
+        blocker.id = `${UNIQUE_PREFIX}click-blocker`;
+        document.body.appendChild(blocker);
+        return blocker;
+    }
+
+    function removeClickBlocker() {
+        const blocker = document.getElementById(`${UNIQUE_PREFIX}click-blocker`);
+        if (blocker) blocker.remove();
+    }
+
+    function setButtonLoading(button, isLoading, loadingText = "Загрузка...") {
+        if (isLoading) {
+            button.disabled = true;
+            button.classList.add(`${UNIQUE_PREFIX}loading-button`);
+            button.dataset.originalText = button.textContent;
+            button.innerHTML = `<span class="${UNIQUE_PREFIX}spinner ${UNIQUE_PREFIX}spinner-white"></span>${loadingText}`;
+        } else {
+            button.disabled = false;
+            button.classList.remove(`${UNIQUE_PREFIX}loading-button`);
+            button.innerHTML = button.dataset.originalText || button.textContent;
+        }
+    }
+
+    function showErrorMessage(message) {
+        const errorContainer = document.getElementById(`${UNIQUE_PREFIX}errorContainer`);
+        if (errorContainer) {
+            errorContainer.textContent = message;
+            errorContainer.className = `${UNIQUE_PREFIX}error-message ${UNIQUE_PREFIX}show`;
+            setTimeout(() => errorContainer.classList.remove(`${UNIQUE_PREFIX}show`), 5000);
+        }
+    }
+
+    function clearErrorMessage() {
+        const errorContainer = document.getElementById(`${UNIQUE_PREFIX}errorContainer`);
+        if (errorContainer) errorContainer.className = `${UNIQUE_PREFIX}error-message`;
+    }
+
+    function validateRequiredFields(inputs) {
+        const empty = inputs.filter(input => !input.value.trim());
+        if (empty.length) {
+            empty.forEach(input => {
+                input.classList.add(`${UNIQUE_PREFIX}input-error`, `${UNIQUE_PREFIX}input-error-shake`);
+                setTimeout(() => input.classList.remove(`${UNIQUE_PREFIX}input-error-shake`), 500);
+            });
+            const labels = empty.map(input => {
+                const label = input.closest('label')?.textContent?.replace('*', '').replace(':', '').trim();
+                return label || 'Поле';
+            }).join(', ');
+            showErrorMessage(`Заполните: ${labels}`);
+            return false;
+        }
+        return true;
+    }
+
+    function checkAndAddButton() {
+        const targetInput = document.querySelector(selector);
+        const shouldShow = targetInput && targetInput.value === "Монтажные работы на выезде ";
+        if (shouldShow) {
+            if (!buttonAdded || !createdButton || !document.contains(createdButton)) {
+                createButton(targetInput);
+                buttonAdded = true;
+            }
+        } else if (buttonAdded && createdButton) {
+            createdButton.remove();
+            buttonAdded = false;
+            createdButton = null;
+        }
+    }
+
+    function createButton(targetInput) {
+        if (createdButton && document.contains(createdButton)) createdButton.remove();
+        const button = document.createElement("button");
+        button.textContent = "📅 Заявка на монтаж";
+        button.className = `${UNIQUE_PREFIX}main-button`;
+        createdButton = button;
+        const topButtons = document.querySelector("#TopButtons");
+        (topButtons || targetInput.parentNode).appendChild(button);
+        button.addEventListener("click", (e) => {
+            e.preventDefault();
+            if (isProcessing) return;
+            handleButtonClick(button);
+        });
+    }
+
+    async function handleButtonClick(button) {
+        isProcessing = true;
+        setButtonLoading(button, true, "Загрузка...");
+        createClickBlocker();
+        try {
+            await loadProductIdCacheAsync();
+            openModal(() => {
+                setButtonLoading(button, false);
+                removeClickBlocker();
+                isProcessing = false;
+            });
+        } catch (error) {
+            setButtonLoading(button, false);
+            removeClickBlocker();
+            isProcessing = false;
+            showErrorMessage('Ошибка загрузки данных');
+        }
+    }
+
+    function loadProductIdCacheAsync() {
+        return new Promise((resolve, reject) => {
+            GM_xmlhttpRequest({
+                method: 'POST',
+                url: SCRIPT_URL,
+                data: JSON.stringify({ action: 'getProductIds' }),
+                headers: { 'Content-Type': 'application/json' },
+                timeout: 15000,
+                onload: function(response) {
+                    try {
+                        const text = response.responseText.trim();
+                        if (text.startsWith('<')) {
+                            console.error('❌ HTML вместо JSON:', text.substring(0, 200));
+                            reject(new Error('Сервис недоступен'));
+                            return;
+                        }
+                        const result = JSON.parse(text);
+                        productIdCache.clear();
+                        if (result.productIds) {
+                            result.productIds.forEach(id => id && productIdCache.add(id));
+                        }
+                        resolve();
+                    } catch (e) {
+                        console.error('Ошибка парсинга JSON:', e);
+                        reject(new Error('Неверный ответ'));
+                    }
+                },
+                onerror: (err) => {
+                    console.error('Ошибка запроса:', err);
+                    reject(new Error('Ошибка сети'));
+                },
+                ontimeout: () => {
+                    console.error('Таймаут запроса');
+                    reject(new Error('Таймаут сети'));
+                }
+            });
+        });
+    }
+
+    function updateDateIndicator(selectedDate, indicatorId = `${UNIQUE_PREFIX}date-indicator`) {
+        const indicator = document.getElementById(indicatorId);
+        if (!indicator) return;
+        if (!selectedDate) {
+            indicator.className = `${UNIQUE_PREFIX}date-indicator ${UNIQUE_PREFIX}empty`;
+            indicator.textContent = "Выберите дату";
+            return;
+        }
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+        const selected = new Date(selectedDate);
+        if (selected < today) {
+            indicator.className = `${UNIQUE_PREFIX}date-indicator ${UNIQUE_PREFIX}full`;
+            indicator.innerHTML = `🚫 <strong>Дата в прошлом</strong>`;
+            setCachedDateInfo(selectedDate, { count: -1, maxReached: true, isPast: true });
+            return;
+        }
+        const cached = getCachedDateInfo(selectedDate);
+        if (cached && !cached.isPast) {
+            displayDateStatus(indicator, cached.count, cached.maxReached);
+            return;
+        }
+        indicator.className = `${UNIQUE_PREFIX}date-indicator ${UNIQUE_PREFIX}loading`;
+        indicator.innerHTML = `<span class="${UNIQUE_PREFIX}spinner"></span>Проверка...`;
+        checkEntryCount(selectedDate, (count, maxReached) => {
+            setCachedDateInfo(selectedDate, { count, maxReached, isPast: false });
+            displayDateStatus(indicator, count, maxReached);
+        });
+    }
+
+    function displayDateStatus(indicator, count, maxReached) {
+        const max = 3;
+        const free = max - count;
+        function getPlacesWord(num) {
+            const lastDigit = num % 10;
+            const lastTwoDigits = num % 100;
+            if (lastTwoDigits >= 11 && lastTwoDigits <= 14) return 'мест';
+            if (lastDigit === 1) return 'место';
+            if (lastDigit >= 2 && lastDigit <= 4) return 'места';
+            return 'мест';
+        }
+        if (count === 0) {
+            indicator.className = `${UNIQUE_PREFIX}date-indicator ${UNIQUE_PREFIX}free`;
+            indicator.innerHTML = `✅ <strong>${max} ${getPlacesWord(max)}</strong>`;
+        } else if (count < max) {
+            indicator.className = `${UNIQUE_PREFIX}date-indicator ${UNIQUE_PREFIX}partial`;
+            indicator.innerHTML = `⚠️ <strong>${count}/${max}</strong> • Свободно: <strong>${free} ${getPlacesWord(free)}</strong>`;
+        } else {
+            indicator.className = `${UNIQUE_PREFIX}date-indicator ${UNIQUE_PREFIX}full`;
+            indicator.innerHTML = `🚫 <strong>${count}/${max}</strong> • Требуется согласование`;
+        }
+    }
+
+    function setupDateIndicator(dateInputId = `${UNIQUE_PREFIX}workDate`, indicatorId = `${UNIQUE_PREFIX}date-indicator`) {
+        const dateInput = document.getElementById(dateInputId);
+        if (!dateInput) return;
+        const indicator = document.createElement("div");
+        indicator.id = indicatorId;
+        indicator.className = `${UNIQUE_PREFIX}date-indicator ${UNIQUE_PREFIX}empty`;
+        indicator.textContent = "Выберите дату";
+        dateInput.parentNode.insertBefore(indicator, dateInput.nextSibling);
+        let debounceTimer;
+        const debounceDelay = 300;
+        const handleDateChange = (e) => {
+            clearTimeout(debounceTimer);
+            debounceTimer = setTimeout(() => {
+                updateDateIndicator(e.target.value, indicatorId);
+            }, debounceDelay);
+        };
+        ['input', 'change'].forEach(ev =>
+            dateInput.addEventListener(ev, handleDateChange)
+        );
+        if (dateInput.value) updateDateIndicator(dateInput.value, indicatorId);
+    }
+
+    function setupWhatMountSelect() {
+        const whatMount = document.getElementById(`${UNIQUE_PREFIX}whatMount`);
+        const container = document.getElementById(`${UNIQUE_PREFIX}customInputContainer`);
+        const input = document.getElementById(`${UNIQUE_PREFIX}customInput`);
+        if (!whatMount || !container || !input) return;
+        whatMount.addEventListener("change", () => {
+            if (whatMount.value === "Другое") {
+                container.classList.add(`${UNIQUE_PREFIX}show`);
+                setTimeout(() => input.focus(), 100);
+            } else {
+                container.classList.remove(`${UNIQUE_PREFIX}show`);
+                input.value = "";
+            }
+            checkAllRequiredFields();
+        });
+        input.addEventListener("input", checkAllRequiredFields);
+    }
+
+    function checkAllRequiredFields() {
+        const fields = [
+            document.getElementById(`${UNIQUE_PREFIX}workDate`),
+            document.getElementById(`${UNIQUE_PREFIX}visitType`),
+            document.getElementById(`${UNIQUE_PREFIX}workType`),
+            document.getElementById(`${UNIQUE_PREFIX}address`),
+            document.getElementById(`${UNIQUE_PREFIX}contactInfo`)
+        ];
+        const whatMount = document.getElementById(`${UNIQUE_PREFIX}whatMount`);
+        const customInput = document.getElementById(`${UNIQUE_PREFIX}customInput`);
+        const submitBtn = document.getElementById(`${UNIQUE_PREFIX}submitBtn`);
+        if (!submitBtn) return;
+        let allFilled = fields.every(f => f?.value.trim());
+        if (whatMount?.value === "Другое") {
+            allFilled = allFilled && customInput?.value.trim();
+        } else {
+            allFilled = allFilled && whatMount?.value.trim();
+        }
+        submitBtn.disabled = !allFilled;
+        submitBtn.style.backgroundColor = allFilled ? "#4CAF50" : "#cccccc";
+    }
+
+    function checkChangeDateFields() {
+        const dateInput = document.getElementById(`${UNIQUE_PREFIX}changeDateInput`);
+        const confirmBtn = document.getElementById(`${UNIQUE_PREFIX}changeDateConfirmBtn`);
+        if (!dateInput || !confirmBtn) return;
+        const isValid = dateInput.value.trim() !== "";
+        confirmBtn.disabled = !isValid;
+    }
+
+    function getWhatMountValue() {
+        const select = document.getElementById(`${UNIQUE_PREFIX}whatMount`);
+        const input = document.getElementById(`${UNIQUE_PREFIX}customInput`);
+        return select?.value === "Другое" ? input?.value.trim() || "" : select?.value || "";
+    }
+
+    function openModal(onComplete) {
+        const productIdEl = document.querySelector("#ProductId");
+        const productId = productIdEl ? productIdEl.textContent.trim() : "N/A";
+
+        // Получаем ссылку
+        const linkEl = document.querySelector("body > ul > div > li:nth-child(1) > a");
+        const linkText = linkEl ? linkEl.textContent.trim() : "Ссылка не найдена";
+
+        checkProductStatus(productId, (statusData) => {
+            if (statusData.exists) {
+                if (statusData.status === 0) {
+                    showChangeDateDialog(productId, statusData.currentDate, linkText);
+                    if (onComplete) onComplete();
+                } else {
+                    showProductExistsDialog(productId);
+                    if (onComplete) onComplete();
+                }
+                return;
+            }
+            loadTypesFromSheet((types) => {
+                const modal = createModalElement(linkText);
+                document.body.appendChild(modal);
+                setupDateIndicator();
+                setupWhatMountSelect();
+                const requiredInputs = [
+                    document.getElementById(`${UNIQUE_PREFIX}workDate`),
+                    document.getElementById(`${UNIQUE_PREFIX}visitType`),
+                    document.getElementById(`${UNIQUE_PREFIX}workType`),
+                    document.getElementById(`${UNIQUE_PREFIX}address`),
+                    document.getElementById(`${UNIQUE_PREFIX}contactInfo`)
+                ];
+                requiredInputs.forEach(input => {
+                    input.addEventListener("input", () => {
+                        clearErrorMessage();
+                        input.classList.remove(`${UNIQUE_PREFIX}input-error`);
+                        checkAllRequiredFields();
+                    });
+                    input.addEventListener("change", checkAllRequiredFields);
+                });
+                document.getElementById(`${UNIQUE_PREFIX}submitBtn`).addEventListener("click", handleSubmit(productId, linkText, requiredInputs));
+                document.getElementById(`${UNIQUE_PREFIX}closeBtn`).addEventListener("click", () => modal.remove());
+                modal.addEventListener("click", (e) => { if (e.target === modal) modal.remove(); });
+                const today = new Date().toISOString().split('T')[0];
+                document.getElementById(`${UNIQUE_PREFIX}workDate`).setAttribute('min', today);
+                setTimeout(() => {
+                    document.getElementById(`${UNIQUE_PREFIX}workDate`).focus();
+                    if (onComplete) onComplete();
+                }, 0);
+            });
+        });
+    }
+
+    function createModalElement(linkText) {
+        const types = typesCache.map(t => `<option value="${t}">${t}</option>`).join('');
+        const modal = document.createElement("div");
+        modal.className = `${UNIQUE_PREFIX}modal-overlay`;
+        modal.innerHTML = `
+            <div class="${UNIQUE_PREFIX}modal-content">
+                <h3 style="margin:0 0 20px;font-size:20px;color:#333;text-align:center;font-family:Arial,sans-serif;">Заявка на монтаж</h3>
+                <div class="${UNIQUE_PREFIX}modal-body">
+                    <div class="${UNIQUE_PREFIX}modal-column">
+                        <h4>Основная информация</h4>
+                        <label class="${UNIQUE_PREFIX}modal-label">Дата <span class="${UNIQUE_PREFIX}required-star">*</span>: <input type="date" id="${UNIQUE_PREFIX}workDate" class="${UNIQUE_PREFIX}modal-input" required></label>
+                        <label class="${UNIQUE_PREFIX}modal-label">Вид выезда <span class="${UNIQUE_PREFIX}required-star">*</span>:
+                            <select id="${UNIQUE_PREFIX}visitType" class="${UNIQUE_PREFIX}modal-select" required>
+                                <option value="">Выберите...</option>
+                                <option value="Замеры">Замеры</option>
+                                <option value="Монтаж">Монтаж</option>
+                            </select>
+                        </label>
+                        <label class="${UNIQUE_PREFIX}modal-label">Тип работ <span class="${UNIQUE_PREFIX}required-star">*</span>:
+                            <select id="${UNIQUE_PREFIX}workType" class="${UNIQUE_PREFIX}modal-select" required>
+                                <option value="">Выберите...</option>
+                                <option value="В помещении">В помещении</option>
+                                <option value="На улице">На улице</option>
+                            </select>
+                        </label>
+                    </div>
+                    <div class="${UNIQUE_PREFIX}modal-column">
+                        <h4>Дополнительно</h4>
+                        <label class="${UNIQUE_PREFIX}modal-label">Что монтируем? <span class="${UNIQUE_PREFIX}required-star">*</span>:
+                            <select id="${UNIQUE_PREFIX}whatMount" class="${UNIQUE_PREFIX}modal-select" required>
+                                <option value="">Выберите...</option>
+                                ${types}
+                                <option value="Другое">Другое</option>
+                            </select>
+                            <div id="${UNIQUE_PREFIX}customInputContainer" class="${UNIQUE_PREFIX}custom-input-container">
+                                <input type="text" id="${UNIQUE_PREFIX}customInput" class="${UNIQUE_PREFIX}custom-input" placeholder="Уточните...">
+                            </div>
+                        </label>
+                        <label class="${UNIQUE_PREFIX}modal-label">Адрес <span class="${UNIQUE_PREFIX}required-star">*</span>: <input type="text" id="${UNIQUE_PREFIX}address" class="${UNIQUE_PREFIX}modal-input" required></label>
+                        <label class="${UNIQUE_PREFIX}modal-label">Контакты <span class="${UNIQUE_PREFIX}required-star">*</span>: <input type="text" id="${UNIQUE_PREFIX}contactInfo" class="${UNIQUE_PREFIX}modal-input" required></label>
+                        <label class="${UNIQUE_PREFIX}modal-label">Комментарии: <textarea id="${UNIQUE_PREFIX}comments" class="${UNIQUE_PREFIX}modal-textarea" style="min-height:60px;"></textarea></label>
+                    </div>
+                </div>
+                <div id="${UNIQUE_PREFIX}errorContainer" class="${UNIQUE_PREFIX}error-message"></div>
+                <div class="${UNIQUE_PREFIX}modal-buttons">
+                    <button id="${UNIQUE_PREFIX}submitBtn" style="background:#ccc;color:white;">Отправить</button>
+                    <button id="${UNIQUE_PREFIX}closeBtn" style="background:#f44336;color:white;">Закрыть</button>
+                </div>
+            </div>`;
+        return modal;
+    }
+
+    function handleSubmit(productId, linkText, requiredInputs) {
+        return (e) => {
+            e.preventDefault();
+            if (isProcessing) return;
+            isProcessing = true;
+            const conditionalInputs = [...requiredInputs];
+            const whatMount = document.getElementById(`${UNIQUE_PREFIX}whatMount`);
+            if (whatMount.value === "Другое") {
+                conditionalInputs.push(document.getElementById(`${UNIQUE_PREFIX}customInput`));
+            } else {
+                conditionalInputs.push(whatMount);
+            }
+            if (!validateRequiredFields(conditionalInputs)) {
+                isProcessing = false;
+                return;
+            }
+            const workDate = document.getElementById(`${UNIQUE_PREFIX}workDate`).value;
+            const visitType = document.getElementById(`${UNIQUE_PREFIX}visitType`).value;
+            const workType = document.getElementById(`${UNIQUE_PREFIX}workType`).value;
+            const whatMountVal = getWhatMountValue();
+            const address = document.getElementById(`${UNIQUE_PREFIX}address`).value.trim();
+            const contactInfo = document.getElementById(`${UNIQUE_PREFIX}contactInfo`).value.trim();
+            const comments = document.getElementById(`${UNIQUE_PREFIX}comments`).value.trim();
+            const submitBtn = document.getElementById(`${UNIQUE_PREFIX}submitBtn`);
+
+            setButtonLoading(submitBtn, true, "Проверка...");
+            createClickBlocker();
+
+            checkDuplicate(productId, (exists) => {
+                if (exists) {
+                    setButtonLoading(submitBtn, false);
+                    removeClickBlocker();
+                    isProcessing = false;
+                    showProductExistsDialog(productId);
+                    return;
+                }
+                checkEntryCount(workDate, (count, maxReached) => {
+                    let approval = "";
+                    if (maxReached || whatMount.value === "Другое") {
+                        approval = "согласование";
+                    }
+                    sendToGoogleSheet(productId, workDate, visitType, workType, approval, linkText, () => {
+                        sendToSheet2(productId, whatMountVal, address, contactInfo, comments, () => {
+                            setButtonLoading(submitBtn, false);
+                            removeClickBlocker();
+                            isProcessing = false;
+                            const modal = document.querySelector(`.${UNIQUE_PREFIX}modal-overlay`);
+                            if (modal) modal.remove();
+                            showSuccessModal("Отправлено!");
+                            productIdCache.add(productId);
+                        }, (error) => {
+                            setButtonLoading(submitBtn, false);
+                            removeClickBlocker();
+                            isProcessing = false;
+                            showErrorMessage("Ошибка: " + error);
+                        });
+                    }, (error) => {
+                        setButtonLoading(submitBtn, false);
+                        removeClickBlocker();
+                        isProcessing = false;
+                        showErrorMessage("Ошибка: " + error);
+                    });
+                });
+            });
+        };
+    }
+
+    function checkProductStatus(productId, callback) {
+        GM_xmlhttpRequest({
+            method: 'POST',
+            url: SCRIPT_URL,
+            data: JSON.stringify({ action: 'checkProductStatus', productId }),
+            headers: { 'Content-Type': 'application/json' },
+            timeout: 10000,
+            onload: (res) => {
+                try {
+                    callback(JSON.parse(res.responseText));
+                } catch (e) {
+                    callback({ exists: false });
+                }
+            },
+            onerror: () => callback({ exists: false }),
+            ontimeout: () => callback({ exists: false })
+        });
+    }
+
+    function checkDuplicate(productId, callback) {
+        GM_xmlhttpRequest({
+            method: 'POST',
+            url: SCRIPT_URL,
+            data: JSON.stringify({ action: 'checkDuplicate', productId }),
+            headers: { 'Content-Type': 'application/json' },
+            timeout: 10000,
+            onload: (res) => {
+                try {
+                    callback(JSON.parse(res.responseText).exists);
+                } catch (e) {
+                    callback(false);
+                }
+            },
+            onerror: () => callback(false),
+            ontimeout: () => callback(false)
+        });
+    }
+
+    function checkEntryCount(date, callback) {
+        const cached = getCachedDateInfo(date);
+        if (cached && !cached.isPast) {
+            callback(cached.count, cached.maxReached);
+            return;
+        }
+        GM_xmlhttpRequest({
+            method: 'POST',
+            url: SCRIPT_URL,
+            data: JSON.stringify({ action: 'checkDate', date }),
+            headers: { 'Content-Type': 'application/json' },
+            timeout: 8000,
+            onload: (res) => {
+                try {
+                    const result = JSON.parse(res.responseText);
+                    const count = result.count || 0;
+                    const maxReached = count >= 3;
+                    setCachedDateInfo(date, { count, maxReached, isPast: false });
+                    callback(count, maxReached);
+                } catch (e) {
+                    callback(0, false);
+                }
+            },
+            onerror: () => callback(0, false),
+            ontimeout: () => callback(0, false)
+        });
+    }
+
+    function sendToGoogleSheet(productId, date, visitType, workType, approval, linkText, onSuccess, onError) {
+        GM_xmlhttpRequest({
+            method: 'POST',
+            url: SCRIPT_URL,
+            data: JSON.stringify({ action: 'addAndCheck', productId, date, visitType, workType, approval, linkText }),
+            headers: { 'Content-Type': 'application/json' },
+            timeout: 15000,
+            onload: (res) => {
+                if (res.status === 200) {
+                    try {
+                        const cleanText = res.responseText.trim();
+                        if (cleanText.startsWith('<')) {
+                            console.error('Получен HTML вместо JSON:', cleanText.substring(0, 200));
+                            onError('Сервер вернул HTML');
+                            return;
+                        }
+                        const result = JSON.parse(cleanText);
+                        if (result.status === "success") {
+                            dateCache.delete(date);
+                            onSuccess();
+                        } else {
+                            onError(result.error || "Ошибка в данных");
+                        }
+                    } catch (e) {
+                        onError("Ошибка ответа: сервер не вернул JSON");
+                    }
+                } else {
+                    onError(`Ошибка HTTP: ${res.status}`);
+                }
+            },
+            onerror: (err) => onError(`Ошибка сети: ${err.statusText || err}`),
+            ontimeout: () => onError("Таймаут запроса")
+        });
+    }
+
+    function sendToSheet2(productId, whatMount, address, contactInfo, comments, onSuccess, onError) {
+        GM_xmlhttpRequest({
+            method: 'POST',
+            url: SCRIPT_URL,
+            data: JSON.stringify({ action: 'addExtraData', productId, whatMount, address, contactInfo, comments }),
+            headers: { 'Content-Type': 'application/json' },
+            timeout: 15000,
+            onload: (res) => {
+                if (res.status === 200) {
+                    try {
+                        const cleanText = res.responseText.trim();
+                        if (cleanText.startsWith('<')) {
+                            console.error('❌ Получен HTML вместо JSON:', cleanText.substring(0, 200));
+                            onError('Сервер вернул HTML вместо JSON');
+                            return;
+                        }
+                        const result = JSON.parse(cleanText);
+                        if (result.status === "success") {
+                            onSuccess();
+                        } else {
+                            onError(result.error || "Ошибка в данных от сервера");
+                        }
+                    } catch (e) {
+                        onError("Ошибка ответа: некорректный JSON от сервера");
+                    }
+                } else {
+                    onError(`Ошибка HTTP: ${res.status}`);
+                }
+            },
+            onerror: (err) => {
+                onError(`Ошибка сети при отправке в таблицу 2: ${err.statusText || err}`);
+            },
+            ontimeout: () => {
+                onError("Таймаут запроса при отправке дополнительных данных");
+            }
+        });
+    }
+
+    function showChangeDateDialog(productId, oldDate, linkText) {
+        const modal = document.createElement("div");
+        modal.className = `${UNIQUE_PREFIX}modal-overlay`;
+        const content = document.createElement("div");
+        content.style.cssText = "background:#fff;padding:32px;border-radius:16px;width:500px;max-width:90%;text-align:center;box-shadow:0 8px 32px rgba(0,0,0,0.3);font-family:Arial,sans-serif;";
+        const today = new Date();
+        const minDate = today.toISOString().split('T')[0];
+        content.innerHTML = `
+            <div style="font-size:48px;margin-bottom:16px;">⚠️</div>
+            <h3 style="margin:0 0 16px;font-size:24px;color:#ff9800;font-weight:600;font-family:Arial,sans-serif;">Заказ отклонён</h3>
+            <p style="margin-bottom:24px;font-size:16px;color:#666;line-height:1.4;font-family:Arial,sans-serif;">
+                Заказ <strong>№${productId}</strong> был отклонён.<br>
+                Вы можете выбрать новую дату для монтажа.
+            </p>
+            <div class="${UNIQUE_PREFIX}change-date-container">
+                <label style="display:block;margin-bottom:8px;font-weight:500;color:#333;text-align:left;font-family:Arial,sans-serif;">
+                    Новая дата:
+                </label>
+                <input type="date"
+                       id="${UNIQUE_PREFIX}changeDateInput"
+                       class="${UNIQUE_PREFIX}change-date-input"
+                       min="${minDate}"
+                       value="${oldDate || ''}"
+                       style="text-align:center;">
+                <div id="${UNIQUE_PREFIX}changeDateIndicator"></div>
+                <div class="${UNIQUE_PREFIX}change-date-help">
+                    Выберите дату не ранее сегодняшнего дня
+                </div>
+            </div>
+            <div class="${UNIQUE_PREFIX}change-date-buttons">
+                <button id="${UNIQUE_PREFIX}changeDateConfirmBtn"
+                        class="${UNIQUE_PREFIX}change-date-button ${UNIQUE_PREFIX}confirm"
+                        disabled>
+                    ✅ Подтвердить
+                </button>
+                <button id="${UNIQUE_PREFIX}changeDateCancelBtn"
+                        class="${UNIQUE_PREFIX}change-date-button ${UNIQUE_PREFIX}cancel">
+                    ✖️ Отмена
+                </button>
+            </div>
+        `;
+        modal.appendChild(content);
+        document.body.appendChild(modal);
+        setupDateIndicator(`${UNIQUE_PREFIX}changeDateInput`, `${UNIQUE_PREFIX}changeDateIndicator`);
+        const dateInput = document.getElementById(`${UNIQUE_PREFIX}changeDateInput`);
+        const confirmBtn = document.getElementById(`${UNIQUE_PREFIX}changeDateConfirmBtn`);
+        const cancelBtn = document.getElementById(`${UNIQUE_PREFIX}changeDateCancelBtn`);
+        dateInput.addEventListener("input", () => {
+            checkChangeDateFields();
+            dateInput.classList.remove(`${UNIQUE_PREFIX}input-error`);
+        });
+        dateInput.addEventListener("change", checkChangeDateFields);
+        confirmBtn.addEventListener("click", () => {
+            const newDate = dateInput.value;
+            if (!newDate) {
+                dateInput.classList.add(`${UNIQUE_PREFIX}input-error`, `${UNIQUE_PREFIX}input-error-shake`);
+                setTimeout(() => dateInput.classList.remove(`${UNIQUE_PREFIX}input-error-shake`), 500);
+                return;
+            }
+            const today = new Date();
+            today.setHours(0, 0, 0, 0);
+            const selected = new Date(newDate);
+            if (selected < today) {
+                dateInput.classList.add(`${UNIQUE_PREFIX}input-error`, `${UNIQUE_PREFIX}input-error-shake`);
+                setTimeout(() => dateInput.classList.remove(`${UNIQUE_PREFIX}input-error-shake`), 500);
+                return;
+            }
+            setButtonLoading(confirmBtn, true, "Обновление...");
+            createClickBlocker();
+            GM_xmlhttpRequest({
+                method: 'POST',
+                url: SCRIPT_URL,
+                data: JSON.stringify({ action: 'updateProductDate', productId, newDate, linkText }),
+                headers: { 'Content-Type': 'application/json' },
+                timeout: 15000,
+                onload: (response) => {
+                    setButtonLoading(confirmBtn, false);
+                    removeClickBlocker();
+                    modal.remove();
+                    try {
+                        const result = JSON.parse(response.responseText);
+                        if (result.status === 'success') {
+                            showSuccessModal("Дата успешно обновлена!");
+                            productIdCache.delete(productId);
+                            dateCache.clear();
+                            setTimeout(() => openModal(), 1000);
+                        } else {
+                            showErrorMessage("Ошибка обновления: " + (result.error || "Неизвестная ошибка"));
+                        }
+                    } catch (e) {
+                        showErrorMessage("Ошибка обработки ответа");
+                    }
+                },
+                onerror: () => {
+                    setButtonLoading(confirmBtn, false);
+                    removeClickBlocker();
+                    showErrorMessage("Ошибка сети при обновлении даты");
+                },
+                ontimeout: () => {
+                    setButtonLoading(confirmBtn, false);
+                    removeClickBlocker();
+                    showErrorMessage("Таймаут при обновлении даты");
+                }
+            });
+        });
+        cancelBtn.addEventListener("click", () => modal.remove());
+        modal.addEventListener("click", (e) => {
+            if (e.target === modal) modal.remove();
+        });
+        setTimeout(() => {
+            checkChangeDateFields();
+            if (dateInput.value) {
+                updateDateIndicator(dateInput.value, `${UNIQUE_PREFIX}changeDateIndicator`);
+            }
+            dateInput.focus();
+        }, 100);
+    }
+
+    function showProductExistsDialog(productId) {
+        const modal = document.createElement("div");
+        modal.className = `${UNIQUE_PREFIX}modal-overlay`;
+        const content = document.createElement("div");
+        content.style.cssText = "background:#fff;padding:32px;border-radius:16px;width:450px;max-width:90%;text-align:center;box-shadow:0 8px 32px rgba(0,0,0,0.3);font-family:Arial,sans-serif;";
+        content.innerHTML = `
+            <div style="font-size:64px;margin-bottom:20px;">⚠️</div>
+            <h3 style="color:#ff9800;margin:0 0 16px;font-size:24px;font-weight:600;font-family:Arial,sans-serif;">Внимание!</h3>
+            <p style="font-size:16px;color:#666;margin-bottom:24px;line-height:1.4;font-family:Arial,sans-serif;">
+                Заявка на заказ <strong style="color:#333;">№${productId}</strong> уже существует.
+            </p>
+        `;
+        const closeBtn = document.createElement("button");
+        closeBtn.textContent = "Понятно";
+        closeBtn.style.cssText = "width:100%;padding:14px;background:#2196F3;color:white;border:none;border-radius:8px;cursor:pointer;font-size:16px;font-weight:500;transition:background-color 0.3s ease;font-family:Arial,sans-serif;";
+        closeBtn.addEventListener("mouseover", () => closeBtn.style.backgroundColor = "#1976D2");
+        closeBtn.addEventListener("mouseout", () => closeBtn.style.backgroundColor = "#2196F3");
+        closeBtn.addEventListener("click", () => modal.remove());
+        content.appendChild(closeBtn);
+        modal.appendChild(content);
+        document.body.appendChild(modal);
+        modal.addEventListener("click", (e) => {
+            if (e.target === modal) modal.remove();
+        });
+        setTimeout(() => closeBtn.focus(), 100);
+    }
+
+    function showSuccessModal(message) {
+        const modal = document.createElement("div");
+        modal.className = `${UNIQUE_PREFIX}modal-overlay`;
+        const content = document.createElement("div");
+        content.style.cssText = "background:#fff;padding:32px;border-radius:16px;width:400px;max-width:90%;text-align:center;box-shadow:0 8px 32px rgba(0,0,0,0.3);font-family:Arial,sans-serif;";
+        content.innerHTML = `
+            <div style="font-size:64px;margin-bottom:20px;">✅</div>
+            <h3 style="color:#4CAF50;margin:0 0 16px;font-size:24px;font-weight:600;font-family:Arial,sans-serif;">Успешно!</h3>
+            <p style="font-size:16px;color:#666;margin-bottom:24px;font-family:Arial,sans-serif;">${message}</p>
+            <div style="font-size:14px;color:#999;font-family:Arial,sans-serif;">
+                Закроется через <span id="${UNIQUE_PREFIX}countdown" style="font-weight:bold;color:#4CAF50;">3</span> сек.
+            </div>
+        `;
+        modal.appendChild(content);
+        document.body.appendChild(modal);
+        let t = 3;
+        const timer = setInterval(() => {
+            if (--t <= 0) {
+                clearInterval(timer);
+                modal.remove();
+            }
+            const countdown = document.getElementById(`${UNIQUE_PREFIX}countdown`);
+            if (countdown) countdown.textContent = t;
+        }, 1000);
+        modal.addEventListener("click", () => {
+            clearInterval(timer);
+            modal.remove();
+        });
+    }
+
+    const observer = new MutationObserver(checkAndAddButton);
+    observer.observe(document.body, { childList: true, subtree: true });
+    setInterval(checkAndAddButton, 500);
+}
+
+montages();
 
     function hideNewFiles () {
     'use strict';
@@ -8037,6 +9251,7 @@ function noDelete () {
     });
 };
 noDelete ();
+
 
 
 
