@@ -1,5 +1,5 @@
 // ==UserScript==
-// @name         Проверка заказа 9.8.1
+// @name         Проверка заказа 9.8.2
 // @namespace    http://tampermonkey.net/
 // @version      1.6
 // @description
@@ -9251,6 +9251,66 @@ function noDelete () {
     });
 };
 noDelete ();
+
+function outsourceCheck () {
+    'use strict';
+
+    const TARGET_IMAGE_SRC = 'img/status/status-outsource-calc.png';
+    const STATUS_SELECTOR = '#StatusIcon > img';
+    const DESCRIPTION_SELECTOR = '#Description';
+
+    // Удаляет "Проверено" или "проверено" (с пробелами, любым регистром)
+    function removeCheckedText() {
+        const descEl = document.querySelector(DESCRIPTION_SELECTOR);
+        if (!descEl) return;
+
+        const originalText = descEl.value || descEl.textContent || '';
+        // Удаляем "проверено" в любом регистре и с любыми пробелами вокруг
+        const cleanedText = originalText.replace(/\s*проверено\s*/gi, '').trim();
+
+        if (originalText !== cleanedText) {
+            if (descEl.tagName === 'TEXTAREA' || descEl.tagName === 'INPUT') {
+                descEl.value = cleanedText;
+            } else {
+                descEl.textContent = cleanedText;
+            }
+
+            // Вызываем обработчик onchange или OutsourceSetValue
+            if (typeof descEl.onchange === 'function') {
+                descEl.onchange();
+            } else {
+                const onchangeAttr = descEl.getAttribute('onchange');
+                const match = onchangeAttr && onchangeAttr.match(/OutsourceSetValue\((\d+),/);
+                if (match && match[1] && typeof OutsourceSetValue === 'function') {
+                    OutsourceSetValue(match[1], descEl.id, descEl.value);
+                }
+            }
+        }
+    }
+
+    // Проверка: нужная иконка + наличие #Description
+    function checkConditions() {
+        const statusImg = document.querySelector(STATUS_SELECTOR);
+        const descriptionEl = document.querySelector(DESCRIPTION_SELECTOR);
+
+        if (statusImg && statusImg.src && statusImg.src.endsWith(TARGET_IMAGE_SRC) && descriptionEl) {
+            removeCheckedText();
+        }
+    }
+
+    // Отслеживание изменений в DOM
+    const observer = new MutationObserver(checkConditions);
+    observer.observe(document.body, {
+        childList: true,
+        subtree: true
+    });
+
+    // Первоначальные проверки на случай, если элементы уже загружены
+    setTimeout(checkConditions, 100);
+    setTimeout(checkConditions, 500);
+    setTimeout(checkConditions, 1000);
+};
+outsourceCheck ();
 
 
 
