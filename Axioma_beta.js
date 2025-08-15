@@ -1,5 +1,5 @@
 // ==UserScript==
-// @name         Проверка заказа 9.8.2
+// @name         Проверка заказа 9.8.3
 // @namespace    http://tampermonkey.net/
 // @version      1.6
 // @description
@@ -284,134 +284,486 @@ function montages() {
     'use strict';
     const SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbzt9bAtaWRRXyAtq6a1J3eFWjWoBPDWrw9s_0MOWnrfSaGRToux4THTN77BAN9aR0lH/exec';
     const TYPES_SHEET_URL = 'https://docs.google.com/spreadsheets/d/1IPo3ysUMbU0LOVTHKY3PuLW9DRutL_cduurf0Ztt47o/gviz/tq?tqx=out:csv&sheet=types';
-    const selector = "#Top > form > div > div > div > input:nth-child(5)";
-    const UNIQUE_PREFIX = 'custom-save-data-montage-';
+    const TELEGRAM_TOKEN = '7859059996:AAHCCslXp3xvZp1iuSNPv6ApJs9-7MUIG7I';
+    const TELEGRAM_CHAT_IDS = ['759432344', '577323348', '385756991', '5242608348'];
+    const TELEGRAM_API = `https://api.telegram.org/bot${TELEGRAM_TOKEN}/sendDocument`;
+    const TELEGRAM_DELAY = 60000; // 70 секунд
+
+    // Проверяем, где находится текст "Монтажные работы на выезде"
+    const selectors = [
+        "#Top > form > div > div > div > input:nth-child(5)",
+        "#Top > form > div > div > div > input.ProductName.form-control",
+        "#Summary > table > tbody > tr > td:nth-child(1) > div.formblock.Order638067 > table:nth-child(1) > tbody > tr > td:nth-child(2) > div > input"
+    ];
+    const UNIQUE_PREFIX = 'montage-script-v2-';
     let buttonAdded = false;
     let createdButton = null;
     let productIdCache = new Set();
     let isProcessing = false;
     let typesCache = [];
-    // Кэш для проверки дат (время жизни 30 секунд)
+    let files = []; // Для хранения выбранных файлов
+    // Кэш для дат
     let dateCache = new Map();
-    const DATE_CACHE_TTL = 30000; // 30 секунд
+    const DATE_CACHE_TTL = 30000; // 30 сек
 
-    addStyles();
+    // Инициализация системы отложенной отправки файлов
+    initDelayedTelegramSender();
+    addIsolatedStyles();
 
-    function addStyles() {
+    function initDelayedTelegramSender() {
+        // Проверяем наличие отложенных файлов при загрузке страницы
+        checkPendingFiles();
+
+        // Периодически проверяем отложенные файлы
+        setInterval(checkPendingFiles, 5000);
+    }
+
+    function saveFilesForDelayedSending(productId, files) {
+        if (files.length === 0) return;
+
+        const fileData = files.map(file => ({
+            name: file.name,
+            size: file.size,
+            type: file.type,
+            lastModified: file.lastModified
+        }));
+
+        // Конвертируем файлы в base64 для хранения
+        const promises = files.map(file => {
+            return new Promise((resolve) => {
+                const reader = new FileReader();
+                reader.onload = () => resolve({
+                    name: file.name,
+                    type: file.type,
+                    size: file.size,
+                    data: reader.result
+                });
+                reader.readAsDataURL(file);
+            });
+        });
+
+        Promise.all(promises).then(base64Files => {
+            const delayedData = {
+                productId: productId,
+                files: base64Files,
+                scheduledTime: Date.now() + TELEGRAM_DELAY,
+                timestamp: Date.now()
+            };
+
+            // Сохраняем в sessionStorage
+            const key = `telegram_delayed_${productId}_${Date.now()}`;
+            try {
+                sessionStorage.setItem(key, JSON.stringify(delayedData));
+
+            } catch (e) {
+                console.error('Ошибка сохранения файлов в sessionStorage:', e);
+            }
+        });
+    }
+
+    function checkPendingFiles() {
+        const now = Date.now();
+        const keys = [];
+
+        // Получаем все ключи из sessionStorage
+        for (let i = 0; i < sessionStorage.length; i++) {
+            const key = sessionStorage.key(i);
+            if (key && key.startsWith('telegram_delayed_')) {
+                keys.push(key);
+            }
+        }
+
+        keys.forEach(key => {
+            try {
+                const data = JSON.parse(sessionStorage.getItem(key));
+                if (data && data.scheduledTime <= now) {
+                    // Время отправки пришло
+
+                    sendFilesToTelegramFromStorage(data.productId, data.files);
+                    sessionStorage.removeItem(key);
+                }
+            } catch (e) {
+                console.error('Ошибка обработки отложенного файла:', e);
+                sessionStorage.removeItem(key);
+            }
+        });
+    }
+
+    async function sendFilesToTelegramFromStorage(productId, base64Files) {
+        const caption = `Файлы для заказа ${productId}`;
+
+        for (const fileData of base64Files) {
+            try {
+                // Конвертируем base64 обратно в File
+                const response = await fetch(fileData.data);
+                const blob = await response.blob();
+                const file = new File([blob], fileData.name, { type: fileData.type });
+
+                const formData = new FormData();
+                formData.append('caption', caption);
+                formData.append('document', file);
+
+                for (const chatId of TELEGRAM_CHAT_IDS) {
+                    formData.set('chat_id', chatId);
+                    try {
+                        const resp = await fetch(TELEGRAM_API, {
+                            method: 'POST',
+                            body: formData
+                        });
+                        const result = await resp.json();
+                        if (!result.ok) {
+                            console.error(`Ошибка отправки в чат ${chatId}:`, result);
+                        }
+                    } catch (err) {
+                        console.error(`Ошибка сети для чата ${chatId}:`, err);
+                    }
+                    await new Promise(r => setTimeout(r, 500));
+                }
+            } catch (err) {
+                console.error(`Ошибка отправки файла ${fileData.name}:`, err);
+            }
+        }
+
+    }
+
+    function addIsolatedStyles() {
         const style = document.createElement('style');
         style.textContent = `
-            button.${UNIQUE_PREFIX}main-button {
-                font-family: "Helvetica Neue",Helvetica,Arial,sans-serif !important;
+            /* Полный сброс стилей для всех элементов скрипта */
+            .${UNIQUE_PREFIX}reset,
+            .${UNIQUE_PREFIX}reset *,
+            .${UNIQUE_PREFIX}reset *:before,
+            .${UNIQUE_PREFIX}reset *:after {
+                margin: 0 !important;
+                padding: 0 !important;
+                border: 0 !important;
+                font-size: 100% !important;
+                font: inherit !important;
+                vertical-align: baseline !important;
+                box-sizing: border-box !important;
+                background: transparent !important;
+                color: inherit !important;
+                text-decoration: none !important;
+                list-style: none !important;
+                outline: none !important;
+                box-shadow: none !important;
+                text-shadow: none !important;
+                transition: none !important;
+                transform: none !important;
+                animation: none !important;
+            }
+
+            /* Основная кнопка */
+            .${UNIQUE_PREFIX}main-button {
+                all: unset !important;
                 display: inline-block !important;
-                margin-bottom: 0 !important;
+                font-size: 12px !important;
                 font-weight: 400 !important;
+                line-height: 1.5 !important;
+                color: #333333 !important;
+                background: #ffffff !important;
+                background-image: linear-gradient(to bottom, #ffffff 0%, #e0e0e0 100%) !important;
+                border: 1px solid #cccccc !important;
+                border-radius: 0 !important;
+                padding: 5px 10px !important;
+                margin: 0 !important;
+                margin-left: -1px !important;
                 text-align: center !important;
                 white-space: nowrap !important;
                 vertical-align: middle !important;
                 cursor: pointer !important;
                 user-select: none !important;
-                border: 1px solid transparent !important;
-                color: #333 !important;
-                background-color: #fff !important;
-                box-shadow: inset 0 1px 0 rgba(255,255,255,.15),0 1px 1px rgba(0,0,0,.075) !important;
-                text-shadow: 0 1px 0 #fff !important;
-                background-image: linear-gradient(to bottom,#fff 0,#e0e0e0 100%) !important;
-                background-repeat: repeat-x !important;
-                border-color: #ccc !important;
-                padding: 5px 10px !important;
-                font-size: 12px !important;
-                line-height: 1.5 !important;
                 position: relative !important;
                 float: left !important;
-                margin-left: -1px !important;
-                border-radius: 0 !important;
+                box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.15), 0 1px 1px rgba(0, 0, 0, 0.075) !important;
+                text-shadow: 0 1px 0 #ffffff !important;
                 transition: all 0.3s ease !important;
             }
 
-            button.${UNIQUE_PREFIX}main-button:hover:not(:disabled) {
-                background-image: linear-gradient(to bottom,#e0e0e0 0,#d0d0d0 100%) !important;
+            .${UNIQUE_PREFIX}main-button:hover:not(:disabled) {
+                color: #333333 !important;
+                background: #e0e0e0 !important;
+                background-image: linear-gradient(to bottom, #e0e0e0 0%, #d0d0d0 100%) !important;
                 border-color: #adadad !important;
+                text-decoration: none !important;
             }
 
-            button.${UNIQUE_PREFIX}main-button:active:not(:disabled) {
-                background-image: linear-gradient(to bottom,#d0d0d0 0,#e0e0e0 100%) !important;
-                box-shadow: inset 0 3px 5px rgba(0,0,0,.125) !important;
+            .${UNIQUE_PREFIX}main-button:active:not(:disabled) {
+                color: #333333 !important;
+                background: #d0d0d0 !important;
+                background-image: linear-gradient(to bottom, #d0d0d0 0%, #e0e0e0 100%) !important;
+                box-shadow: inset 0 3px 5px rgba(0, 0, 0, 0.125) !important;
             }
 
-            button.${UNIQUE_PREFIX}main-button:disabled {
+            .${UNIQUE_PREFIX}main-button:disabled {
                 opacity: 0.6 !important;
                 cursor: not-allowed !important;
             }
 
-            div.${UNIQUE_PREFIX}date-indicator {
+            /* Модальные окна */
+            .${UNIQUE_PREFIX}modal-overlay {
+                all: unset !important;
+                position: fixed !important;
+                top: 0 !important;
+                left: 0 !important;
+                right: 0 !important;
+                bottom: 0 !important;
+                width: 100% !important;
+                height: 100% !important;
+                background: rgba(0, 0, 0, 0.7) !important;
+                display: flex !important;
+                justify-content: center !important;
+                align-items: center !important;
+                z-index: 999999 !important;
+                font-size: 14px !important;
+                line-height: 1.4 !important;
+                color: #333333 !important;
+            }
+
+            .${UNIQUE_PREFIX}modal-content {
+                all: unset !important;
+                display: flex !important;
+                flex-direction: column !important;
+                background: #ffffff !important;
+                border-radius: 12px !important;
+                padding: 24px !important;
+                width: 800px !important;
+                max-width: 95% !important;
+                max-height: 95vh !important;
+                overflow-y: auto !important;
+                box-shadow: 0 8px 24px rgba(0, 0, 0, 0.2) !important;
+                color: #333333 !important;
+            }
+
+            .${UNIQUE_PREFIX}modal-title {
+                all: unset !important;
+                display: block !important;
+                font-size: 20px !important;
+                font-weight: 600 !important;
+                color: #333333 !important;
+                text-align: center !important;
+                margin-bottom: 20px !important;
+            }
+
+            .${UNIQUE_PREFIX}modal-body {
+                all: unset !important;
+                display: flex !important;
+                gap: 20px !important;
+                margin-bottom: 20px !important;
+            }
+
+            .${UNIQUE_PREFIX}modal-column {
+                all: unset !important;
+                display: block !important;
+                flex: 1 !important;
+            }
+
+            .${UNIQUE_PREFIX}modal-column-title {
+                all: unset !important;
+                display: block !important;
+                font-size: 16px !important;
+                font-weight: 500 !important;
+                color: #333333 !important;
+                margin-bottom: 16px !important;
+                padding-bottom: 8px !important;
+                border-bottom: 2px solid #eeeeee !important;
+            }
+
+            .${UNIQUE_PREFIX}modal-label {
+                all: unset !important;
+                display: block !important;
+                margin-bottom: 12px !important;
+                font-weight: 500 !important;
+                color: #333333 !important;
+                font-size: 14px !important;
+            }
+
+            .${UNIQUE_PREFIX}required-star {
+                all: unset !important;
+                color: #dc3545 !important;
+                font-weight: bold !important;
+            }
+
+            .${UNIQUE_PREFIX}modal-input,
+            .${UNIQUE_PREFIX}modal-select,
+            .${UNIQUE_PREFIX}modal-textarea {
+                all: unset !important;
+                display: block !important;
+                width: 100% !important;
+                padding: 10px !important;
+                border: 2px solid #cccccc !important;
+                border-radius: 6px !important;
+                margin-top: 4px !important;
+                font-size: 14px !important;
+                color: #333333 !important;
+                background: #ffffff !important;
+                box-sizing: border-box !important;
+            }
+
+            .${UNIQUE_PREFIX}modal-input:focus,
+            .${UNIQUE_PREFIX}modal-select:focus,
+            .${UNIQUE_PREFIX}modal-textarea:focus {
+                border-color: #4CAF50 !important;
+                outline: none !important;
+            }
+
+            .${UNIQUE_PREFIX}modal-textarea {
+                min-height: 60px !important;
+                resize: vertical !important;
+            }
+
+            /* Кастомный инпут */
+            .${UNIQUE_PREFIX}custom-input-container {
+                all: unset !important;
+                display: none !important;
+                margin-top: 8px !important;
+            }
+
+            .${UNIQUE_PREFIX}custom-input-container.show {
+                display: block !important;
+            }
+
+            .${UNIQUE_PREFIX}custom-input {
+                all: unset !important;
+                display: block !important;
+                width: 100% !important;
+                padding: 10px !important;
+                border: 2px solid #4CAF50 !important;
+                border-radius: 6px !important;
+                font-size: 14px !important;
+                color: #333333 !important;
+                background: #f9fff9 !important;
+                box-sizing: border-box !important;
+            }
+
+            .${UNIQUE_PREFIX}custom-input:focus {
+                border-color: #2e7d32 !important;
+                outline: none !important;
+                background: #ffffff !important;
+            }
+
+            /* Кнопки модальных окон */
+            .${UNIQUE_PREFIX}modal-buttons {
+                all: unset !important;
+                display: flex !important;
+                gap: 10px !important;
+                justify-content: flex-end !important;
+                margin-top: 16px !important;
+            }
+
+            .${UNIQUE_PREFIX}modal-button {
+                all: unset !important;
+                display: inline-block !important;
+                flex: 1 !important;
+                padding: 12px !important;
+                border: none !important;
+                border-radius: 6px !important;
+                cursor: pointer !important;
+                font-size: 14px !important;
+                font-weight: 500 !important;
+                text-align: center !important;
+                color: #ffffff !important;
+                transition: background-color 0.3s ease !important;
+            }
+
+            .${UNIQUE_PREFIX}modal-button.submit {
+                background-color: #cccccc !important;
+            }
+
+            .${UNIQUE_PREFIX}modal-button.submit:not(:disabled) {
+                background-color: #4CAF50 !important;
+            }
+
+            .${UNIQUE_PREFIX}modal-button.submit:not(:disabled):hover {
+                background-color: #45a049 !important;
+            }
+
+            .${UNIQUE_PREFIX}modal-button.close {
+                background-color: #f44336 !important;
+            }
+
+            .${UNIQUE_PREFIX}modal-button.close:hover {
+                background-color: #da190b !important;
+            }
+
+            .${UNIQUE_PREFIX}modal-button:disabled {
+                cursor: not-allowed !important;
+                opacity: 0.6 !important;
+            }
+
+            /* Индикатор даты */
+            .${UNIQUE_PREFIX}date-indicator {
+                all: unset !important;
+                display: flex !important;
+                align-items: center !important;
+                justify-content: center !important;
                 margin-top: 8px !important;
                 padding: 8px 12px !important;
                 border-radius: 6px !important;
                 font-size: 13px !important;
-                font-family: Arial, sans-serif !important;
                 font-weight: 500 !important;
                 text-align: center !important;
                 min-height: 20px !important;
-                display: flex !important;
-                align-items: center !important;
-                justify-content: center !important;
                 transition: all 0.3s ease !important;
-                box-sizing: border-box !important;
             }
 
-            div.${UNIQUE_PREFIX}date-indicator.${UNIQUE_PREFIX}free {
+            .${UNIQUE_PREFIX}date-indicator.free {
                 background-color: #e8f5e8 !important;
                 color: #2e7d32 !important;
                 border: 1px solid #a5d6a7 !important;
             }
 
-            div.${UNIQUE_PREFIX}date-indicator.${UNIQUE_PREFIX}partial {
+            .${UNIQUE_PREFIX}date-indicator.partial {
                 background-color: #fff3e0 !important;
                 color: #f57c00 !important;
                 border: 1px solid #ffcc02 !important;
             }
 
-            div.${UNIQUE_PREFIX}date-indicator.${UNIQUE_PREFIX}full {
+            .${UNIQUE_PREFIX}date-indicator.full {
                 background-color: #ffebee !important;
                 color: #c62828 !important;
                 border: 1px solid #ef5350 !important;
             }
 
-            div.${UNIQUE_PREFIX}date-indicator.${UNIQUE_PREFIX}empty {
+            .${UNIQUE_PREFIX}date-indicator.empty {
                 background-color: #f5f5f5 !important;
                 color: #757575 !important;
                 border: 1px solid #e0e0e0 !important;
             }
 
-            div.${UNIQUE_PREFIX}date-indicator.${UNIQUE_PREFIX}loading {
+            .${UNIQUE_PREFIX}date-indicator.loading {
                 background-color: #f0f0f0 !important;
-                color: #666 !important;
-                border: 1px solid #ddd !important;
+                color: #666666 !important;
+                border: 1px solid #dddddd !important;
             }
 
-            span.${UNIQUE_PREFIX}spinner {
-                display: inline-block !important;
-                width: 16px !important;
-                height: 16px !important;
-                border: 2px solid #f3f3f3 !important;
-                border-top: 2px solid #333 !important;
-                border-radius: 50% !important;
-                animation: ${UNIQUE_PREFIX}spin 1s linear infinite !important;
-                margin-right: 8px !important;
-                vertical-align: middle !important;
-            }
+/* Спиннер */
+.${UNIQUE_PREFIX}spinner {
+    all: unset !important;
+    display: inline-block !important;
+    width: 13px !important;
+    height: 13px !important;
+    border: 2px solid #ffffffff !important;
+    border-top: 2px solid #333333 !important;
+    border-radius: 50% !important;
+    animation: ${UNIQUE_PREFIX}spin 0.5s linear infinite !important; /* Изменено с 1s на 0.5s */
+    margin-right: 8px !important;
+    vertical-align: middle !important;
+}
 
-            span.${UNIQUE_PREFIX}spinner.${UNIQUE_PREFIX}spinner-white {
-                border: 2px solid rgba(255,255,255,0.3) !important;
-                border-top: 2px solid #fff !important;
-            }
+.${UNIQUE_PREFIX}spinner-white {
+    border: 2px solid rgba(187, 206, 214, 0.3) !important;
+    border-top: 2px solid #ffffffff !important;
+}
 
-            @keyframes ${UNIQUE_PREFIX}spin {
-                0% { transform: rotate(0deg); }
-                100% { transform: rotate(360deg); }
-            }
+@keyframes ${UNIQUE_PREFIX}spin {
+    0% { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
+}
 
-            div.${UNIQUE_PREFIX}click-blocker {
+            /* Блокировщик кликов */
+            .${UNIQUE_PREFIX}click-blocker {
+                all: unset !important;
                 position: fixed !important;
                 top: 0 !important;
                 left: 0 !important;
@@ -423,23 +775,20 @@ function montages() {
                 pointer-events: all !important;
             }
 
-            button.${UNIQUE_PREFIX}loading-button {
+            .${UNIQUE_PREFIX}loading-button {
                 position: relative !important;
                 pointer-events: none !important;
                 opacity: 0.8 !important;
             }
 
-            input.${UNIQUE_PREFIX}input-error,
-            select.${UNIQUE_PREFIX}input-error,
-            textarea.${UNIQUE_PREFIX}input-error {
+            /* Ошибки валидации */
+            .${UNIQUE_PREFIX}input-error {
                 border-color: #dc3545 !important;
                 background-color: #fff5f5 !important;
                 box-shadow: 0 0 0 0.2rem rgba(220, 53, 69, 0.25) !important;
             }
 
-            input.${UNIQUE_PREFIX}input-error-shake,
-            select.${UNIQUE_PREFIX}input-error-shake,
-            textarea.${UNIQUE_PREFIX}input-error-shake {
+            .${UNIQUE_PREFIX}input-error-shake {
                 animation: ${UNIQUE_PREFIX}shake 0.5s ease-in-out !important;
             }
 
@@ -449,7 +798,9 @@ function montages() {
                 75% { transform: translateX(5px); }
             }
 
-            div.${UNIQUE_PREFIX}error-message {
+            .${UNIQUE_PREFIX}error-message {
+                all: unset !important;
+                display: none !important;
                 color: #dc3545 !important;
                 font-size: 14px !important;
                 margin-top: 8px !important;
@@ -457,214 +808,324 @@ function montages() {
                 background-color: #f8d7da !important;
                 border: 1px solid #f5c6cb !important;
                 border-radius: 4px !important;
-                display: none !important;
-                font-family: Arial, sans-serif !important;
             }
 
-            div.${UNIQUE_PREFIX}error-message.${UNIQUE_PREFIX}show {
+            .${UNIQUE_PREFIX}error-message.show {
                 display: block !important;
             }
 
-            div.${UNIQUE_PREFIX}modal-overlay {
+            /* Файловая зона */
+            .${UNIQUE_PREFIX}dropzone {
+                all: unset !important;
+                display: flex !important;
+                align-items: center !important;
+                justify-content: center !important;
+                flex-direction: column !important;
+                height: 120px !important;
+                border: 2px dashed #26a69a !important;
+                border-radius: 8px !important;
+                cursor: pointer !important;
+                background-color: #f8f8f8 !important;
+                color: #555555 !important;
+                transition: all 0.2s !important;
+                margin-top: 8px !important;
+            }
+
+            .${UNIQUE_PREFIX}dropzone:hover {
+                border-color: #00695c !important;
+                background-color: #e0f7fa !important;
+            }
+
+            .${UNIQUE_PREFIX}dropzone-text {
+                all: unset !important;
+                font-size: 16px !important;
+                color: inherit !important;
+            }
+
+            .${UNIQUE_PREFIX}file-input {
+                display: none !important;
+            }
+
+            .${UNIQUE_PREFIX}file-list {
+                all: unset !important;
+                display: none !important;
+                margin-top: 12px !important;
+                max-height: 150px !important;
+                overflow-y: auto !important;
+                border: 1px solid #eeeeee !important;
+                padding: 8px !important;
+                border-radius: 6px !important;
+                font-size: 13px !important;
+                background-color: #f9f9f9 !important;
+            }
+
+            .${UNIQUE_PREFIX}file-list.show {
+                display: block !important;
+            }
+
+            .${UNIQUE_PREFIX}file-ul {
+                all: unset !important;
+                display: block !important;
+                list-style: none !important;
+            }
+
+            .${UNIQUE_PREFIX}file-item {
+                all: unset !important;
+                display: flex !important;
+                align-items: center !important;
+                justify-content: space-between !important;
+                padding: 6px 0 !important;
+                color: #555555 !important;
+                cursor: pointer !important;
+                transition: background-color 0.2s !important;
+                white-space: nowrap !important;
+                overflow: hidden !important;
+                text-overflow: ellipsis !important;
+            }
+
+            .${UNIQUE_PREFIX}file-item:hover {
+                background-color: #f0f0f0 !important;
+            }
+
+            .${UNIQUE_PREFIX}file-name {
+                all: unset !important;
+                flex: 1 !important;
+                overflow: hidden !important;
+                text-overflow: ellipsis !important;
+            }
+
+            .${UNIQUE_PREFIX}file-remove {
+                all: unset !important;
+                color: #dc3545 !important;
+                font-weight: bold !important;
+                margin-left: 8px !important;
+                cursor: pointer !important;
+                opacity: 0.7 !important;
+                font-size: 16px !important;
+                transition: opacity 0.2s !important;
+            }
+
+            .${UNIQUE_PREFIX}file-remove:hover {
+                opacity: 1 !important;
+            }
+
+            .${UNIQUE_PREFIX}file-count {
+                all: unset !important;
+                display: block !important;
+                font-size: 12px !important;
+                color: #777777 !important;
+                margin-top: 6px !important;
+            }
+
+            /* Превью изображений */
+            .${UNIQUE_PREFIX}preview-modal {
+                all: unset !important;
                 position: fixed !important;
                 top: 0 !important;
                 left: 0 !important;
                 width: 100% !important;
                 height: 100% !important;
-                background: rgba(0,0,0,0.7) !important;
+                background: rgba(0, 0, 0, 0.9) !important;
                 display: flex !important;
                 justify-content: center !important;
                 align-items: center !important;
-                z-index: 99999 !important;
-                font-family: Arial, sans-serif !important;
+                z-index: 100000 !important;
+                cursor: zoom-out !important;
             }
 
-            div.${UNIQUE_PREFIX}modal-content {
-                background: #fff !important;
-                padding: 24px !important;
-                border-radius: 12px !important;
-                width: 800px !important;
-                max-width: 95% !important;
-                box-shadow: 0 8px 24px rgba(0,0,0,0.2) !important;
-                font-family: Arial, sans-serif !important;
-                display: flex !important;
-                flex-direction: column !important;
-                gap: 0 !important;
+            .${UNIQUE_PREFIX}preview-image {
+                all: unset !important;
+                max-width: 90% !important;
+                max-height: 90% !important;
+                object-fit: contain !important;
+                border: 3px solid #ffffff !important;
+                border-radius: 8px !important;
+                box-shadow: 0 0 20px rgba(0, 0, 0, 0.5) !important;
             }
 
-            div.${UNIQUE_PREFIX}modal-body {
-                display: flex !important;
-                gap: 20px !important;
+            /* Индикатор отложенной отправки */
+            .${UNIQUE_PREFIX}delayed-info {
+                all: unset !important;
+                display: block !important;
+                margin-top: 8px !important;
+                padding: 8px 12px !important;
+                background-color: #e3f2fd !important;
+                border: 1px solid #90caf9 !important;
+                border-radius: 6px !important;
+                font-size: 12px !important;
+                color: #1565c0 !important;
+                text-align: center !important;
+            }
+
+            /* Диалоги */
+            .${UNIQUE_PREFIX}dialog-content {
+                all: unset !important;
+                display: block !important;
+                background: #ffffff !important;
+                padding: 32px !important;
+                border-radius: 16px !important;
+                width: 500px !important;
+                max-width: 90% !important;
+                text-align: center !important;
+                box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3) !important;
+                color: #333333 !important;
+            }
+
+            .${UNIQUE_PREFIX}dialog-icon {
+                all: unset !important;
+                display: block !important;
+                font-size: 64px !important;
                 margin-bottom: 20px !important;
             }
 
-            div.${UNIQUE_PREFIX}modal-column {
-                flex: 1 !important;
+            .${UNIQUE_PREFIX}dialog-title {
+                all: unset !important;
+                display: block !important;
+                font-size: 24px !important;
+                font-weight: 600 !important;
+                margin-bottom: 16px !important;
+                color: #333333 !important;
             }
 
-            div.${UNIQUE_PREFIX}modal-column h4 {
-                margin: 0 0 16px 0 !important;
+            .${UNIQUE_PREFIX}dialog-title.warning {
+                color: #ff9800 !important;
+            }
+
+            .${UNIQUE_PREFIX}dialog-title.success {
+                color: #4CAF50 !important;
+            }
+
+            .${UNIQUE_PREFIX}dialog-text {
+                all: unset !important;
+                display: block !important;
                 font-size: 16px !important;
-                color: #333 !important;
-                border-bottom: 2px solid #eee !important;
-                padding-bottom: 8px !important;
-                font-family: Arial, sans-serif !important;
+                color: #666666 !important;
+                margin-bottom: 24px !important;
+                line-height: 1.4 !important;
             }
 
-            div.${UNIQUE_PREFIX}modal-buttons {
-                display: flex !important;
-                gap: 10px !important;
-                justify-content: flex-end !important;
-                margin-top: 16px !important;
+            .${UNIQUE_PREFIX}dialog-text strong {
+                color: #333333 !important;
+                font-weight: 600 !important;
             }
 
-            div.${UNIQUE_PREFIX}modal-buttons button {
-                flex: 1 !important;
-                padding: 12px !important;
-                border: none !important;
-                border-radius: 6px !important;
+            .${UNIQUE_PREFIX}dialog-button {
+                all: unset !important;
+                display: inline-block !important;
+                width: 100% !important;
+                padding: 14px !important;
+                background: #2196F3 !important;
+                color: #ffffff !important;
+                border-radius: 8px !important;
                 cursor: pointer !important;
-                font-size: 14px !important;
-                transition: background-color 0.3s ease !important;
-                font-family: Arial, sans-serif !important;
-            }
-
-            span.${UNIQUE_PREFIX}required-star {
-                color: #dc3545 !important;
-                font-weight: bold !important;
-            }
-
-            div.${UNIQUE_PREFIX}custom-input-container {
-                margin-top: 8px !important;
-                display: none !important;
-            }
-
-            div.${UNIQUE_PREFIX}custom-input-container.${UNIQUE_PREFIX}show {
-                display: block !important;
-            }
-
-            input.${UNIQUE_PREFIX}custom-input {
-                width: 100% !important;
-                padding: 10px !important;
-                border: 2px solid #4CAF50 !important;
-                border-radius: 6px !important;
-                font-size: 14px !important;
-                background-color: #f9fff9 !important;
-                box-sizing: border-box !important;
-                font-family: Arial, sans-serif !important;
-            }
-
-            input.${UNIQUE_PREFIX}custom-input:focus {
-                border-color: #2e7d32 !important;
-                outline: none !important;
-                background-color: #fff !important;
-            }
-
-            input.${UNIQUE_PREFIX}modal-input,
-            select.${UNIQUE_PREFIX}modal-select,
-            textarea.${UNIQUE_PREFIX}modal-textarea {
-                width: 100% !important;
-                padding: 10px !important;
-                border: 2px solid #ccc !important;
-                border-radius: 6px !important;
-                margin-top: 4px !important;
-                font-size: 14px !important;
-                box-sizing: border-box !important;
-                font-family: Arial, sans-serif !important;
-            }
-
-            input.${UNIQUE_PREFIX}modal-input:focus,
-            select.${UNIQUE_PREFIX}modal-select:focus,
-            textarea.${UNIQUE_PREFIX}modal-textarea:focus {
-                border-color: #4CAF50 !important;
-                outline: none !important;
-            }
-
-            label.${UNIQUE_PREFIX}modal-label {
-                display: block !important;
-                margin-bottom: 12px !important;
+                font-size: 16px !important;
                 font-weight: 500 !important;
-                color: #333 !important;
-                font-family: Arial, sans-serif !important;
+                transition: background-color 0.3s ease !important;
+                text-align: center !important;
             }
 
-            div.${UNIQUE_PREFIX}change-date-container {
-                width: 100% !important;
-                margin: 20px 0 !important;
+            .${UNIQUE_PREFIX}dialog-button:hover {
+                background: #1976D2 !important;
             }
 
-            input.${UNIQUE_PREFIX}change-date-input {
+            /* Поля смены даты */
+            .${UNIQUE_PREFIX}change-date-container {
+                all: unset !important;
+                display: block !important;
+                margin-bottom: 24px !important;
+            }
+
+            .${UNIQUE_PREFIX}change-date-input {
+                all: unset !important;
+                display: block !important;
                 width: 100% !important;
                 padding: 12px !important;
-                border: 2px solid #ccc !important;
+                border: 2px solid #cccccc !important;
                 border-radius: 8px !important;
                 font-size: 16px !important;
-                margin-bottom: 8px !important;
+                color: #333333 !important;
+                background: #ffffff !important;
                 box-sizing: border-box !important;
-                transition: border-color 0.3s ease !important;
-                font-family: Arial, sans-serif !important;
+                text-align: center !important;
+                margin-bottom: 8px !important;
             }
 
-            input.${UNIQUE_PREFIX}change-date-input:focus {
+            .${UNIQUE_PREFIX}change-date-input:focus {
                 border-color: #4CAF50 !important;
                 outline: none !important;
             }
 
-            div.${UNIQUE_PREFIX}change-date-buttons {
+            .${UNIQUE_PREFIX}change-date-help {
+                all: unset !important;
+                display: block !important;
+                font-size: 12px !important;
+                color: #999999 !important;
+                margin-top: 8px !important;
+            }
+
+            .${UNIQUE_PREFIX}change-date-buttons {
+                all: unset !important;
                 display: flex !important;
                 gap: 12px !important;
-                margin-top: 16px !important;
+                justify-content: center !important;
             }
 
-            button.${UNIQUE_PREFIX}change-date-button {
+            .${UNIQUE_PREFIX}change-date-button {
+                all: unset !important;
+                display: inline-block !important;
                 flex: 1 !important;
-                padding: 12px 16px !important;
-                border: none !important;
+                padding: 14px !important;
                 border-radius: 8px !important;
-                font-size: 16px !important;
-                font-weight: 500 !important;
                 cursor: pointer !important;
-                transition: all 0.3s ease !important;
+                font-size: 14px !important;
+                font-weight: 500 !important;
                 text-align: center !important;
-                font-family: Arial, sans-serif !important;
+                transition: background-color 0.3s ease !important;
+                color: #ffffff !important;
             }
 
-            button.${UNIQUE_PREFIX}change-date-button.${UNIQUE_PREFIX}confirm {
+            .${UNIQUE_PREFIX}change-date-button.confirm {
+                background: #cccccc !important;
+            }
+
+            .${UNIQUE_PREFIX}change-date-button.confirm:not(:disabled) {
                 background: #4CAF50 !important;
-                color: white !important;
             }
 
-            button.${UNIQUE_PREFIX}change-date-button.${UNIQUE_PREFIX}confirm:hover:not(:disabled) {
+            .${UNIQUE_PREFIX}change-date-button.confirm:not(:disabled):hover {
                 background: #45a049 !important;
             }
 
-            button.${UNIQUE_PREFIX}change-date-button.${UNIQUE_PREFIX}confirm:disabled {
-                background: #cccccc !important;
+            .${UNIQUE_PREFIX}change-date-button.cancel {
+                background: #f44336 !important;
+            }
+
+            .${UNIQUE_PREFIX}change-date-button.cancel:hover {
+                background: #da190b !important;
+            }
+
+            .${UNIQUE_PREFIX}change-date-button:disabled {
                 cursor: not-allowed !important;
                 opacity: 0.6 !important;
             }
 
-            button.${UNIQUE_PREFIX}change-date-button.${UNIQUE_PREFIX}cancel {
-                background: #f44336 !important;
-                color: white !important;
-            }
-
-            button.${UNIQUE_PREFIX}change-date-button.${UNIQUE_PREFIX}cancel:hover {
-                background: #da190b !important;
-            }
-
-            div.${UNIQUE_PREFIX}change-date-help {
+            /* Счетчик для успешного диалога */
+            .${UNIQUE_PREFIX}countdown-text {
+                all: unset !important;
+                display: block !important;
                 font-size: 14px !important;
-                color: #666 !important;
-                margin-top: 8px !important;
-                text-align: center !important;
-                font-family: Arial, sans-serif !important;
+                color: #999999 !important;
+            }
+
+            .${UNIQUE_PREFIX}countdown-number {
+                all: unset !important;
+                font-weight: bold !important;
+                color: #4CAF50 !important;
             }
         `;
         document.head.appendChild(style);
     }
 
-    // Функция для очистки устаревшего кэша
     function cleanDateCache() {
         const now = Date.now();
         for (const [key, data] of dateCache.entries()) {
@@ -674,7 +1135,6 @@ function montages() {
         }
     }
 
-    // Функция получения данных о дате с кэшированием
     function getCachedDateInfo(date) {
         cleanDateCache();
         const cached = dateCache.get(date);
@@ -684,7 +1144,6 @@ function montages() {
         return null;
     }
 
-    // Функция сохранения данных о дате в кэш
     function setCachedDateInfo(date, data) {
         dateCache.set(date, {
             data: data,
@@ -755,16 +1214,16 @@ function montages() {
     }
 
     function showErrorMessage(message) {
-        const errorContainer = document.getElementById(`${UNIQUE_PREFIX}errorContainer`);
+        const errorContainer = document.getElementById("errorContainer");
         if (errorContainer) {
             errorContainer.textContent = message;
-            errorContainer.className = `${UNIQUE_PREFIX}error-message ${UNIQUE_PREFIX}show`;
-            setTimeout(() => errorContainer.classList.remove(`${UNIQUE_PREFIX}show`), 5000);
+            errorContainer.className = `${UNIQUE_PREFIX}error-message show`;
+            setTimeout(() => errorContainer.classList.remove('show'), 5000);
         }
     }
 
     function clearErrorMessage() {
-        const errorContainer = document.getElementById(`${UNIQUE_PREFIX}errorContainer`);
+        const errorContainer = document.getElementById("errorContainer");
         if (errorContainer) errorContainer.className = `${UNIQUE_PREFIX}error-message`;
     }
 
@@ -786,11 +1245,13 @@ function montages() {
     }
 
     function checkAndAddButton() {
-        const targetInput = document.querySelector(selector);
-        const shouldShow = targetInput && targetInput.value === "Монтажные работы на выезде ";
+        const shouldShow = selectors.some(selector => {
+            const el = document.querySelector(selector);
+            return el && el.value === "Монтажные работы на выезде";
+        });
         if (shouldShow) {
             if (!buttonAdded || !createdButton || !document.contains(createdButton)) {
-                createButton(targetInput);
+                createButton();
                 buttonAdded = true;
             }
         } else if (buttonAdded && createdButton) {
@@ -800,20 +1261,20 @@ function montages() {
         }
     }
 
-    function createButton(targetInput) {
-        if (createdButton && document.contains(createdButton)) createdButton.remove();
-        const button = document.createElement("button");
-        button.textContent = "📅 Заявка на монтаж";
-        button.className = `${UNIQUE_PREFIX}main-button`;
-        createdButton = button;
-        const topButtons = document.querySelector("#TopButtons");
-        (topButtons || targetInput.parentNode).appendChild(button);
-        button.addEventListener("click", (e) => {
-            e.preventDefault();
-            if (isProcessing) return;
-            handleButtonClick(button);
-        });
-    }
+function createButton() {
+    if (createdButton && document.contains(createdButton)) createdButton.remove();
+    const button = document.createElement("button");
+    button.textContent = "📅 Заявка на монтаж";
+    button.className = `${UNIQUE_PREFIX}main-button ${UNIQUE_PREFIX}reset`;
+    createdButton = button;
+    const topButtons = document.querySelector("#TopButtons") || document.querySelector("#Top > form > div > div > div");
+    topButtons.appendChild(button);
+    button.addEventListener("click", (e) => {
+        e.preventDefault();
+        if (isProcessing) return;
+        handleButtonClick(button);
+    });
+}
 
     async function handleButtonClick(button) {
         isProcessing = true;
@@ -846,7 +1307,7 @@ function montages() {
                     try {
                         const text = response.responseText.trim();
                         if (text.startsWith('<')) {
-                            console.error('❌ HTML вместо JSON:', text.substring(0, 200));
+                            console.error('HTML вместо JSON:', text.substring(0, 200));
                             reject(new Error('Сервис недоступен'));
                             return;
                         }
@@ -877,7 +1338,7 @@ function montages() {
         const indicator = document.getElementById(indicatorId);
         if (!indicator) return;
         if (!selectedDate) {
-            indicator.className = `${UNIQUE_PREFIX}date-indicator ${UNIQUE_PREFIX}empty`;
+            indicator.className = `${UNIQUE_PREFIX}date-indicator empty`;
             indicator.textContent = "Выберите дату";
             return;
         }
@@ -885,7 +1346,7 @@ function montages() {
         today.setHours(0, 0, 0, 0);
         const selected = new Date(selectedDate);
         if (selected < today) {
-            indicator.className = `${UNIQUE_PREFIX}date-indicator ${UNIQUE_PREFIX}full`;
+            indicator.className = `${UNIQUE_PREFIX}date-indicator full`;
             indicator.innerHTML = `🚫 <strong>Дата в прошлом</strong>`;
             setCachedDateInfo(selectedDate, { count: -1, maxReached: true, isPast: true });
             return;
@@ -895,7 +1356,7 @@ function montages() {
             displayDateStatus(indicator, cached.count, cached.maxReached);
             return;
         }
-        indicator.className = `${UNIQUE_PREFIX}date-indicator ${UNIQUE_PREFIX}loading`;
+        indicator.className = `${UNIQUE_PREFIX}date-indicator loading`;
         indicator.innerHTML = `<span class="${UNIQUE_PREFIX}spinner"></span>Проверка...`;
         checkEntryCount(selectedDate, (count, maxReached) => {
             setCachedDateInfo(selectedDate, { count, maxReached, isPast: false });
@@ -915,23 +1376,23 @@ function montages() {
             return 'мест';
         }
         if (count === 0) {
-            indicator.className = `${UNIQUE_PREFIX}date-indicator ${UNIQUE_PREFIX}free`;
+            indicator.className = `${UNIQUE_PREFIX}date-indicator free`;
             indicator.innerHTML = `✅ <strong>${max} ${getPlacesWord(max)}</strong>`;
         } else if (count < max) {
-            indicator.className = `${UNIQUE_PREFIX}date-indicator ${UNIQUE_PREFIX}partial`;
+            indicator.className = `${UNIQUE_PREFIX}date-indicator partial`;
             indicator.innerHTML = `⚠️ <strong>${count}/${max}</strong> • Свободно: <strong>${free} ${getPlacesWord(free)}</strong>`;
         } else {
-            indicator.className = `${UNIQUE_PREFIX}date-indicator ${UNIQUE_PREFIX}full`;
+            indicator.className = `${UNIQUE_PREFIX}date-indicator full`;
             indicator.innerHTML = `🚫 <strong>${count}/${max}</strong> • Требуется согласование`;
         }
     }
 
-    function setupDateIndicator(dateInputId = `${UNIQUE_PREFIX}workDate`, indicatorId = `${UNIQUE_PREFIX}date-indicator`) {
+    function setupDateIndicator(dateInputId = "workDate", indicatorId = `${UNIQUE_PREFIX}date-indicator`) {
         const dateInput = document.getElementById(dateInputId);
         if (!dateInput) return;
         const indicator = document.createElement("div");
         indicator.id = indicatorId;
-        indicator.className = `${UNIQUE_PREFIX}date-indicator ${UNIQUE_PREFIX}empty`;
+        indicator.className = `${UNIQUE_PREFIX}date-indicator empty`;
         indicator.textContent = "Выберите дату";
         dateInput.parentNode.insertBefore(indicator, dateInput.nextSibling);
         let debounceTimer;
@@ -943,22 +1404,22 @@ function montages() {
             }, debounceDelay);
         };
         ['input', 'change'].forEach(ev =>
-            dateInput.addEventListener(ev, handleDateChange)
-        );
+                                    dateInput.addEventListener(ev, handleDateChange)
+                                   );
         if (dateInput.value) updateDateIndicator(dateInput.value, indicatorId);
     }
 
     function setupWhatMountSelect() {
-        const whatMount = document.getElementById(`${UNIQUE_PREFIX}whatMount`);
-        const container = document.getElementById(`${UNIQUE_PREFIX}customInputContainer`);
-        const input = document.getElementById(`${UNIQUE_PREFIX}customInput`);
+        const whatMount = document.getElementById("whatMount");
+        const container = document.getElementById("customInputContainer");
+        const input = document.getElementById("customInput");
         if (!whatMount || !container || !input) return;
         whatMount.addEventListener("change", () => {
             if (whatMount.value === "Другое") {
-                container.classList.add(`${UNIQUE_PREFIX}show`);
+                container.classList.add("show");
                 setTimeout(() => input.focus(), 100);
             } else {
-                container.classList.remove(`${UNIQUE_PREFIX}show`);
+                container.classList.remove("show");
                 input.value = "";
             }
             checkAllRequiredFields();
@@ -968,15 +1429,15 @@ function montages() {
 
     function checkAllRequiredFields() {
         const fields = [
-            document.getElementById(`${UNIQUE_PREFIX}workDate`),
-            document.getElementById(`${UNIQUE_PREFIX}visitType`),
-            document.getElementById(`${UNIQUE_PREFIX}workType`),
-            document.getElementById(`${UNIQUE_PREFIX}address`),
-            document.getElementById(`${UNIQUE_PREFIX}contactInfo`)
+            document.getElementById("workDate"),
+            document.getElementById("visitType"),
+            document.getElementById("workType"),
+            document.getElementById("address"),
+            document.getElementById("contactInfo")
         ];
-        const whatMount = document.getElementById(`${UNIQUE_PREFIX}whatMount`);
-        const customInput = document.getElementById(`${UNIQUE_PREFIX}customInput`);
-        const submitBtn = document.getElementById(`${UNIQUE_PREFIX}submitBtn`);
+        const whatMount = document.getElementById("whatMount");
+        const customInput = document.getElementById("customInput");
+        const submitBtn = document.getElementById("submitBtn");
         if (!submitBtn) return;
         let allFilled = fields.every(f => f?.value.trim());
         if (whatMount?.value === "Другое") {
@@ -988,32 +1449,19 @@ function montages() {
         submitBtn.style.backgroundColor = allFilled ? "#4CAF50" : "#cccccc";
     }
 
-    function checkChangeDateFields() {
-        const dateInput = document.getElementById(`${UNIQUE_PREFIX}changeDateInput`);
-        const confirmBtn = document.getElementById(`${UNIQUE_PREFIX}changeDateConfirmBtn`);
-        if (!dateInput || !confirmBtn) return;
-        const isValid = dateInput.value.trim() !== "";
-        confirmBtn.disabled = !isValid;
-    }
-
     function getWhatMountValue() {
-        const select = document.getElementById(`${UNIQUE_PREFIX}whatMount`);
-        const input = document.getElementById(`${UNIQUE_PREFIX}customInput`);
+        const select = document.getElementById("whatMount");
+        const input = document.getElementById("customInput");
         return select?.value === "Другое" ? input?.value.trim() || "" : select?.value || "";
     }
 
     function openModal(onComplete) {
         const productIdEl = document.querySelector("#ProductId");
         const productId = productIdEl ? productIdEl.textContent.trim() : "N/A";
-
-        // Получаем ссылку
-        const linkEl = document.querySelector("body > ul > div > li:nth-child(1) > a");
-        const linkText = linkEl ? linkEl.textContent.trim() : "Ссылка не найдена";
-
         checkProductStatus(productId, (statusData) => {
             if (statusData.exists) {
                 if (statusData.status === 0) {
-                    showChangeDateDialog(productId, statusData.currentDate, linkText);
+                    showChangeDateDialog(productId, statusData.currentDate);
                     if (onComplete) onComplete();
                 } else {
                     showProductExistsDialog(productId);
@@ -1022,16 +1470,17 @@ function montages() {
                 return;
             }
             loadTypesFromSheet((types) => {
-                const modal = createModalElement(linkText);
+                const modal = createModalElement(productId);
                 document.body.appendChild(modal);
                 setupDateIndicator();
                 setupWhatMountSelect();
+                setupDropZone(modal);
                 const requiredInputs = [
-                    document.getElementById(`${UNIQUE_PREFIX}workDate`),
-                    document.getElementById(`${UNIQUE_PREFIX}visitType`),
-                    document.getElementById(`${UNIQUE_PREFIX}workType`),
-                    document.getElementById(`${UNIQUE_PREFIX}address`),
-                    document.getElementById(`${UNIQUE_PREFIX}contactInfo`)
+                    document.getElementById("workDate"),
+                    document.getElementById("visitType"),
+                    document.getElementById("workType"),
+                    document.getElementById("address"),
+                    document.getElementById("contactInfo")
                 ];
                 requiredInputs.forEach(input => {
                     input.addEventListener("input", () => {
@@ -1041,80 +1490,185 @@ function montages() {
                     });
                     input.addEventListener("change", checkAllRequiredFields);
                 });
-                document.getElementById(`${UNIQUE_PREFIX}submitBtn`).addEventListener("click", handleSubmit(productId, linkText, requiredInputs));
-                document.getElementById(`${UNIQUE_PREFIX}closeBtn`).addEventListener("click", () => modal.remove());
+                document.getElementById("submitBtn").addEventListener("click", handleSubmit(productId, requiredInputs));
+                document.getElementById("closeBtn").addEventListener("click", () => modal.remove());
                 modal.addEventListener("click", (e) => { if (e.target === modal) modal.remove(); });
                 const today = new Date().toISOString().split('T')[0];
-                document.getElementById(`${UNIQUE_PREFIX}workDate`).setAttribute('min', today);
+                document.getElementById("workDate").setAttribute('min', today);
                 setTimeout(() => {
-                    document.getElementById(`${UNIQUE_PREFIX}workDate`).focus();
+                    document.getElementById("workDate").focus();
                     if (onComplete) onComplete();
                 }, 0);
             });
         });
     }
 
-    function createModalElement(linkText) {
+    function createModalElement(productId) {
         const types = typesCache.map(t => `<option value="${t}">${t}</option>`).join('');
         const modal = document.createElement("div");
-        modal.className = `${UNIQUE_PREFIX}modal-overlay`;
+        modal.className = `${UNIQUE_PREFIX}modal-overlay ${UNIQUE_PREFIX}reset`;
         modal.innerHTML = `
-            <div class="${UNIQUE_PREFIX}modal-content">
-                <h3 style="margin:0 0 20px;font-size:20px;color:#333;text-align:center;font-family:Arial,sans-serif;">Заявка на монтаж</h3>
-                <div class="${UNIQUE_PREFIX}modal-body">
-                    <div class="${UNIQUE_PREFIX}modal-column">
-                        <h4>Основная информация</h4>
-                        <label class="${UNIQUE_PREFIX}modal-label">Дата <span class="${UNIQUE_PREFIX}required-star">*</span>: <input type="date" id="${UNIQUE_PREFIX}workDate" class="${UNIQUE_PREFIX}modal-input" required></label>
-                        <label class="${UNIQUE_PREFIX}modal-label">Вид выезда <span class="${UNIQUE_PREFIX}required-star">*</span>:
-                            <select id="${UNIQUE_PREFIX}visitType" class="${UNIQUE_PREFIX}modal-select" required>
+            <div class="${UNIQUE_PREFIX}modal-content ${UNIQUE_PREFIX}reset">
+                <h3 class="${UNIQUE_PREFIX}modal-title ${UNIQUE_PREFIX}reset">Заявка на монтаж</h3>
+                <div class="${UNIQUE_PREFIX}modal-body ${UNIQUE_PREFIX}reset">
+                    <div class="${UNIQUE_PREFIX}modal-column ${UNIQUE_PREFIX}reset">
+                        <h4 class="${UNIQUE_PREFIX}modal-column-title ${UNIQUE_PREFIX}reset">Основная информация</h4>
+                        <label class="${UNIQUE_PREFIX}modal-label ${UNIQUE_PREFIX}reset">
+                            Дата <span class="${UNIQUE_PREFIX}required-star">*</span>:
+                            <input type="date" id="workDate" class="${UNIQUE_PREFIX}modal-input ${UNIQUE_PREFIX}reset" required>
+                        </label>
+                        <label class="${UNIQUE_PREFIX}modal-label ${UNIQUE_PREFIX}reset">
+                            Вид выезда <span class="${UNIQUE_PREFIX}required-star">*</span>:
+                            <select id="visitType" class="${UNIQUE_PREFIX}modal-select ${UNIQUE_PREFIX}reset" required>
                                 <option value="">Выберите...</option>
                                 <option value="Замеры">Замеры</option>
                                 <option value="Монтаж">Монтаж</option>
                             </select>
                         </label>
-                        <label class="${UNIQUE_PREFIX}modal-label">Тип работ <span class="${UNIQUE_PREFIX}required-star">*</span>:
-                            <select id="${UNIQUE_PREFIX}workType" class="${UNIQUE_PREFIX}modal-select" required>
+                        <label class="${UNIQUE_PREFIX}modal-label ${UNIQUE_PREFIX}reset">
+                            Тип работ <span class="${UNIQUE_PREFIX}required-star">*</span>:
+                            <select id="workType" class="${UNIQUE_PREFIX}modal-select ${UNIQUE_PREFIX}reset" required>
                                 <option value="">Выберите...</option>
                                 <option value="В помещении">В помещении</option>
                                 <option value="На улице">На улице</option>
                             </select>
                         </label>
                     </div>
-                    <div class="${UNIQUE_PREFIX}modal-column">
-                        <h4>Дополнительно</h4>
-                        <label class="${UNIQUE_PREFIX}modal-label">Что монтируем? <span class="${UNIQUE_PREFIX}required-star">*</span>:
-                            <select id="${UNIQUE_PREFIX}whatMount" class="${UNIQUE_PREFIX}modal-select" required>
+                    <div class="${UNIQUE_PREFIX}modal-column ${UNIQUE_PREFIX}reset">
+                        <h4 class="${UNIQUE_PREFIX}modal-column-title ${UNIQUE_PREFIX}reset">Дополнительно</h4>
+                        <label class="${UNIQUE_PREFIX}modal-label ${UNIQUE_PREFIX}reset">
+                            Что монтируем? <span class="${UNIQUE_PREFIX}required-star">*</span>:
+                            <select id="whatMount" class="${UNIQUE_PREFIX}modal-select ${UNIQUE_PREFIX}reset" required>
                                 <option value="">Выберите...</option>
                                 ${types}
                                 <option value="Другое">Другое</option>
                             </select>
-                            <div id="${UNIQUE_PREFIX}customInputContainer" class="${UNIQUE_PREFIX}custom-input-container">
-                                <input type="text" id="${UNIQUE_PREFIX}customInput" class="${UNIQUE_PREFIX}custom-input" placeholder="Уточните...">
+                            <div id="customInputContainer" class="${UNIQUE_PREFIX}custom-input-container ${UNIQUE_PREFIX}reset">
+                                <input type="text" id="customInput" class="${UNIQUE_PREFIX}custom-input ${UNIQUE_PREFIX}reset" placeholder="Уточните...">
                             </div>
                         </label>
-                        <label class="${UNIQUE_PREFIX}modal-label">Адрес <span class="${UNIQUE_PREFIX}required-star">*</span>: <input type="text" id="${UNIQUE_PREFIX}address" class="${UNIQUE_PREFIX}modal-input" required></label>
-                        <label class="${UNIQUE_PREFIX}modal-label">Контакты <span class="${UNIQUE_PREFIX}required-star">*</span>: <input type="text" id="${UNIQUE_PREFIX}contactInfo" class="${UNIQUE_PREFIX}modal-input" required></label>
-                        <label class="${UNIQUE_PREFIX}modal-label">Комментарии: <textarea id="${UNIQUE_PREFIX}comments" class="${UNIQUE_PREFIX}modal-textarea" style="min-height:60px;"></textarea></label>
+                        <label class="${UNIQUE_PREFIX}modal-label ${UNIQUE_PREFIX}reset">
+                            Адрес <span class="${UNIQUE_PREFIX}required-star">*</span>:
+                            <input type="text" id="address" class="${UNIQUE_PREFIX}modal-input ${UNIQUE_PREFIX}reset" required>
+                        </label>
+                        <label class="${UNIQUE_PREFIX}modal-label ${UNIQUE_PREFIX}reset">
+                            Контакты <span class="${UNIQUE_PREFIX}required-star">*</span>:
+                            <input type="text" id="contactInfo" class="${UNIQUE_PREFIX}modal-input ${UNIQUE_PREFIX}reset" required>
+                        </label>
+                        <label class="${UNIQUE_PREFIX}modal-label ${UNIQUE_PREFIX}reset">
+                            Комментарии:
+                            <textarea id="comments" class="${UNIQUE_PREFIX}modal-textarea ${UNIQUE_PREFIX}reset"></textarea>
+                        </label>
+                        <div id="dropzone" class="${UNIQUE_PREFIX}dropzone ${UNIQUE_PREFIX}reset">
+                            <p class="${UNIQUE_PREFIX}dropzone-text ${UNIQUE_PREFIX}reset">Перетащите файлы сюда</p>
+                            <input type="file" id="file-input" class="${UNIQUE_PREFIX}file-input ${UNIQUE_PREFIX}reset" multiple>
+                        </div>
+                        <div id="file-list" class="${UNIQUE_PREFIX}file-list ${UNIQUE_PREFIX}reset">
+                            <ul id="file-ul" class="${UNIQUE_PREFIX}file-ul ${UNIQUE_PREFIX}reset"></ul>
+                            <div class="${UNIQUE_PREFIX}file-count ${UNIQUE_PREFIX}reset">Выбрано: <span id="file-count">0</span> файлов</div>
+                        </div>
                     </div>
                 </div>
-                <div id="${UNIQUE_PREFIX}errorContainer" class="${UNIQUE_PREFIX}error-message"></div>
-                <div class="${UNIQUE_PREFIX}modal-buttons">
-                    <button id="${UNIQUE_PREFIX}submitBtn" style="background:#ccc;color:white;">Отправить</button>
-                    <button id="${UNIQUE_PREFIX}closeBtn" style="background:#f44336;color:white;">Закрыть</button>
+                <div id="errorContainer" class="${UNIQUE_PREFIX}error-message ${UNIQUE_PREFIX}reset"></div>
+                <div class="${UNIQUE_PREFIX}modal-buttons ${UNIQUE_PREFIX}reset">
+                    <button id="submitBtn" class="${UNIQUE_PREFIX}modal-button submit ${UNIQUE_PREFIX}reset">Отправить</button>
+                    <button id="closeBtn" class="${UNIQUE_PREFIX}modal-button close ${UNIQUE_PREFIX}reset">Закрыть</button>
                 </div>
             </div>`;
         return modal;
     }
 
-    function handleSubmit(productId, linkText, requiredInputs) {
-        return (e) => {
+    function setupDropZone(modal) {
+        const dropzone = modal.querySelector('#dropzone');
+        const fileInput = modal.querySelector('#file-input');
+        const fileList = modal.querySelector('#file-list');
+        const fileUl = modal.querySelector('#file-ul');
+        const fileCount = modal.querySelector('#file-count');
+
+        function updateFileList() {
+            fileUl.innerHTML = '';
+            files.forEach((file, index) => {
+                const li = document.createElement('li');
+                li.className = `${UNIQUE_PREFIX}file-item ${UNIQUE_PREFIX}reset`;
+                li.innerHTML = `
+                    <span class="${UNIQUE_PREFIX}file-name ${UNIQUE_PREFIX}reset">${file.name}</span>
+                    <span class="${UNIQUE_PREFIX}file-remove ${UNIQUE_PREFIX}reset" data-index="${index}">✕</span>
+                `;
+                fileUl.appendChild(li);
+
+                // Превью (если изображение)
+                li.addEventListener('click', () => {
+                    if (file.type.startsWith('image/')) {
+                        setupImagePreview(file);
+                    }
+                });
+
+                // Удаление
+                li.querySelector(`.${UNIQUE_PREFIX}file-remove`).addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    files.splice(index, 1);
+                    updateFileList();
+                    checkAllRequiredFields();
+                });
+            });
+            fileCount.textContent = files.length;
+            fileList.classList.toggle('show', files.length > 0);
+        }
+
+        dropzone.addEventListener('click', () => fileInput.click());
+        fileInput.addEventListener('change', () => {
+            if (fileInput.files.length) {
+                files = [...files, ...Array.from(fileInput.files)];
+                updateFileList();
+            }
+        });
+
+        ['dragover', 'dragenter'].forEach(evt => {
+            dropzone.addEventListener(evt, e => {
+                e.preventDefault();
+                dropzone.style.borderColor = '#00695c';
+                dropzone.style.backgroundColor = '#e0f7fa';
+            });
+        });
+
+        ['dragleave', 'drop'].forEach(evt => {
+            dropzone.addEventListener(evt, e => {
+                e.preventDefault();
+                dropzone.style.borderColor = '#26a69a';
+                dropzone.style.backgroundColor = '#f8f8f8';
+            });
+        });
+
+        dropzone.addEventListener('drop', e => {
+            e.preventDefault();
+            const newFiles = Array.from(e.dataTransfer.files);
+            files = [...files, ...newFiles];
+            updateFileList();
+        });
+    }
+
+    function setupImagePreview(file) {
+        const url = URL.createObjectURL(file);
+        const previewModal = document.createElement('div');
+        previewModal.className = `${UNIQUE_PREFIX}preview-modal ${UNIQUE_PREFIX}reset`;
+        previewModal.innerHTML = `<img src="${url}" class="${UNIQUE_PREFIX}preview-image ${UNIQUE_PREFIX}reset">`;
+        document.body.appendChild(previewModal);
+
+        previewModal.addEventListener('click', () => {
+            URL.revokeObjectURL(url);
+            previewModal.remove();
+        });
+    }
+
+    function handleSubmit(productId, requiredInputs) {
+        return async (e) => {
             e.preventDefault();
             if (isProcessing) return;
             isProcessing = true;
             const conditionalInputs = [...requiredInputs];
-            const whatMount = document.getElementById(`${UNIQUE_PREFIX}whatMount`);
+            const whatMount = document.getElementById("whatMount");
             if (whatMount.value === "Другое") {
-                conditionalInputs.push(document.getElementById(`${UNIQUE_PREFIX}customInput`));
+                conditionalInputs.push(document.getElementById("customInput"));
             } else {
                 conditionalInputs.push(whatMount);
             }
@@ -1122,18 +1676,16 @@ function montages() {
                 isProcessing = false;
                 return;
             }
-            const workDate = document.getElementById(`${UNIQUE_PREFIX}workDate`).value;
-            const visitType = document.getElementById(`${UNIQUE_PREFIX}visitType`).value;
-            const workType = document.getElementById(`${UNIQUE_PREFIX}workType`).value;
+            const workDate = document.getElementById("workDate").value;
+            const visitType = document.getElementById("visitType").value;
+            const workType = document.getElementById("workType").value;
             const whatMountVal = getWhatMountValue();
-            const address = document.getElementById(`${UNIQUE_PREFIX}address`).value.trim();
-            const contactInfo = document.getElementById(`${UNIQUE_PREFIX}contactInfo`).value.trim();
-            const comments = document.getElementById(`${UNIQUE_PREFIX}comments`).value.trim();
-            const submitBtn = document.getElementById(`${UNIQUE_PREFIX}submitBtn`);
-
+            const address = document.getElementById("address").value.trim();
+            const contactInfo = document.getElementById("contactInfo").value.trim();
+            const comments = document.getElementById("comments").value.trim();
+            const submitBtn = document.getElementById("submitBtn");
             setButtonLoading(submitBtn, true, "Проверка...");
             createClickBlocker();
-
             checkDuplicate(productId, (exists) => {
                 if (exists) {
                     setButtonLoading(submitBtn, false);
@@ -1147,14 +1699,20 @@ function montages() {
                     if (maxReached || whatMount.value === "Другое") {
                         approval = "согласование";
                     }
-                    sendToGoogleSheet(productId, workDate, visitType, workType, approval, linkText, () => {
+                    sendToGoogleSheet(productId, workDate, visitType, workType, approval, () => {
                         sendToSheet2(productId, whatMountVal, address, contactInfo, comments, () => {
                             setButtonLoading(submitBtn, false);
                             removeClickBlocker();
                             isProcessing = false;
+
+                            // Сохраняем файлы для отложенной отправки
+                            if (files.length > 0) {
+                                saveFilesForDelayedSending(productId, files);
+                                files = []; // Очищаем локальный массив
+                            }
+
                             const modal = document.querySelector(`.${UNIQUE_PREFIX}modal-overlay`);
                             if (modal) modal.remove();
-                            showSuccessModal("Отправлено!");
                             productIdCache.add(productId);
                         }, (error) => {
                             setButtonLoading(submitBtn, false);
@@ -1239,11 +1797,11 @@ function montages() {
         });
     }
 
-    function sendToGoogleSheet(productId, date, visitType, workType, approval, linkText, onSuccess, onError) {
+    function sendToGoogleSheet(productId, date, visitType, workType, approval, onSuccess, onError) {
         GM_xmlhttpRequest({
             method: 'POST',
             url: SCRIPT_URL,
-            data: JSON.stringify({ action: 'addAndCheck', productId, date, visitType, workType, approval, linkText }),
+            data: JSON.stringify({ action: 'addAndCheck', productId, date, visitType, workType, approval, linkText: '' }),
             headers: { 'Content-Type': 'application/json' },
             timeout: 15000,
             onload: (res) => {
@@ -1251,7 +1809,6 @@ function montages() {
                     try {
                         const cleanText = res.responseText.trim();
                         if (cleanText.startsWith('<')) {
-                            console.error('Получен HTML вместо JSON:', cleanText.substring(0, 200));
                             onError('Сервер вернул HTML');
                             return;
                         }
@@ -1286,7 +1843,6 @@ function montages() {
                     try {
                         const cleanText = res.responseText.trim();
                         if (cleanText.startsWith('<')) {
-                            console.error('❌ Получен HTML вместо JSON:', cleanText.substring(0, 200));
                             onError('Сервер вернул HTML вместо JSON');
                             return;
                         }
@@ -1312,58 +1868,62 @@ function montages() {
         });
     }
 
-    function showChangeDateDialog(productId, oldDate, linkText) {
+    function showChangeDateDialog(productId, oldDate) {
         const modal = document.createElement("div");
-        modal.className = `${UNIQUE_PREFIX}modal-overlay`;
-        const content = document.createElement("div");
-        content.style.cssText = "background:#fff;padding:32px;border-radius:16px;width:500px;max-width:90%;text-align:center;box-shadow:0 8px 32px rgba(0,0,0,0.3);font-family:Arial,sans-serif;";
+        modal.className = `${UNIQUE_PREFIX}modal-overlay ${UNIQUE_PREFIX}reset`;
         const today = new Date();
         const minDate = today.toISOString().split('T')[0];
+
+        const content = document.createElement("div");
+        content.className = `${UNIQUE_PREFIX}dialog-content ${UNIQUE_PREFIX}reset`;
         content.innerHTML = `
-            <div style="font-size:48px;margin-bottom:16px;">⚠️</div>
-            <h3 style="margin:0 0 16px;font-size:24px;color:#ff9800;font-weight:600;font-family:Arial,sans-serif;">Заказ отклонён</h3>
-            <p style="margin-bottom:24px;font-size:16px;color:#666;line-height:1.4;font-family:Arial,sans-serif;">
+            <div class="${UNIQUE_PREFIX}dialog-icon ${UNIQUE_PREFIX}reset">⚠️</div>
+            <h3 class="${UNIQUE_PREFIX}dialog-title warning ${UNIQUE_PREFIX}reset">Заказ отклонён</h3>
+            <p class="${UNIQUE_PREFIX}dialog-text ${UNIQUE_PREFIX}reset">
                 Заказ <strong>№${productId}</strong> был отклонён.<br>
                 Вы можете выбрать новую дату для монтажа.
             </p>
-            <div class="${UNIQUE_PREFIX}change-date-container">
-                <label style="display:block;margin-bottom:8px;font-weight:500;color:#333;text-align:left;font-family:Arial,sans-serif;">
+            <div class="${UNIQUE_PREFIX}change-date-container ${UNIQUE_PREFIX}reset">
+                <label class="${UNIQUE_PREFIX}modal-label ${UNIQUE_PREFIX}reset">
                     Новая дата:
+                    <input type="date"
+                           id="changeDateInput"
+                           class="${UNIQUE_PREFIX}change-date-input ${UNIQUE_PREFIX}reset"
+                           min="${minDate}"
+                           value="${oldDate || ''}">
                 </label>
-                <input type="date"
-                       id="${UNIQUE_PREFIX}changeDateInput"
-                       class="${UNIQUE_PREFIX}change-date-input"
-                       min="${minDate}"
-                       value="${oldDate || ''}"
-                       style="text-align:center;">
-                <div id="${UNIQUE_PREFIX}changeDateIndicator"></div>
-                <div class="${UNIQUE_PREFIX}change-date-help">
+                <div id="changeDateIndicator"></div>
+                <div class="${UNIQUE_PREFIX}change-date-help ${UNIQUE_PREFIX}reset">
                     Выберите дату не ранее сегодняшнего дня
                 </div>
             </div>
-            <div class="${UNIQUE_PREFIX}change-date-buttons">
-                <button id="${UNIQUE_PREFIX}changeDateConfirmBtn"
-                        class="${UNIQUE_PREFIX}change-date-button ${UNIQUE_PREFIX}confirm"
+            <div class="${UNIQUE_PREFIX}change-date-buttons ${UNIQUE_PREFIX}reset">
+                <button id="changeDateConfirmBtn"
+                        class="${UNIQUE_PREFIX}change-date-button confirm ${UNIQUE_PREFIX}reset"
                         disabled>
-                    ✅ Подтвердить
+                    ✅ Подтвердить новую дату
                 </button>
-                <button id="${UNIQUE_PREFIX}changeDateCancelBtn"
-                        class="${UNIQUE_PREFIX}change-date-button ${UNIQUE_PREFIX}cancel">
+                <button id="changeDateCancelBtn"
+                        class="${UNIQUE_PREFIX}change-date-button cancel ${UNIQUE_PREFIX}reset">
                     ✖️ Отмена
                 </button>
             </div>
         `;
         modal.appendChild(content);
         document.body.appendChild(modal);
-        setupDateIndicator(`${UNIQUE_PREFIX}changeDateInput`, `${UNIQUE_PREFIX}changeDateIndicator`);
-        const dateInput = document.getElementById(`${UNIQUE_PREFIX}changeDateInput`);
-        const confirmBtn = document.getElementById(`${UNIQUE_PREFIX}changeDateConfirmBtn`);
-        const cancelBtn = document.getElementById(`${UNIQUE_PREFIX}changeDateCancelBtn`);
+
+        setupDateIndicator("changeDateInput", "changeDateIndicator");
+
+        const dateInput = document.getElementById("changeDateInput");
+        const confirmBtn = document.getElementById("changeDateConfirmBtn");
+        const cancelBtn = document.getElementById("changeDateCancelBtn");
+
         dateInput.addEventListener("input", () => {
             checkChangeDateFields();
             dateInput.classList.remove(`${UNIQUE_PREFIX}input-error`);
         });
         dateInput.addEventListener("change", checkChangeDateFields);
+
         confirmBtn.addEventListener("click", () => {
             const newDate = dateInput.value;
             if (!newDate) {
@@ -1384,7 +1944,7 @@ function montages() {
             GM_xmlhttpRequest({
                 method: 'POST',
                 url: SCRIPT_URL,
-                data: JSON.stringify({ action: 'updateProductDate', productId, newDate, linkText }),
+                data: JSON.stringify({ action: 'updateProductDate', productId, newDate, linkText: '' }),
                 headers: { 'Content-Type': 'application/json' },
                 timeout: 15000,
                 onload: (response) => {
@@ -1417,70 +1977,83 @@ function montages() {
                 }
             });
         });
+
         cancelBtn.addEventListener("click", () => modal.remove());
         modal.addEventListener("click", (e) => {
             if (e.target === modal) modal.remove();
         });
+
         setTimeout(() => {
             checkChangeDateFields();
-            if (dateInput.value) {
-                updateDateIndicator(dateInput.value, `${UNIQUE_PREFIX}changeDateIndicator`);
-            }
+            if (dateInput.value) updateDateIndicator(dateInput.value, "changeDateIndicator");
             dateInput.focus();
         }, 100);
     }
 
+    function checkChangeDateFields() {
+        const dateInput = document.getElementById("changeDateInput");
+        const confirmBtn = document.getElementById("changeDateConfirmBtn");
+        if (!dateInput || !confirmBtn) return;
+        const isValid = dateInput.value.trim() !== "";
+        confirmBtn.disabled = !isValid;
+    }
+
     function showProductExistsDialog(productId) {
         const modal = document.createElement("div");
-        modal.className = `${UNIQUE_PREFIX}modal-overlay`;
+        modal.className = `${UNIQUE_PREFIX}modal-overlay ${UNIQUE_PREFIX}reset`;
+
         const content = document.createElement("div");
-        content.style.cssText = "background:#fff;padding:32px;border-radius:16px;width:450px;max-width:90%;text-align:center;box-shadow:0 8px 32px rgba(0,0,0,0.3);font-family:Arial,sans-serif;";
+        content.className = `${UNIQUE_PREFIX}dialog-content ${UNIQUE_PREFIX}reset`;
         content.innerHTML = `
-            <div style="font-size:64px;margin-bottom:20px;">⚠️</div>
-            <h3 style="color:#ff9800;margin:0 0 16px;font-size:24px;font-weight:600;font-family:Arial,sans-serif;">Внимание!</h3>
-            <p style="font-size:16px;color:#666;margin-bottom:24px;line-height:1.4;font-family:Arial,sans-serif;">
-                Заявка на заказ <strong style="color:#333;">№${productId}</strong> уже существует.
+            <div class="${UNIQUE_PREFIX}dialog-icon ${UNIQUE_PREFIX}reset">⚠️</div>
+            <h3 class="${UNIQUE_PREFIX}dialog-title warning ${UNIQUE_PREFIX}reset">Внимание!</h3>
+            <p class="${UNIQUE_PREFIX}dialog-text ${UNIQUE_PREFIX}reset">
+                Запись на заказ <strong>№${productId}</strong> уже существует.
             </p>
+            <p class="${UNIQUE_PREFIX}dialog-text ${UNIQUE_PREFIX}reset" style="font-size: 14px !important; color: #999999 !important;">
+                Если вы хотите внести изменения, обратитесь к администратору.
+            </p>
+            <button class="${UNIQUE_PREFIX}dialog-button ${UNIQUE_PREFIX}reset" id="existsCloseBtn">Понятно</button>
         `;
-        const closeBtn = document.createElement("button");
-        closeBtn.textContent = "Понятно";
-        closeBtn.style.cssText = "width:100%;padding:14px;background:#2196F3;color:white;border:none;border-radius:8px;cursor:pointer;font-size:16px;font-weight:500;transition:background-color 0.3s ease;font-family:Arial,sans-serif;";
-        closeBtn.addEventListener("mouseover", () => closeBtn.style.backgroundColor = "#1976D2");
-        closeBtn.addEventListener("mouseout", () => closeBtn.style.backgroundColor = "#2196F3");
-        closeBtn.addEventListener("click", () => modal.remove());
-        content.appendChild(closeBtn);
         modal.appendChild(content);
         document.body.appendChild(modal);
+
+        const closeBtn = document.getElementById("existsCloseBtn");
+        closeBtn.addEventListener("click", () => modal.remove());
         modal.addEventListener("click", (e) => {
             if (e.target === modal) modal.remove();
         });
+
         setTimeout(() => closeBtn.focus(), 100);
     }
 
     function showSuccessModal(message) {
         const modal = document.createElement("div");
-        modal.className = `${UNIQUE_PREFIX}modal-overlay`;
+        modal.className = `${UNIQUE_PREFIX}modal-overlay ${UNIQUE_PREFIX}reset`;
+
         const content = document.createElement("div");
-        content.style.cssText = "background:#fff;padding:32px;border-radius:16px;width:400px;max-width:90%;text-align:center;box-shadow:0 8px 32px rgba(0,0,0,0.3);font-family:Arial,sans-serif;";
+        content.className = `${UNIQUE_PREFIX}dialog-content ${UNIQUE_PREFIX}reset`;
         content.innerHTML = `
-            <div style="font-size:64px;margin-bottom:20px;">✅</div>
-            <h3 style="color:#4CAF50;margin:0 0 16px;font-size:24px;font-weight:600;font-family:Arial,sans-serif;">Успешно!</h3>
-            <p style="font-size:16px;color:#666;margin-bottom:24px;font-family:Arial,sans-serif;">${message}</p>
-            <div style="font-size:14px;color:#999;font-family:Arial,sans-serif;">
-                Закроется через <span id="${UNIQUE_PREFIX}countdown" style="font-weight:bold;color:#4CAF50;">3</span> сек.
+            <div class="${UNIQUE_PREFIX}dialog-icon ${UNIQUE_PREFIX}reset">✅</div>
+            <h3 class="${UNIQUE_PREFIX}dialog-title success ${UNIQUE_PREFIX}reset">Успешно!</h3>
+            <p class="${UNIQUE_PREFIX}dialog-text ${UNIQUE_PREFIX}reset">${message}</p>
+            <div class="${UNIQUE_PREFIX}countdown-text ${UNIQUE_PREFIX}reset">
+                Закроется через <span id="countdown" class="${UNIQUE_PREFIX}countdown-number ${UNIQUE_PREFIX}reset">3</span> сек.
             </div>
         `;
         modal.appendChild(content);
         document.body.appendChild(modal);
+
         let t = 3;
         const timer = setInterval(() => {
             if (--t <= 0) {
                 clearInterval(timer);
                 modal.remove();
             }
-            const countdown = document.getElementById(`${UNIQUE_PREFIX}countdown`);
+            const countdown = document.getElementById("countdown");
             if (countdown) countdown.textContent = t;
         }, 1000);
+
         modal.addEventListener("click", () => {
             clearInterval(timer);
             modal.remove();
