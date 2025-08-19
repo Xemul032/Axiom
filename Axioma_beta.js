@@ -1,5 +1,5 @@
 // ==UserScript==
-// @name         Проверка заказа 9.8.3
+// @name         Проверка заказа 9.8.4
 // @namespace    http://tampermonkey.net/
 // @version      1.6
 // @description
@@ -2200,7 +2200,7 @@ montages();
     });
 };
 
-hideNewFiles ();
+// hideNewFiles ();
 
 function lockManager() {
   'use strict';
