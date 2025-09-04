@@ -1,5 +1,5 @@
 // ==UserScript==
-// @name         Проверка заказа 9.8.4
+// @name         Проверка заказа 9.8.5
 // @namespace    http://tampermonkey.net/
 // @version      1.6
 // @description
@@ -1244,22 +1244,22 @@ function montages() {
         return true;
     }
 
-    function checkAndAddButton() {
-        const shouldShow = selectors.some(selector => {
-            const el = document.querySelector(selector);
-            return el && el.value === "Монтажные работы на выезде";
-        });
-        if (shouldShow) {
-            if (!buttonAdded || !createdButton || !document.contains(createdButton)) {
-                createButton();
-                buttonAdded = true;
-            }
-        } else if (buttonAdded && createdButton) {
-            createdButton.remove();
-            buttonAdded = false;
-            createdButton = null;
+function checkAndAddButton() {
+    const shouldShow = selectors.some(selector => {
+        const el = document.querySelector(selector);
+        return el && el.value.startsWith("Монтажные работы на выезде");
+    });
+    if (shouldShow) {
+        if (!buttonAdded || !createdButton || !document.contains(createdButton)) {
+            createButton();
+            buttonAdded = true;
         }
+    } else if (buttonAdded && createdButton) {
+        createdButton.remove();
+        buttonAdded = false;
+        createdButton = null;
     }
+}
 
 function createButton() {
     if (createdButton && document.contains(createdButton)) createdButton.remove();
