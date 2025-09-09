@@ -1,5 +1,5 @@
 // ==UserScript==
-// @name         Проверка заказа 9.8.5
+// @name         Проверка заказа 9.8.6
 // @namespace    http://tampermonkey.net/
 // @version      1.6
 // @description
@@ -9544,7 +9544,7 @@ lockPerezakaz();
     }, 200);
 };
 
-prolongaror();
+// prolongaror();
 
 function turtle () {
     'use strict';
