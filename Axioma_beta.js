@@ -1,5 +1,5 @@
 // ==UserScript==
-// @name         Проверка заказа 9.8.8
+// @name         Проверка заказа 9.8.9
 // @namespace    http://tampermonkey.net/
 // @version      1.6
 // @description
@@ -9632,7 +9632,7 @@ groupZapusk ();
            function heavyZakazAlpha() {'use strict';
 
     let lastProcessedMassRow = null;
-    const REMINDER_TEXT = " Не забудь продать грузовое такси!";
+    const REMINDER_TEXT = " Требуется платная доставка грузовым авто";
 
     function getMassRowAndValue() {
         const table = document.querySelector("#Summary > table > tbody > tr > td:nth-child(1) > table");
