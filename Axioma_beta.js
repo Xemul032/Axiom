@@ -1,5 +1,5 @@
 // ==UserScript==
-// @name         Проверка заказа 9.8.7
+// @name         Проверка заказа 9.8.8
 // @namespace    http://tampermonkey.net/
 // @version      1.6
 // @description
@@ -9628,6 +9628,91 @@ function groupZapusk () {
     }
 };
 groupZapusk ();
+
+           function heavyZakazAlpha() {'use strict';
+
+    let lastProcessedMassRow = null;
+    const REMINDER_TEXT = " Не забудь продать грузовое такси!";
+
+    function getMassRowAndValue() {
+        const table = document.querySelector("#Summary > table > tbody > tr > td:nth-child(1) > table");
+        if (!table) return null;
+
+        const rows = table.querySelectorAll('tr');
+        for (const row of rows) {
+            const firstCell = row.querySelector('td:first-child');
+            if (firstCell && firstCell.textContent.trim() === "Масса тиража:") {
+                const secondCell = row.querySelector('td:nth-child(2)');
+                if (secondCell) {
+                    const massText = secondCell.textContent.trim();
+                    const numeric = parseFloat(massText.replace(',', '.').replace(/\s*кг\.?/, ''));
+                    if (!isNaN(numeric)) {
+                        return { row, mass: numeric, massCell: secondCell, originalText: massText };
+                    }
+                }
+            }
+        }
+        return null;
+    }
+
+    function highlightIfNeeded() {
+        const result = getMassRowAndValue();
+
+        // Сброс предыдущей подсветки и текста, если строка исчезла или изменилась
+        if (lastProcessedMassRow && (!result || result.row !== lastProcessedMassRow)) {
+            lastProcessedMassRow.style.backgroundColor = '';
+            lastProcessedMassRow.style.color = '';
+            // Восстанавливаем оригинальный текст, если он был изменён
+            const massCell = lastProcessedMassRow.querySelector('td:nth-child(2)');
+            if (massCell && massCell.textContent.trim().endsWith(REMINDER_TEXT)) {
+                massCell.textContent = massCell.textContent.trim().replace(REMINDER_TEXT, '').trim();
+            }
+            lastProcessedMassRow = null;
+        }
+
+        if (!result) return;
+
+        const { row, mass, massCell, originalText } = result;
+
+        if (mass > 200) {
+            // Применяем стили
+            row.style.backgroundColor = 'red';
+            row.style.color = 'white';
+
+            // Добавляем напоминание, только если его ещё нет
+            if (!massCell.textContent.includes(REMINDER_TEXT)) {
+                massCell.textContent = originalText + REMINDER_TEXT;
+            }
+
+            lastProcessedMassRow = row;
+        } else {
+            // Если масса ≤ 200, но ранее была подсвечена — сбрасываем
+            if (lastProcessedMassRow === row) {
+                row.style.backgroundColor = '';
+                row.style.color = '';
+                if (massCell.textContent.includes(REMINDER_TEXT)) {
+                    massCell.textContent = originalText;
+                }
+                lastProcessedMassRow = null;
+            }
+        }
+    }
+
+    // Наблюдатель за изменениями DOM
+    const observer = new MutationObserver(() => {
+        highlightIfNeeded();
+    });
+
+    observer.observe(document.body, {
+        childList: true,
+        subtree: true
+    });
+
+
+    // Первый запуск
+    highlightIfNeeded();
+}
+heavyZakazAlpha();
 
 function outsourceCheck () {
     'use strict';
