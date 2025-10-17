@@ -1,5 +1,5 @@
 // ==UserScript==
-// @name         Проверка заказа 9.8.9
+// @name         Проверка заказа 9.9.0
 // @namespace    http://tampermonkey.net/
 // @version      1.6
 // @description
@@ -4185,19 +4185,19 @@ if (
         date.setDate(date.getDate() + 1);
 
         // Устанавливаем время на 21:30
-        date.setHours(10, 0, 0, 0);
+       // date.setHours(10, 0, 0, 0);
 
         // Форматируем дату для отображения
         const updatedDate = date.toLocaleString("ru-RU", {
           year: "numeric",
           month: "long",
           day: "numeric",
-          hour: "2-digit",
-          minute: "2-digit",
+        //  hour: "2-digit",
+         // minute: "2-digit",
         });
 
         // Обновляем текст в элементе
-        dateInOrder.textContent = `Расчетная дата сдачи заказа: ${updatedDate}`;
+        dateInOrder.textContent = `Расчетная дата сдачи заказа: ${updatedDate}, в течении дня`;
         dateInOrder.style.background = "yellow"
         dateInOrder.style.padding = "10px"
       }
@@ -4348,9 +4348,9 @@ if (
         ).padStart(2, "0")}`;
 
         if (includeYear) {
-          return `${date.getFullYear()}, ${day} ${month} ${time}`;
+          return `${date.getFullYear()}, ${day} ${month}`;
         } else {
-          return `${day} ${month} ${time}`;
+          return `${day} ${month} `;
         }
       }
 
@@ -9773,6 +9773,130 @@ function outsourceCheck () {
     setTimeout(checkConditions, 1000);
 };
 outsourceCheck ();
+
+      function otsrochka () {
+    'use strict';
+
+    const SELECTOR = "#Summary > table > tbody > tr > td:nth-child(1) > table.table.table-condensed.table-striped > tbody:nth-child(3) > tr:nth-child(9) > td.PlanBlock > span.PlanReady";
+    const TOOLTIP_CLASS = "tamper-tooltip-container";
+    const DATA_ATTR = "data-tamper-replaced";
+
+    // Добавляем стили один раз
+    function addStyles() {
+        if (document.getElementById('tamper-tooltip-styles')) return;
+
+        const style = document.createElement('style');
+        style.id = 'tamper-tooltip-styles';
+        style.textContent = `
+            .${TOOLTIP_CLASS} {
+                position: relative;
+                display: inline-block;
+                cursor: help;
+                vertical-align: middle;
+            }
+
+            .${TOOLTIP_CLASS} .icon {
+                font-size: 18px;
+                color: #666;
+                font-weight: bold;
+                line-height: 1;
+                margin-left: 6px;
+                margin-right: 6px;
+            }
+
+            .${TOOLTIP_CLASS} .tooltip-text {
+                visibility: hidden;
+                width: 220px;
+                background-color: #333;
+                color: #fff;
+                text-align: center;
+                border-radius: 6px;
+                padding: 8px;
+                position: absolute;
+                z-index: 10000;
+                bottom: 125%;
+                left: 50%;
+                transform: translateX(-50%);
+                opacity: 0;
+                transition: opacity 0.3s;
+                font-size: 14px;
+                white-space: pre-line;
+            }
+
+            .${TOOLTIP_CLASS}:hover .tooltip-text {
+                visibility: visible;
+                opacity: 1;
+            }
+
+            .${TOOLTIP_CLASS} .tooltip-text::after {
+                content: "";
+                position: absolute;
+                top: 100%;
+                left: 50%;
+                margin-left: -5px;
+                border-width: 5px;
+                border-style: solid;
+                border-color: #333 transparent transparent transparent;
+            }
+        `;
+        document.head.appendChild(style);
+    }
+
+    // Создаёт иконку с тултипом
+    function createTooltipElement() {
+        const container = document.createElement('div');
+        container.className = TOOLTIP_CLASS;
+        container.setAttribute(DATA_ATTR, 'true');
+
+        const icon = document.createElement('span');
+        icon.className = 'icon';
+        icon.textContent = '?'; // Знак вопроса в кружочке (Unicode)
+
+        const tooltip = document.createElement('span');
+        tooltip.className = 'tooltip-text';
+        tooltip.textContent = "Заказы на доставку курьером - ко второй доставке в 15:00\n\nЗаказы на самовывоз - до 19:00";
+
+        container.appendChild(icon);
+        container.appendChild(tooltip);
+        return container;
+    }
+
+    // Обрабатывает текущее состояние DOM
+    function handleDOM() {
+        const target = document.querySelector(SELECTOR);
+        const existingTooltip = document.querySelector(`[${DATA_ATTR}]`);
+
+        if (target) {
+            // Если элемент есть, но тултипа нет — добавляем
+            if (!existingTooltip) {
+                target.style.display = 'none';
+                target.parentNode.insertBefore(createTooltipElement(), target.nextSibling);
+            }
+        } else {
+            // Если элемента нет — удаляем тултип
+            if (existingTooltip) {
+                existingTooltip.remove();
+            }
+        }
+    }
+
+    // Запуск
+    addStyles();
+
+    // Немедленная проверка (на случай, если элемент уже загружен)
+    handleDOM();
+
+    // Наблюдатель за изменениями DOM
+    const observer = new MutationObserver(() => {
+        handleDOM();
+    });
+
+    observer.observe(document.body, {
+        childList: true,
+        subtree: true
+    });
+};
+otsrochka ();
 
 
 
