@@ -1,5 +1,5 @@
 // ==UserScript==
-// @name         Проверка заказа 9.9.1
+// @name         Проверка заказа 9.9.2
 // @namespace    http://tampermonkey.net/
 // @version      1.6
 // @description
@@ -10152,6 +10152,91 @@ outsourceCheck ();
     });
 };
 otsrochka ();
+
+      function hideLogs () {
+    'use strict';
+
+    // Функция для обработки конкретного выпадающего меню
+    function processDropdownMenu(ul) {
+        if (!ul || ul.hasAttribute('data-logs-hidden')) return;
+        ul.setAttribute('data-logs-hidden', 'true'); // защита от повторной обработки
+
+        const items = ul.querySelectorAll('li > a');
+        for (const link of items) {
+            if (link.textContent.trim() === "Логи заказа") {
+                const li = link.closest('li');
+                if (li) li.remove();
+                break;
+            }
+        }
+    }
+
+    // Функция для обработки контейнера меню при открытии
+    function observeDropdown(container) {
+        if (container.hasAttribute('data-observer-attached')) return;
+        container.setAttribute('data-observer-attached', 'true');
+
+        const observer = new MutationObserver(() => {
+            if (container.classList.contains('open')) {
+                const ul = container.querySelector('ul.dropdown-menu');
+                if (ul) {
+                    requestAnimationFrame(() => processDropdownMenu(ul));
+                }
+            }
+        });
+
+        observer.observe(container, {
+            attributes: true,
+            attributeFilter: ['class']
+        });
+
+        // Также проверим сразу, если уже открыт
+        if (container.classList.contains('open')) {
+            const ul = container.querySelector('ul.dropdown-menu');
+            if (ul) processDropdownMenu(ul);
+        }
+    }
+
+    // Главный observer: следим за появлением любого подходящего контейнера
+    const mainObserver = new MutationObserver((mutations) => {
+        for (const mutation of mutations) {
+            // Проверяем новые узлы
+            for (const node of mutation.addedNodes) {
+                if (node.nodeType !== Node.ELEMENT_NODE) continue;
+
+                // Если сам node — это нужный контейнер
+                if (
+                    node.matches &&
+                    node.matches("#TopButtons > div.btn-group.btn-group-sm.dropdown")
+                ) {
+                    observeDropdown(node);
+                }
+
+                // Или если внутри node есть такие контейнеры
+                if (node.querySelectorAll) {
+                    const dropdowns = node.querySelectorAll(
+                        "#TopButtons > div.btn-group.btn-group-sm.dropdown"
+                    );
+                    dropdowns.forEach(observeDropdown);
+                }
+            }
+        }
+    });
+
+    // Запускаем наблюдение за всем телом
+    mainObserver.observe(document.body, {
+        childList: true,
+        subtree: true
+    });
+
+    // Обрабатываем уже существующие элементы (на случай, если скрипт загрузился позже)
+    const existingDropdowns = document.querySelectorAll(
+        "#TopButtons > div.btn-group.btn-group-sm.dropdown"
+    );
+    existingDropdowns.forEach(observeDropdown);
+};
+
+hideLogs ();
 
 
 
