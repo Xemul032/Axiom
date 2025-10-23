@@ -1,5 +1,5 @@
 // ==UserScript==
-// @name         Проверка заказа 9.9.2
+// @name         Проверка заказа 9.9.3
 // @namespace    http://tampermonkey.net/
 // @version      1.6
 // @description
@@ -5861,7 +5861,7 @@ sendButton.addEventListener('click', async () => {
             return;
         }
 
-        if (designerPrice * 1.3 <= axiomPrice) {
+        if (designerPrice * 1.75 <= axiomPrice) {
             const data = [
                 productId,
                 userName,
@@ -5897,6 +5897,7 @@ sendButton.addEventListener('click', async () => {
             }
         } else {
             const existingError = popup.querySelector('.error-message');
+            const maxDesignValue = axiomPrice/1.75;
             if (!existingError) {
                 const errorTable = document.createElement('table');
                 errorTable.style.width = '100%';
@@ -5912,7 +5913,7 @@ sendButton.addEventListener('click', async () => {
                 errorCell.style.fontWeight = 'bold';
                 errorCell.style.padding = '10px';
                 errorCell.className = 'error-message';
-                errorCell.innerText = 'Сумма некорректна';
+                errorCell.innerText = `Сумма дизайнеру не более ${Math.round(maxDesignValue)}`;
                 popup.appendChild(errorTable);
             }
             sendButton.disabled = false; // Разблокируем кнопку при ошибке
