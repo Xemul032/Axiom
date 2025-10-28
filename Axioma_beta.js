@@ -1,5 +1,5 @@
 // ==UserScript==
-// @name         Проверка заказа 9.9.3
+// @name         Проверка заказа 9.9.4
 // @namespace    http://tampermonkey.net/
 // @version      1.6
 // @description
@@ -2214,7 +2214,7 @@ function lockManager() {
   // Другие селекторы
   const buttonToRemove = "#Summary > table > tbody > tr > td:nth-child(1) > div.right > div > button:nth-child(2)";
   const timeFilesRow = "#Summary > table > tbody > tr > td:nth-child(2) > table > tbody > tr.TimeFilesInfo";
-  const paySchemaImage = "#Top > form > div > div > div > span:nth-child(2) > span.PaySchemaIcon > img[src='img/payschema/payschema-1.png']";
+  const paySchemaImage = "#Top > form > div > div > div > span:nth-child(2) > span.PaySchemaIcon > img[src*='payschema-1.png']";
   const hiddenButtonInRow = "#Summary > table > tbody > tr > td:nth-child(2) > table > tbody > tr.TimeFilesInfo > td.right > button";
   const triggerButtonSelector = "#Summary > table > tbody > tr > td:nth-child(1) > div.right > div > button"; // "Запущен в работу"
   const rightContainerSelector = "#Summary > table > tbody > tr > td:nth-child(1) > div.right";
