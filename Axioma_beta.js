@@ -1,5 +1,5 @@
 // ==UserScript==
-// @name         Проверка заказа 9.9.4
+// @name         Проверка заказа 9.9.5
 // @namespace    http://tampermonkey.net/
 // @version      1.6
 // @description
@@ -10238,6 +10238,521 @@ otsrochka ();
 };
 
 hideLogs ();
+
+
+function spisanieBonus () {
+    'use strict';
+
+    let bonusValue = null;
+    let buttonAdded = false;
+
+    // 🔴 ЗАМЕНИ НА СВОЙ URL!
+    const GOOGLE_SCRIPT_WEB_APP_URL = "https://script.google.com/macros/s/AKfycbxjiMSlZBCDnOgqj6exEuMH4tjwBJsZcd2bWpUNn5-kXVUMx3q_IuiKmcoj2_Du3IA/exec";
+
+    function extractBonusValue(text) {
+        const cleaned = text.replace(/[^0-9,\s.]/g, '').trim();
+        if (!cleaned) return null;
+        const noSpaces = cleaned.replace(/\s+/g, '');
+        const normalized = noSpaces.replace(/,/g, '.');
+        const num = parseFloat(normalized);
+        return isNaN(num) ? null : num;
+    }
+
+    function tryToAddButton() {
+        if (buttonAdded) return;
+
+        const targetTdSelector = "#Fin > table > tbody:nth-child(4) > tr > td:nth-child(1) > table > tbody > tr.bonus-row > td";
+        const targetTd = document.querySelector(targetTdSelector);
+        const targetTbody = document.querySelector("#Fin > table > tbody:nth-child(4) > tr > td:nth-child(1) > table > tbody");
+
+        if (!targetTd || !targetTbody) return;
+
+        const hasCorrectAttributes =
+            targetTd.colSpan === 2 &&
+            targetTd.style.textAlign === 'center' &&
+            targetTd.style.fontWeight === 'bold' &&
+            targetTd.style.color === 'green';
+
+        const text = targetTd.textContent || targetTd.innerText;
+        if (!hasCorrectAttributes || !text.includes('Доступно бонусов:')) return;
+
+        const value = extractBonusValue(text);
+        if (value === null) return;
+
+        bonusValue = value;
+        buttonAdded = true;
+
+        const newRow = document.createElement('tr');
+        const newCell = document.createElement('td');
+        newCell.colSpan = 2;
+        newCell.style.textAlign = 'center';
+        newCell.style.padding = '10px 0';
+
+        const button = document.createElement('button');
+        button.textContent = 'Списать бонусы';
+        button.id = 'useBonusBtn';
+        button.style.cssText = `
+            padding: 8px 16px;
+            background: linear-gradient(135deg, #007BFF, #0056b3);
+            color: white;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: bold;
+            box-shadow: 0 2px 6px rgba(0,0,0,0.2);
+            transition: all 0.2s ease;
+        `;
+        button.onmouseover = () => button.style.transform = 'scale(1.03)';
+        button.onmouseout = () => button.style.transform = 'scale(1)';
+        button.onclick = createModal;
+
+        newCell.appendChild(button);
+        newRow.appendChild(newCell);
+        targetTbody.appendChild(newRow);
+    }
+
+    function removeButton() {
+        const button = document.getElementById('useBonusBtn');
+        if (button && button.parentElement && button.parentElement.parentElement) {
+            button.parentElement.parentElement.remove();
+        }
+        buttonAdded = false;
+    }
+
+    async function createModal() {
+        const existing = document.getElementById('bonusModal');
+        if (existing) existing.remove();
+
+        const modal = document.createElement('div');
+        modal.id = 'bonusModal';
+        modal.style.cssText = `
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100vw;
+            height: 100vh;
+            background: rgba(0,0,0,0.6);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            z-index: 999999;
+            animation: fadeIn 0.3s ease-out;
+        `;
+
+        const content = document.createElement('div');
+        content.style.cssText = `
+            background: linear-gradient(to bottom, #ffffff, #f8f9fa);
+            padding: 24px;
+            border-radius: 12px;
+            width: 360px;
+            box-shadow: 0 8px 32px rgba(0,0,0,0.2);
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            animation: slideIn 0.4s ease-out;
+        `;
+
+        content.innerHTML = `
+            <div id="loading" style="text-align: center; padding: 20px; color: #007bff;">
+                <h3 style="margin-top: 0; margin-bottom: 12px; color: #333; font-weight: 600;">Бонусы клиента</h3>
+                <p style="color: #666; margin: 8px 0;">
+                    <strong>Баланс:</strong> <span id="modalBalance" style="color: #28a745; font-weight: bold;">${bonusValue}</span>
+                </p>
+                Проверка существующих данных...
+            </div>
+            <div id="form" style="display: none;"></div>
+        `;
+
+        modal.appendChild(content);
+        document.body.appendChild(modal);
+
+        if (!document.getElementById('bonusModalStyles')) {
+            const styleEl = document.createElement('style');
+            styleEl.id = 'bonusModalStyles';
+            styleEl.textContent = `
+                @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+                @keyframes slideIn { from { transform: translateY(30px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
+                @keyframes shake {
+                    0%, 100% { transform: translateX(0); }
+                    20%, 60% { transform: translateX(-6px); }
+                    40%, 80% { transform: translateX(6px); }
+                }
+            `;
+            document.head.appendChild(styleEl);
+        }
+
+        const loadingDiv = document.getElementById('loading');
+        const formDiv = document.getElementById('form');
+
+        const productIdEl = document.querySelector("#ProductId");
+        const productId = productIdEl
+            ? (productIdEl.value !== undefined ? productIdEl.value : (productIdEl.textContent || productIdEl.innerText).trim())
+            : null;
+
+        const summarySpanEl = document.querySelector("#Summary > table > tbody > tr > td:nth-child(1) > table.table.table-condensed.table-striped > tbody:nth-child(1) > tr:nth-child(2) > td:nth-child(2) > div > a > span");
+        const summaryText = summarySpanEl ? summarySpanEl.textContent || summarySpanEl.innerText : null;
+
+        if (!productId) {
+            loadingDiv.innerHTML = `
+                <h3 style="margin-top: 0; margin-bottom: 12px; color: #333; font-weight: 600;">Бонусы клиента</h3>
+                <p style="color: #666; margin: 8px 0;">
+                    <strong>Баланс:</strong> <span id="modalBalance" style="color: #28a745; font-weight: bold;">${bonusValue}</span>
+                </p>
+                ❌ Не удалось определить ProductId
+            `;
+            formDiv.style.display = 'block';
+            return;
+        }
+
+        const checkUrl = `${GOOGLE_SCRIPT_WEB_APP_URL}?action=get&productId=${encodeURIComponent(productId)}`;
+
+        try {
+            const response = await fetch(checkUrl, { method: "GET", mode: "cors" });
+            const result = await response.json();
+
+            if (result.status !== "success") throw new Error(result.message || "Ошибка проверки");
+
+            loadingDiv.style.display = 'none';
+            formDiv.style.display = 'block';
+
+            if (result.found && result.data.inSalary) {
+                formDiv.innerHTML = `
+                    <h3 style="margin-top: 0; margin-bottom: 12px; color: #333; font-weight: 600; display: flex; align-items: center; gap: 8px;">
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#007BFF" stroke-width="2">
+                            <path d="M3 10h18v4H3z"/>
+                            <path d="M6 14h12v-4H6z"/>
+                            <path d="M9 14h6v-4H9z"/>
+                        </svg>
+                        Бонусы клиента
+                    </h3>
+                    <p style="color: #666; margin: 8px 0;">
+                        <strong>Баланс:</strong> <span id="modalBalance" style="color: #28a745; font-weight: bold;">${bonusValue}</span>
+                    </p>
+                    <div style="text-align: center; padding: 20px; color: #e74c3c; font-weight: bold; background: #fdf2f2; border-radius: 8px; margin-top: 12px; font-size: 14px;">
+                        ⚠️Заказ попал в зарплату!⚠️<br>Редактирование невозможно!
+                    </div>
+                    <div style="text-align: center; margin-top: 20px;">
+                        <button id="modalCloseBtn" style="
+                            width: 100px;
+                            height: 36px;
+                            background: #6c757d;
+                            color: white;
+                            border: none;
+                            border-radius: 6px;
+                            cursor: pointer;
+                            font-size: 13px;
+                        ">Закрыть</button>
+                    </div>
+                `;
+                document.getElementById('modalCloseBtn').onclick = () => modal.remove();
+                return;
+            }
+
+            // === Получаем предложенную сумму из Fin-инпута ===
+            const finInput = document.querySelector("#Fin > table > tbody:nth-child(4) > tr > td:nth-child(1) > table > tbody > tr:nth-child(1) > td.right > input");
+            let suggestedAmount = 0;
+            if (finInput) {
+                const rawValue = parseFloat(finInput.value);
+                if (!isNaN(rawValue)) {
+                    if (rawValue < 0) {
+                        suggestedAmount = Math.round(Math.abs(rawValue));
+                    } else {
+                        suggestedAmount = 0;
+                    }
+                }
+            }
+
+            // === Получаем ClientGettingID из select ===
+            const clientGettingSelect = document.querySelector("#Summary > table > tbody > tr > td:nth-child(1) > table.table.table-condensed.table-striped > tbody:nth-child(1) > tr:nth-child(2) > td:nth-child(2) > select");
+            const gettingClientId = clientGettingSelect ? clientGettingSelect.value : "";
+
+            const isEditing = result.found && !result.data.inSalary;
+            const title = isEditing ? "Редактирование бонусов" : "Списание бонусов";
+            const amountLabel = isEditing
+                ? '<span style="font-weight: 500;">Исправьте сумму списанных бонусов на:</span><br>'
+                : '<span style="font-weight: 500;">Сколько бонусов списываем:</span><br>';
+
+            let additionalInfo = '';
+            if (isEditing && result.data.amount) {
+                additionalInfo = `
+                    <p style="color: #555; margin: 8px 0; font-size: 13px;">
+                        <strong>Бонусов списано:</strong> <span style="color: #28a745; font-weight: bold;">${result.data.amount}</span>
+                    </p>
+                `;
+            }
+
+            formDiv.innerHTML = `
+                <h3 style="margin-top: 0; margin-bottom: 12px; color: #333; font-weight: 600; display: flex; align-items: center; gap: 8px;">
+                    💵 ${title}
+                </h3>
+                <p style="color: #666; margin: 8px 0;">
+                    <strong>Баланс:</strong> <span id="modalBalance" style="color: #28a745; font-weight: bold;">${bonusValue}</span>
+                </p>
+                ${additionalInfo}
+                <label style="display: block; margin: 12px 0;">
+                    ${amountLabel}
+                    <input type="number" id="bonusAmountInput" min="0" step="1"
+                        value="${isEditing ? (result.data.amount || Math.floor(bonusValue)) : suggestedAmount}"
+                        style="width: 100%; padding: 8px; margin-top: 4px; border: 1px solid #ddd; border-radius: 4px; font-size: 14px; box-sizing: border-box;">
+                </label>
+                <div id="errorMessage" style="color: #dc3545; font-size: 13px; min-height: 18px; margin-top: 4px;"></div>
+
+                <label style="display: block; margin: 16px 0 24px 0; cursor: pointer;">
+                    <input type="checkbox" id="taxiCheckbox" style="margin-right: 8px;">
+                    <span style="font-weight: 500;">Списание на такси</span>
+                </label>
+
+                <div style="text-align: center; margin-top: 20px; display: flex; justify-content: center; gap: 8px; flex-wrap: wrap;">
+                    <button id="modalCloseBtn" style="
+                        width: 130px;
+                        height: 36px;
+                        padding: 4px 8px;
+                        background: #6c757d;
+                        color: white;
+                        border: none;
+                        border-radius: 6px;
+                        cursor: pointer;
+                        font-size: 13px;
+                        font-weight: 500;
+                        box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+                        transition: background 0.2s;
+                        overflow: hidden;
+                        text-overflow: ellipsis;
+                        white-space: nowrap;
+                    ">Закрыть</button>
+                    <button id="modalDeleteBtn" style="
+                        width: 130px;
+                        height: 36px;
+                        padding: 4px 8px;
+                        background: #a94442;
+                        color: white;
+                        border: none;
+                        border-radius: 6px;
+                        cursor: pointer;
+                        font-size: 13px;
+                        font-weight: 500;
+                        box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+                        transition: background 0.2s;
+                        display: flex;
+                        align-items: center;
+                        justify-content: center;
+                        flex-direction: column;
+                        gap: 0;
+                        line-height: 1.2;
+                        text-align: center;
+                        white-space: normal;
+                        overflow: visible;
+                    ">
+                        <span>Удалить</span>
+                        <span>списание</span>
+                    </button>
+                    <button id="modalSubmitBtn" style="
+                        width: 120px;
+                        height: 36px;
+                        padding: 4px 8px;
+                        background: linear-gradient(135deg, #28a745, #20c997);
+                        color: white;
+                        border: none;
+                        border-radius: 6px;
+                        cursor: pointer;
+                        font-size: 13px;
+                        font-weight: bold;
+                        box-shadow: 0 1px 3px rgba(40, 167, 69, 0.3);
+                        transition: all 0.2s;
+                        overflow: hidden;
+                        text-overflow: ellipsis;
+                        white-space: nowrap;
+                        display: flex;
+                        align-items: center;
+                        justify-content: center;
+                    ">Сохранить</button>
+                </div>
+            `;
+
+            const input = document.getElementById('bonusAmountInput');
+            const errorDiv = document.getElementById('errorMessage');
+            const taxiCheckbox = document.getElementById('taxiCheckbox');
+
+            if (result.found) {
+                taxiCheckbox.checked = !!result.data.taxi;
+                document.getElementById('modalSubmitBtn').textContent = "Обновить";
+                document.getElementById('modalDeleteBtn').style.display = 'inline-block';
+            } else {
+                taxiCheckbox.checked = false;
+                document.getElementById('modalSubmitBtn').textContent = "Списать";
+                document.getElementById('modalDeleteBtn').style.display = 'none';
+            }
+
+            function showError(message) {
+                input.style.borderColor = '#dc3545';
+                input.style.animation = 'shake 0.5s cubic-bezier(.36,.07,.19,.97) both';
+                errorDiv.textContent = message;
+            }
+
+            input.addEventListener('input', () => {
+                if (input.style.borderColor === 'red') {
+                    input.style.borderColor = '#ddd';
+                    input.style.animation = 'none';
+                    errorDiv.textContent = '';
+                }
+            });
+
+            document.getElementById('modalCloseBtn').onclick = () => modal.remove();
+
+            // --- КНОПКА УДАЛЕНИЯ ---
+            let deleteConfirmActive = false;
+            let deleteTimeout = null;
+
+            document.getElementById('modalDeleteBtn').onclick = async () => {
+                const deleteBtn = document.getElementById('modalDeleteBtn');
+
+                if (deleteConfirmActive) {
+                    clearTimeout(deleteTimeout);
+                    deleteConfirmActive = false;
+                    deleteBtn.disabled = true;
+                    deleteBtn.innerHTML = `
+                        <svg width="16" height="16" viewBox="0 0 24 24" style="margin-right: 6px; flex-shrink: 0;">
+                            <circle cx="12" cy="12" r="10" fill="none" stroke="white" stroke-width="3" stroke-dasharray="15" stroke-dashoffset="0">
+                                <animateTransform attributeName="transform" type="rotate" dur="1s" from="0 12 12" to="360 12 12" repeatCount="indefinite"/>
+                            </circle>
+                        </svg>
+                        <span style="font-size: 12px; line-height: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">Удаление…</span>
+                    `;
+                    deleteBtn.style.opacity = '0.8';
+                    deleteBtn.style.cursor = 'not-allowed';
+
+                    const delUrl = `${GOOGLE_SCRIPT_WEB_APP_URL}?action=delete&productId=${encodeURIComponent(productId)}`;
+                    try {
+                        const res = await fetch(delUrl, { method: "GET", mode: "cors" });
+                        const data = await res.json();
+                        if (data.status === "success") {
+                            deleteBtn.innerHTML = '✅ Успешно!';
+                            setTimeout(() => modal.remove(), 2000);
+                        } else {
+                            deleteBtn.innerHTML = '❌ Ошибка';
+                            deleteBtn.disabled = false;
+                            setTimeout(() => {
+                                deleteBtn.textContent = 'Удалить';
+                                deleteBtn.style.backgroundColor = '#a94442';
+                                deleteBtn.style.opacity = '1';
+                                deleteBtn.style.cursor = 'pointer';
+                            }, 2000);
+                        }
+                    } catch (err) {
+                        console.error(err);
+                        deleteBtn.innerHTML = '❌ Ошибка';
+                        deleteBtn.disabled = false;
+                        setTimeout(() => {
+                            deleteBtn.textContent = 'Удалить';
+                            deleteBtn.style.backgroundColor = '#a94442';
+                            deleteBtn.style.opacity = '1';
+                            deleteBtn.style.cursor = 'pointer';
+                        }, 2000);
+                    }
+
+                } else {
+                    deleteConfirmActive = true;
+                    deleteBtn.textContent = "Точно?";
+                    deleteBtn.style.backgroundColor = '#c10020';
+
+                    deleteTimeout = setTimeout(() => {
+                        deleteConfirmActive = false;
+                        deleteBtn.textContent = "Удалить";
+                        deleteBtn.style.backgroundColor = '#a94442';
+                    }, 3000);
+                }
+            };
+
+            document.getElementById('modalSubmitBtn').onclick = async () => {
+                const amount = parseFloat(input.value);
+                const taxiChecked = taxiCheckbox.checked;
+
+                errorDiv.textContent = '';
+                if (isNaN(amount) || amount <= 0) return showError('Введите корректную сумму');
+                if (amount > bonusValue) return showError('Нельзя списать больше, чем доступно');
+
+                const submitBtn = document.getElementById('modalSubmitBtn');
+                submitBtn.disabled = true;
+                submitBtn.innerHTML = `
+                    <svg width="16" height="16" viewBox="0 0 24 24" style="margin-right: 6px; flex-shrink: 0;">
+                        <circle cx="12" cy="12" r="10" fill="none" stroke="white" stroke-width="3" stroke-dasharray="15" stroke-dashoffset="0">
+                            <animateTransform attributeName="transform" type="rotate" dur="1s" from="0 12 12" to="360 12 12" repeatCount="indefinite"/>
+                        </circle>
+                    </svg>
+                    <span style="font-size: 12px; line-height: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">Сохранение…</span>
+                `;
+                submitBtn.style.opacity = '0.8';
+                submitBtn.style.cursor = 'not-allowed';
+
+                // Передаём gettingClientId в URL
+                const saveUrl = `${GOOGLE_SCRIPT_WEB_APP_URL}?action=save&productId=${encodeURIComponent(productId)}&taxi=${taxiChecked}&summaryText=${encodeURIComponent(summaryText || "")}&amount=${encodeURIComponent(amount)}&gettingClientId=${encodeURIComponent(gettingClientId)}`;
+
+                try {
+                    const res = await fetch(saveUrl, { method: "GET", mode: "cors" });
+                    const data = await res.json();
+                    if (data.status === "success") {
+                        submitBtn.innerHTML = '✅ Успешно!';
+                        setTimeout(() => modal.remove(), 2000);
+                    } else {
+                        throw new Error(data.message || "Ошибка сервера");
+                    }
+                } catch (err) {
+                    console.error(err);
+                    submitBtn.innerHTML = '❌ Ошибка';
+                    submitBtn.disabled = false;
+                    setTimeout(() => {
+                        submitBtn.innerHTML = 'Повторить';
+                    }, 2000);
+                }
+            };
+
+        } catch (err) {
+            console.error("Ошибка при проверке записи:", err);
+            loadingDiv.style.display = 'none';
+            formDiv.innerHTML = `
+                <h3 style="margin-top: 0; margin-bottom: 12px; color: #333; font-weight: 600; display: flex; align-items: center; gap: 8px;">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#007BFF" stroke-width="2">
+                        <path d="M3 10h18v4H3z"/>
+                        <path d="M6 14h12v-4H6z"/>
+                        <path d="M9 14h6v-4H9z"/>
+                    </svg>
+                    Бонусы клиента
+                </h3>
+                <p style="color: #666; margin: 8px 0;">
+                    <strong>Баланс:</strong> <span id="modalBalance" style="color: #28a745; font-weight: bold;">${bonusValue}</span>
+                </p>
+                <div style="text-align: center; color: #e74c3c; margin-top: 12px;">⚠️ Не удалось загрузить данные</div>
+            `;
+            formDiv.style.display = 'block';
+        }
+
+        const handleEsc = (e) => {
+            if (e.key === 'Escape') {
+                modal.remove();
+                window.removeEventListener('keydown', handleEsc);
+            }
+        };
+        window.addEventListener('keydown', handleEsc);
+    }
+
+    const observer = new MutationObserver(() => {
+        const targetTd = document.querySelector("#Fin > table > tbody:nth-child(4) > tr > td:nth-child(1) > table > tbody > tr.bonus-row > td");
+        if (targetTd) {
+            tryToAddButton();
+        } else if (buttonAdded) {
+            removeButton();
+        }
+    });
+
+    observer.observe(document.body, {
+        childList: true,
+        subtree: true
+    });
+
+    tryToAddButton();
+};
+
+spisanieBonus ();
+
 
 
 
