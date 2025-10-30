@@ -1,5 +1,5 @@
 // ==UserScript==
-// @name         Проверка заказа 9.9.7
+// @name         Проверка заказа 9.9.8
 // @namespace    http://tampermonkey.net/
 // @version      1.6
 // @description
@@ -2357,7 +2357,7 @@ function lockManager() {
         if (shouldShowWorkButton && !document.getElementById('workWithFilesBtn') && rightDiv) {
           const workBtn = document.createElement('button');
           workBtn.id = 'workWithFilesBtn';
-          workBtn.textContent = 'В работу с файлами';
+          workBtn.textContent = 'Файлы получены';
           Object.assign(workBtn.style, {
             '-webkit-text-size-adjust': '100%',
             '-webkit-tap-highlight-color': 'rgba(0,0,0,0)',
@@ -3823,20 +3823,7 @@ setInterval(() => {
     paperShortageActive = false;
   }
 
-  // === Принудительное скрытие кнопок, если активна нехватка ===
-  if (paperShortageActive) {
-    const btnToWorkWFiles = document.querySelector("#Summary > table > tbody > tr > td:nth-child(2) > table > tbody > tr.TimeFilesInfo > td.right > button");
-    const newFilesGet = document.querySelector("#Summary > table > tbody > tr > td:nth-child(2) > table > tbody > tr.TimeFilesInfo > td.right > button");
-    const btnsgroup31 = document.querySelector("#workWithFilesBtn");
-
-    if (btnToWorkWFiles) btnToWorkWFiles.style.display = "none";
-    if (newFilesGet) newFilesGet.style.display = "none";
-    if (btnsgroup31) btnsgroup31.style.display = "none";
-
-    return; // не запускаем повторную проверку
-  }
-
-  // === Определение текущего статуса ===
+  // === 🔑 ВОССТАНОВЛЕНИЕ .RegButton при статусе calc ===
   const statusIconCalc = document.querySelector('#Top img[src="/axiom/img/status/status-calc.png"]');
   const statusIconCalcWFiles = document.querySelector('#Top img[src="/axiom/img/status/status-calc-files.png"]');
   const statusIconNoFiles = document.querySelector('#Top img[src="/axiom/img/status/status-nofiles.png"]');
@@ -3847,12 +3834,36 @@ setInterval(() => {
   else if (statusIconNoFiles) currentStatus = "nofiles";
   else currentStatus = "other";
 
+  if (currentStatus === "calc") {
+    const regButton = document.querySelector(".RegButton");
+    if (regButton) {
+      regButton.style.display = "";
+      regButton.disabled = false;
+    }
+  }
+
+  // === Принудительное скрытие прочих кнопок при нехватке ===
+  if (paperShortageActive) {
+    const btnToWorkWFiles = document.querySelector("#Summary > table > tbody > tr > td:nth-child(2) > table > tbody > tr.TimeFilesInfo > td.right > button");
+    const newFilesGet = document.querySelector("#Summary > table > tbody > tr > td:nth-child(2) > table > tbody > tr.TimeFilesInfo > td.right > button");
+    const btnsgroup31 = document.querySelector("#workWithFilesBtn");
+
+    if (btnToWorkWFiles) btnToWorkWFiles.style.display = "none";
+    if (newFilesGet) newFilesGet.style.display = "none";
+    if (btnsgroup31) btnsgroup31.style.display = "none";
+
+    return;
+  }
+
+  // === Остальная логика только если нет нехватки ===
   if (currentStatus === "other") {
     calcCheck = 0;
     return;
   }
 
-  if (calcCheck === 1) return;
+  if (calcCheck === 1) {
+    return;
+  }
 
   // === Элементы управления ===
   const btnsgroup1 = document.querySelector("#Summary > table > tbody > tr > td:nth-child(1) > div.right > div > button:nth-child(1)");
@@ -3864,7 +3875,9 @@ setInterval(() => {
   const paperList = document.querySelectorAll('table.inner > tbody > tr > td > table > tbody > tr > td.SkladBlock > table > tbody > tr');
   const orders = document.querySelectorAll("#Summary > table > tbody > tr > td:nth-child(1) > .formblock");
 
-  if (orders.length === 0) return;
+  if (orders.length === 0) {
+    return;
+  }
 
   calcCheck = 1;
   let shortageFound = false;
@@ -3875,6 +3888,10 @@ setInterval(() => {
     const needCountEl = el.querySelector("table.inner > tbody > tr > td > table > tbody > tr > td.SkladBlock > table > tbody > tr:nth-child(1) > td.right.nobreak");
     const stockRemainEl = el.querySelector("table.inner > tbody > tr > td > table > tbody > tr > td.SkladBlock > table > tbody > tr:nth-child(3) > td.right.nobreak");
 
+    if (!needCountEl || !stockRemainEl) {
+      return;
+    }
+
     let needToOtherEl = null;
     if (paperList.length >= 6) {
       needToOtherEl = el.querySelector("table.inner > tbody > tr > td > table > tbody > tr > td.SkladBlock > table > tbody > tr:nth-child(5) > td.right.nobreak");
@@ -3882,9 +3899,13 @@ setInterval(() => {
       needToOtherEl = el.querySelector("table.inner > tbody > tr > td > table > tbody > tr > td.SkladBlock > table > tbody > tr:nth-child(4) > td.right.nobreak");
     }
 
-    const needCountValue = safeParseInt(needCountEl?.innerText);
-    const stockRemainValue = safeParseInt(stockRemainEl?.innerText);
-    const needToOtherValue = safeParseInt(needToOtherEl?.innerText);
+    if (needToOtherEl && !needToOtherEl.classList.contains('nobreak')) {
+      return;
+    }
+
+    const needCountValue = safeParseInt(needCountEl.innerText);
+    const stockRemainValue = safeParseInt(stockRemainEl.innerText);
+    const needToOtherValue = needToOtherEl ? safeParseInt(needToOtherEl.innerText) : 0;
 
     const totalNeeded = needCountValue + needToOtherValue + 50;
 
@@ -3893,7 +3914,9 @@ setInterval(() => {
       paperShortageActive = true;
 
       if (currentStatus === "calc") {
-        if (btnsgroup2) btnsgroup2.style.display = "none";
+        if (btnsgroup2) {
+          btnsgroup2.style.display = "none";
+        }
       } else if (currentStatus === "calc-files") {
         if (btnToWorkWFiles) btnToWorkWFiles.style.display = "none";
         if (btnsgroup1) btnsgroup1.style.display = "none";
