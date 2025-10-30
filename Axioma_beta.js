@@ -1,5 +1,5 @@
 // ==UserScript==
-// @name         Проверка заказа 9.9.6
+// @name         Проверка заказа 9.9.7
 // @namespace    http://tampermonkey.net/
 // @version      1.6
 // @description
@@ -3740,6 +3740,8 @@ if (
     //начало проверки бумаги
 let calcCheck = 0;
 let currentProductId = null;
+let lastRulonMessage = false;
+let paperShortageActive = false;
 
 function safeParseInt(str) {
   if (!str) return 0;
@@ -3749,24 +3751,35 @@ function safeParseInt(str) {
 }
 
 setInterval(() => {
+  // === Проверка на РЕКЛАМА / РУЛОНКА-КОПИЦЕНТР ===
+  const labelElements = document.querySelectorAll('span.label');
+  const hasRulonOrReklama = Array.from(labelElements).some(el =>
+    el.textContent.trim() === "РЕКЛАМА" ||
+    el.textContent.trim() === "РУЛОНКА-КОПИЦЕНТР"
+  );
+
+  if (hasRulonOrReklama) {
+    if (!lastRulonMessage) {
+      lastRulonMessage = true;
+    }
+    calcCheck = 0;
+    paperShortageActive = false;
+    return;
+  } else {
+    lastRulonMessage = false;
+  }
+
+  // === Отслеживание смены заказа ===
   const productIdEl = document.querySelector("#ProductId");
   const newProductId = productIdEl ? productIdEl.textContent.trim() : null;
 
   if (newProductId !== currentProductId) {
     calcCheck = 0;
+    paperShortageActive = false;
     currentProductId = newProductId;
   }
 
-  const statusIconCalc = document.querySelector(
-    '#Top > form > div > div > div > span:nth-child(2) > span.StatusIcon > img[src="/axiom/img/status/status-calc.png"]'
-  );
-  const statusIconCalcWFiles = document.querySelector(
-    '#Top > form > div > div > div > span:nth-child(2) > span.StatusIcon > img[src="/axiom/img/status/status-calc-files.png"]'
-  );
-  const statusIconNoFiles = document.querySelector(
-    '#Top > form > div > div > div > span:nth-child(2) > span.StatusIcon > img[src="/axiom/img/status/status-nofiles.png"]'
-  );
-
+  // === Исключающие статусы ===
   const excludedStatuses = [
     'status-files.png',
     'status-prepress-check.png',
@@ -3786,27 +3799,47 @@ setInterval(() => {
   const hasExcludedStatus = excludedStatuses.some(el => el !== null);
   if (hasExcludedStatus) {
     calcCheck = 0;
+    paperShortageActive = false;
     return;
   }
 
+  // === Сброс при загрузке или сохранении ===
   const fullWindow = document.querySelector("#Doc");
   const spinner = document.getElementsByClassName("spinner")[0];
 
-  if (
-    (statusIconCalc || statusIconCalcWFiles || statusIconNoFiles) &&
-    fullWindow?.classList.contains("LoadingContent")
-  ) {
+  const isCalcStatus = Boolean(
+    document.querySelector('#Top img[src="/axiom/img/status/status-calc.png"]') ||
+    document.querySelector('#Top img[src="/axiom/img/status/status-calc-files.png"]') ||
+    document.querySelector('#Top img[src="/axiom/img/status/status-nofiles.png"]')
+  );
+
+  if (isCalcStatus && fullWindow?.classList.contains("LoadingContent")) {
     calcCheck = 0;
+    paperShortageActive = false;
   }
 
-  if (
-    document.body.innerText.includes("Сохранить расчет") &&
-    spinner
-  ) {
+  if (document.body.innerText.includes("Сохранить расчет") && spinner) {
     calcCheck = 0;
+    paperShortageActive = false;
   }
 
-  if (calcCheck === 1) return;
+  // === Принудительное скрытие кнопок, если активна нехватка ===
+  if (paperShortageActive) {
+    const btnToWorkWFiles = document.querySelector("#Summary > table > tbody > tr > td:nth-child(2) > table > tbody > tr.TimeFilesInfo > td.right > button");
+    const newFilesGet = document.querySelector("#Summary > table > tbody > tr > td:nth-child(2) > table > tbody > tr.TimeFilesInfo > td.right > button");
+    const btnsgroup31 = document.querySelector("#workWithFilesBtn");
+
+    if (btnToWorkWFiles) btnToWorkWFiles.style.display = "none";
+    if (newFilesGet) newFilesGet.style.display = "none";
+    if (btnsgroup31) btnsgroup31.style.display = "none";
+
+    return; // не запускаем повторную проверку
+  }
+
+  // === Определение текущего статуса ===
+  const statusIconCalc = document.querySelector('#Top img[src="/axiom/img/status/status-calc.png"]');
+  const statusIconCalcWFiles = document.querySelector('#Top img[src="/axiom/img/status/status-calc-files.png"]');
+  const statusIconNoFiles = document.querySelector('#Top img[src="/axiom/img/status/status-nofiles.png"]');
 
   let currentStatus = null;
   if (statusIconCalc) currentStatus = "calc";
@@ -3819,6 +3852,9 @@ setInterval(() => {
     return;
   }
 
+  if (calcCheck === 1) return;
+
+  // === Элементы управления ===
   const btnsgroup1 = document.querySelector("#Summary > table > tbody > tr > td:nth-child(1) > div.right > div > button:nth-child(1)");
   const btnsgroup2 = document.querySelector("#Summary > table > tbody > tr > td:nth-child(1) > div.right > div > button:nth-child(2)");
   const btnsgroup3 = document.querySelector("#Summary > table > tbody > tr > td:nth-child(1) > div.right");
@@ -3854,6 +3890,7 @@ setInterval(() => {
 
     if (stockRemainValue <= 0 || totalNeeded > stockRemainValue) {
       shortageFound = true;
+      paperShortageActive = true;
 
       if (currentStatus === "calc") {
         if (btnsgroup2) btnsgroup2.style.display = "none";
@@ -3871,6 +3908,10 @@ setInterval(() => {
       );
     }
   });
+
+  if (!shortageFound) {
+    paperShortageActive = false;
+  }
 }, 2000);
 //конец проверки бумаги
 
