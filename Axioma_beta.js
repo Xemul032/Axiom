@@ -1,5 +1,5 @@
 // ==UserScript==
-// @name         Проверка заказа 9.9.8
+// @name         Проверка заказа 9.9.9
 // @namespace    http://tampermonkey.net/
 // @version      1.6
 // @description
@@ -10543,6 +10543,262 @@ function spisanieBonus () {
 };
 
 spisanieBonus ();
+
+      function hideInfoPage() {
+    'use strict';
+
+    const inputSelector = 'input[type="text"].need.AddressText';
+    const dropdownContainerSelector = '#Summary > table > tbody > tr > td:nth-child(1) > table > tbody:nth-child(3) > tr:nth-child(2) > td:nth-child(2) > table > tbody > tr > td:nth-child(1) > div';
+    const activeClass = 'chosen-container-active';
+    const nomenclatureTableSelector = '#Summary > table > tbody > tr > td:nth-child(1) > table > tbody:nth-child(3)';
+    const costTableSelector = 'table.table.table-striped.table-condensed';
+
+    // === 1. Скрытие input ===
+    function hideInput(el) {
+        if (!el.hasAttribute('data-hidden-by-script')) {
+            el.style.opacity = '0';
+            el.style.pointerEvents = 'none';
+            el.setAttribute('data-hidden-by-script', 'true');
+        }
+    }
+
+    // === 2. Скрытие пункта "- Другое -", только если контейнер активен ===
+    function hideOtherOption(container) {
+        if (!container || !container.classList.contains(activeClass)) {
+            return;
+        }
+
+        const drop = container.querySelector('.chosen-drop');
+        if (!drop) return;
+
+        const otherItem = Array.from(drop.querySelectorAll('li, div, span')).find(el =>
+            el.textContent.trim() === '- Другое -'
+        );
+
+        if (otherItem && !otherItem.hasAttribute('data-hidden-by-script')) {
+            otherItem.style.display = 'none';
+            otherItem.setAttribute('data-hidden-by-script', 'true');
+        }
+    }
+
+    // === 3. Скрытие ТОЛЬКО строк с "Тип номенклатуры" и "Номенклатура" ===
+    function hideSpecificNomenclatureRows(container) {
+        if (!container) return;
+
+        const rows = container.querySelectorAll('tr');
+        rows.forEach(row => {
+            const firstTd = row.querySelector('td:first-child');
+            if (!firstTd) return;
+
+            const text = firstTd.textContent.trim();
+            if (
+                text === 'Тип номенклатуры' ||
+                text === 'Номенклатура'
+            ) {
+                if (!row.hasAttribute('data-hidden-by-script')) {
+                    row.style.opacity = '0.5';
+                    row.style.pointerEvents = 'none';
+                    row.setAttribute('data-hidden-by-script', 'true');
+                }
+            }
+        });
+    }
+
+    // === 4. Скрытие таблицы, содержащей <td>Себестоимость</td> ===
+    function hideCostTable() {
+        const tables = document.querySelectorAll('table');
+        tables.forEach(table => {
+            const hasCostTd = Array.from(table.querySelectorAll('td')).some(td =>
+                td.textContent.trim() === 'Себестоимость'
+            );
+            if (hasCostTd && table.matches(costTableSelector) && !table.hasAttribute('data-hidden-by-script')) {
+                table.style.opacity = '0';
+                table.style.pointerEvents = 'none';
+                table.setAttribute('data-hidden-by-script', 'true');
+            }
+        });
+    }
+
+    // === 5. Замена "Доставка" на "Упаковка" ===
+    function replaceDeliveryWithPacking() {
+        // Ищем все ссылки с href="#chat_8" и текстом "Доставка"
+        const deliveryLinks = document.querySelectorAll('a[href="#chat_8"]');
+        deliveryLinks.forEach(link => {
+            if (link.textContent.trim() === 'Доставка' && !link.hasAttribute('data-renamed-by-script')) {
+                link.textContent = 'Упаковка';
+                link.setAttribute('data-renamed-by-script', 'true');
+            }
+        });
+    }
+
+    // === Инициализация ===
+    document.querySelectorAll(inputSelector).forEach(hideInput);
+
+    const initialDropdownContainer = document.querySelector(dropdownContainerSelector);
+    if (initialDropdownContainer) {
+        hideOtherOption(initialDropdownContainer);
+    }
+
+    const initialNomenclatureContainer = document.querySelector(nomenclatureTableSelector);
+    if (initialNomenclatureContainer) {
+        hideSpecificNomenclatureRows(initialNomenclatureContainer);
+    }
+
+    hideCostTable();
+    replaceDeliveryWithPacking(); // Применяем замену сразу
+
+    // === Наблюдатель за DOM ===
+    const observer = new MutationObserver((mutations) => {
+        for (const mutation of mutations) {
+            if (mutation.type === 'childList') {
+                mutation.addedNodes.forEach(node => {
+                    if (node.nodeType === Node.ELEMENT_NODE) {
+                        if (node.matches && node.matches(inputSelector)) {
+                            hideInput(node);
+                        }
+                        const inputs = node.querySelectorAll ? node.querySelectorAll(inputSelector) : [];
+                        inputs.forEach(hideInput);
+
+                        // Выпадающий список
+                        let dropdownContainers = [];
+                        if (node.matches && node.matches(dropdownContainerSelector)) {
+                            dropdownContainers.push(node);
+                        }
+                        if (node.querySelectorAll) {
+                            dropdownContainers = dropdownContainers.concat(Array.from(node.querySelectorAll(dropdownContainerSelector)));
+                        }
+                        dropdownContainers.forEach(hideOtherOption);
+
+                        // Таблица номенклатуры
+                        if (node.matches && node.matches(nomenclatureTableSelector)) {
+                            hideSpecificNomenclatureRows(node);
+                        }
+                        if (node.querySelectorAll) {
+                            const nomenclatureContainers = node.querySelectorAll(nomenclatureTableSelector);
+                            nomenclatureContainers.forEach(hideSpecificNomenclatureRows);
+                        }
+
+                        // Таблица себестоимости
+                        if (node.tagName === 'TABLE') {
+                            hideCostTable();
+                        } else if (node.querySelectorAll) {
+                            const tablesInNode = node.querySelectorAll('table');
+                            tablesInNode.forEach(() => hideCostTable());
+                        }
+
+                        // Замена "Доставка" → "Упаковка"
+                        if (node.tagName === 'A' && node.href && node.href.includes('#chat_8')) {
+                            replaceDeliveryWithPacking();
+                        } else if (node.querySelectorAll) {
+                            const linksInNode = node.querySelectorAll('a[href="#chat_8"]');
+                            if (linksInNode.length > 0) {
+                                replaceDeliveryWithPacking();
+                            }
+                        }
+                    }
+                });
+
+                const target = mutation.target;
+                if (target.nodeType === Node.ELEMENT_NODE) {
+                    if (target.matches && target.matches(dropdownContainerSelector)) {
+                        hideOtherOption(target);
+                    }
+                    if (target.matches && target.matches(nomenclatureTableSelector)) {
+                        hideSpecificNomenclatureRows(target);
+                    }
+                    if (target.tagName === 'TABLE') {
+                        hideCostTable();
+                    }
+                    if (target.tagName === 'A' && target.href && target.href.includes('#chat_8')) {
+                        replaceDeliveryWithPacking();
+                    }
+                }
+            }
+
+            // Отслеживаем активность выпадашки
+            if (mutation.type === 'attributes' && mutation.attributeName === 'class') {
+                const target = mutation.target;
+                if (target.nodeType === Node.ELEMENT_NODE && target.matches && target.matches(dropdownContainerSelector)) {
+                    hideOtherOption(target);
+                }
+            }
+        }
+    });
+
+    observer.observe(document.body, {
+        childList: true,
+        subtree: true,
+        attributes: true,
+        attributeFilter: ['class']
+    });
+
+    // Резервная проверка (на случай динамической загрузки)
+    document.addEventListener('DOMNodeInserted', () => {
+        setTimeout(() => {
+            hideCostTable();
+            replaceDeliveryWithPacking();
+        }, 100);
+    }, false);
+};
+      hideInfoPage ();
+
+function hideSkidkiUpak() {
+    'use strict';
+
+    function closestTdWithClass(el, className) {
+        while (el && el.tagName !== 'HTML') {
+            if (el.tagName === 'TD' && el.classList.contains(className)) {
+                return el;
+            }
+            el = el.parentElement;
+        }
+        return null;
+    }
+
+    function updateVisibility() {
+        // 1. Условное скрытие ячейки внутри #CalcUt
+        const calcUt = document.querySelector('#CalcUt');
+        const targetCell = document.querySelector('#CalcUt > table > tbody > tr:nth-child(1) > td:nth-child(2)');
+        if (calcUt && targetCell) {
+            targetCell.style.display = 'none';
+        } else if (targetCell) {
+            targetCell.style.display = '';
+        }
+
+        // 2. Скрыть #PackTypeBlock всегда
+        const packTypeBlock = document.getElementById('PackTypeBlock');
+        if (packTypeBlock) {
+            packTypeBlock.style.display = 'none';
+        }
+
+        // 3. Скрыть <td class="nobreak" width="100">, содержащий SummaModifyMin
+        const summaModifyMin = document.getElementById('SummaModifyMin');
+        if (summaModifyMin) {
+            const containerTd = closestTdWithClass(summaModifyMin, 'nobreak');
+            if (containerTd && containerTd.getAttribute('width') === '100') {
+                containerTd.style.display = 'none';
+            }
+        }
+
+        // 4. Добавить отступы слева и справа (по 10px) к #TirazhLabel.superhead
+        const tirazhLabel = document.getElementById('TirazhLabel');
+        if (tirazhLabel && tirazhLabel.classList.contains('superhead')) {
+            tirazhLabel.style.paddingLeft = '20px';
+            tirazhLabel.style.paddingRight = '20px';
+        }
+    }
+
+    // Запускаем сразу
+    updateVisibility();
+
+    // Наблюдаем за изменениями в DOM
+    const observer = new MutationObserver(updateVisibility);
+    observer.observe(document.body, {
+        childList: true,
+        subtree: true
+    });
+};
+      hideSkidkiUpak();
 
 
 
