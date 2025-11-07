@@ -1,5 +1,5 @@
 // ==UserScript==
-// @name         Проверка заказа 10.0.0
+// @name         Проверка заказа 10.0.1
 // @namespace    http://tampermonkey.net/
 // @version      1.6
 // @description
@@ -10397,6 +10397,39 @@ if (clientGettingSelect && clientGettingSelect.value) {
             const input = document.getElementById('bonusAmountInput');
             const errorDiv = document.getElementById('errorMessage');
             const taxiCheckbox = document.getElementById('taxiCheckbox');
+
+            // Запрет на ввод любых символов, кроме цифр и управляющих клавиш
+input.addEventListener('keydown', function(e) {
+    // Разрешаем: цифры, Backspace, Delete, Tab, Escape, Enter, стрелки, Ctrl+A, Ctrl+C, Ctrl+V, Ctrl+X
+    if (
+        // Цифры
+        (e.key >= '0' && e.key <= '9') ||
+        // Служебные клавиши
+        ['Backspace', 'Delete', 'Tab', 'Escape', 'Enter', 'ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown'].includes(e.key) ||
+        // Комбинации с Ctrl (например, Ctrl+A, Ctrl+C, Ctrl+V, Ctrl+X)
+        (e.ctrlKey && ['a', 'c', 'v', 'x'].includes(e.key.toLowerCase()))
+    ) {
+        return; // разрешаем ввод
+    } else {
+        // отменяем ввод
+        e.preventDefault();
+    }
+});
+
+// Также добавим обработчик input для дополнительной защиты
+input.addEventListener('input', () => {
+    let value = input.value;
+    let newValue = value.replace(/[^0-9]/g, '');
+    if (input.value !== newValue) {
+        input.value = newValue;
+    }
+    // Сброс ошибки при вводе
+    if (input.style.borderColor === 'red') {
+        input.style.borderColor = '#ddd';
+        input.style.animation = 'none';
+        errorDiv.textContent = '';
+    }
+});
 
             if (result.found) {
                 taxiCheckbox.checked = !!result.data.taxi;
