@@ -1,5 +1,5 @@
 // ==UserScript==
-// @name         Проверка заказа 9.9.9
+// @name         Проверка заказа 10.0.0
 // @namespace    http://tampermonkey.net/
 // @version      1.6
 // @description
@@ -10179,8 +10179,24 @@ function spisanieBonus () {
             ? (productIdEl.value !== undefined ? productIdEl.value : (productIdEl.textContent || productIdEl.innerText).trim())
             : null;
 
-        const summarySpanEl = document.querySelector("#Summary > table > tbody > tr > td:nth-child(1) > table.table.table-condensed.table-striped > tbody:nth-child(1) > tr:nth-child(2) > td:nth-child(2) > div > a > span");
-        const summaryText = summarySpanEl ? summarySpanEl.textContent || summarySpanEl.innerText : null;
+// Попытка 1: стандартный путь с <div><a><span>
+let summarySpanEl = document.querySelector("#Summary > table > tbody > tr > td:nth-child(1) > table.table.table-condensed.table-striped > tbody:nth-child(1) > tr:nth-child(2) > td:nth-child(2) > div > a > span");
+let summaryText = summarySpanEl ? (summarySpanEl.textContent || summarySpanEl.innerText).trim() : null;
+
+// Попытка 2: если нет span — ищем упрощённую строку вида <tr><td>Заказчик:</td><td>УПТ</td></tr>
+if (!summaryText) {
+    const fallbackRow = document.querySelector("#Summary > table > tbody > tr > td:nth-child(1) > table.table.table-condensed.table-striped > tbody:nth-child(1) > tr:nth-child(2)");
+    if (fallbackRow) {
+        const tds = fallbackRow.querySelectorAll('td');
+        if (tds.length >= 2) {
+            // Проверим, что первая ячейка содержит "Заказчик:" (или похожее), чтобы не ошибиться
+            const firstCellText = (tds[0].textContent || tds[0].innerText).trim().toLowerCase();
+            if (firstCellText.includes('заказчик') || firstCellText === 'клиент') {
+                summaryText = (tds[1].textContent || tds[1].innerText).trim();
+            }
+        }
+    }
+}
 
         if (!productId) {
             loadingDiv.innerHTML = `
@@ -10253,8 +10269,27 @@ function spisanieBonus () {
             }
 
             // === Получаем ClientGettingID из select ===
-            const clientGettingSelect = document.querySelector("#Summary > table > tbody > tr > td:nth-child(1) > table.table.table-condensed.table-striped > tbody:nth-child(1) > tr:nth-child(2) > td:nth-child(2) > select");
-            const gettingClientId = clientGettingSelect ? clientGettingSelect.value : "";
+// === Получаем ClientGettingID из select ИЛИ из скрипта ===
+let gettingClientId = "";
+
+// Попытка 1: стандартный select
+const clientGettingSelect = document.querySelector("#Summary > table > tbody > tr > td:nth-child(1) > table.table.table-condensed.table-striped > tbody:nth-child(1) > tr:nth-child(2) > td:nth-child(2) > select");
+if (clientGettingSelect && clientGettingSelect.value) {
+    gettingClientId = clientGettingSelect.value;
+} else {
+    // Попытка 2: парсим ClientId из <script>
+    const scripts = document.querySelectorAll('script');
+    for (const script of scripts) {
+        const text = script.textContent || script.innerText || '';
+        if (text.includes('Product = {') && text.includes('ClientId:')) {
+            const match = text.match(/ClientId:\s*(\d+)/);
+            if (match) {
+                gettingClientId = match[1]; // строка, как и value у select
+                break;
+            }
+        }
+    }
+}
 
             const isEditing = result.found && !result.data.inSalary;
             const title = isEditing ? "Редактирование бонусов" : "Списание бонусов";
