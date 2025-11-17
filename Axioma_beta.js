@@ -1,5 +1,5 @@
 // ==UserScript==
-// @name         Проверка заказа 10.0.1
+// @name         Проверка заказа 10.0.2
 // @namespace    http://tampermonkey.net/
 // @version      1.6
 // @description
@@ -3770,8 +3770,17 @@ setInterval(() => {
   }
 
   // === Отслеживание смены заказа ===
-  const productIdEl = document.querySelector("#ProductId");
-  const newProductId = productIdEl ? productIdEl.textContent.trim() : null;
+  // Берем ProductId из первого script тега внутри #Doc
+  let newProductId = null;
+  const scriptTag = document.querySelector("#Doc > script:nth-child(1)");
+  if (scriptTag) {
+    // Извлекаем значение Product.Id из содержимого скрипта
+    const scriptContent = scriptTag.textContent;
+    const productIdMatch = scriptContent.match(/Product\s*=\s*{\s*Id:\s*(\d+)/);
+    if (productIdMatch && productIdMatch[1]) {
+      newProductId = productIdMatch[1];
+    }
+  }
 
   if (newProductId !== currentProductId) {
     calcCheck = 0;
@@ -10049,6 +10058,13 @@ function spisanieBonus () {
         return isNaN(num) ? null : num;
     }
 
+    function extractNumericProductId(productId) {
+        if (!productId) return null;
+        // Извлекаем только числовые символы из productId
+        const numericValue = productId.toString().replace(/\D/g, '');
+        return numericValue ? numericValue : null;
+    }
+
     function tryToAddButton() {
         if (buttonAdded) return;
 
@@ -10175,9 +10191,23 @@ function spisanieBonus () {
         const formDiv = document.getElementById('form');
 
         const productIdEl = document.querySelector("#ProductId");
-        const productId = productIdEl
+        let productId = productIdEl
             ? (productIdEl.value !== undefined ? productIdEl.value : (productIdEl.textContent || productIdEl.innerText).trim())
             : null;
+
+        // Извлекаем только числовое значение из productId
+        const numericProductId = extractNumericProductId(productId);
+        if (!numericProductId) {
+            loadingDiv.innerHTML = `
+                <h3 style="margin-top: 0; margin-bottom: 12px; color: #333; font-weight: 600;">Бонусы клиента</h3>
+                <p style="color: #666; margin: 8px 0;">
+                    <strong>Баланс:</strong> <span id="modalBalance" style="color: #28a745; font-weight: bold;">${bonusValue}</span>
+                </p>
+                ❌ Не удалось определить числовое значение ProductId
+            `;
+            formDiv.style.display = 'block';
+            return;
+        }
 
 // Попытка 1: стандартный путь с <div><a><span>
 let summarySpanEl = document.querySelector("#Summary > table > tbody > tr > td:nth-child(1) > table.table.table-condensed.table-striped > tbody:nth-child(1) > tr:nth-child(2) > td:nth-child(2) > div > a > span");
@@ -10198,19 +10228,7 @@ if (!summaryText) {
     }
 }
 
-        if (!productId) {
-            loadingDiv.innerHTML = `
-                <h3 style="margin-top: 0; margin-bottom: 12px; color: #333; font-weight: 600;">Бонусы клиента</h3>
-                <p style="color: #666; margin: 8px 0;">
-                    <strong>Баланс:</strong> <span id="modalBalance" style="color: #28a745; font-weight: bold;">${bonusValue}</span>
-                </p>
-                ❌ Не удалось определить ProductId
-            `;
-            formDiv.style.display = 'block';
-            return;
-        }
-
-        const checkUrl = `${GOOGLE_SCRIPT_WEB_APP_URL}?action=get&productId=${encodeURIComponent(productId)}`;
+        const checkUrl = `${GOOGLE_SCRIPT_WEB_APP_URL}?action=get&productId=${encodeURIComponent(numericProductId)}`;
 
         try {
             const response = await fetch(checkUrl, { method: "GET", mode: "cors" });
@@ -10268,8 +10286,7 @@ if (!summaryText) {
                 }
             }
 
-            // === Получаем ClientGettingID из select ===
-// === Получаем ClientGettingID из select ИЛИ из скрипта ===
+            // === Получаем ClientGettingID из select ИЛИ из скрипта ===
 let gettingClientId = "";
 
 // Попытка 1: стандартный select
@@ -10479,7 +10496,7 @@ input.addEventListener('input', () => {
                     deleteBtn.style.opacity = '0.8';
                     deleteBtn.style.cursor = 'not-allowed';
 
-                    const delUrl = `${GOOGLE_SCRIPT_WEB_APP_URL}?action=delete&productId=${encodeURIComponent(productId)}`;
+                    const delUrl = `${GOOGLE_SCRIPT_WEB_APP_URL}?action=delete&productId=${encodeURIComponent(numericProductId)}`;
                     try {
                         const res = await fetch(delUrl, { method: "GET", mode: "cors" });
                         const data = await res.json();
@@ -10542,8 +10559,8 @@ input.addEventListener('input', () => {
                 submitBtn.style.opacity = '0.8';
                 submitBtn.style.cursor = 'not-allowed';
 
-                // Передаём gettingClientId в URL
-                const saveUrl = `${GOOGLE_SCRIPT_WEB_APP_URL}?action=save&productId=${encodeURIComponent(productId)}&taxi=${taxiChecked}&summaryText=${encodeURIComponent(summaryText || "")}&amount=${encodeURIComponent(amount)}&gettingClientId=${encodeURIComponent(gettingClientId)}`;
+                // Используем числовое значение productId в URL
+                const saveUrl = `${GOOGLE_SCRIPT_WEB_APP_URL}?action=save&productId=${encodeURIComponent(numericProductId)}&taxi=${taxiChecked}&summaryText=${encodeURIComponent(summaryText || "")}&amount=${encodeURIComponent(amount)}&gettingClientId=${encodeURIComponent(gettingClientId)}`;
 
                 try {
                     const res = await fetch(saveUrl, { method: "GET", mode: "cors" });
