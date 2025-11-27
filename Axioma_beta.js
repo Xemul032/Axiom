@@ -1,5 +1,5 @@
 // ==UserScript==
-// @name         Проверка заказа 10.0.3
+// @name         Проверка заказа 10.0.4
 // @namespace    http://tampermonkey.net/
 // @version      1.6
 // @description
@@ -290,10 +290,11 @@ function montages() {
     const TELEGRAM_DELAY = 60000; // 70 секунд
 
     // Проверяем, где находится текст "Монтажные работы на выезде"
-    const selectors = [
-        "#Top > form > div > div > div > input:nth-child(5)",
-        "#Top > form > div > div > div > input.ProductName.form-control",
-        "#Summary > table > tbody > tr > td:nth-child(1) > div.formblock.Order638067 > table:nth-child(1) > tbody > tr > td:nth-child(2) > div > input"
+const selectors = [
+    "#Top > form > div > div > div > input:nth-child(5)",
+    "#Top > form > div > div > div > input.ProductName.form-control",
+    "#Top > form > div > div > div > div.form-control",
+    'div.formblock[class^="Order"] input.OrderName'
     ];
     const UNIQUE_PREFIX = 'montage-script-v2-';
     let buttonAdded = false;
@@ -1245,10 +1246,19 @@ function montages() {
     }
 
 function checkAndAddButton() {
+    const targetText = "Монтажные работы на выезде";
+
     const shouldShow = selectors.some(selector => {
         const el = document.querySelector(selector);
-        return el && el.value.startsWith("Монтажные работы на выезде");
+        if (!el) return false;
+
+        if (el.tagName === "INPUT") {
+            return typeof el.value === "string" && el.value.trim().startsWith(targetText);
+        }
+
+        return el.textContent && el.textContent.trim().startsWith(targetText);
     });
+
     if (shouldShow) {
         if (!buttonAdded || !createdButton || !document.contains(createdButton)) {
             createButton();
