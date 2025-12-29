@@ -1,5 +1,5 @@
 // ==UserScript==
-// @name         Проверка заказа 10.0.4
+// @name         Проверка заказа 10.0.5
 // @namespace    http://tampermonkey.net/
 // @version      1.6
 // @description
@@ -11077,6 +11077,52 @@ function hideSkidkiUpak() {
 };
 
 checkIzdelia();
+
+function lockDateBuh () {
+    'use strict';
+
+    let isActive = false;
+    let targetElement = null;
+
+    function blockElement(element) {
+        if (isActive) return;
+
+        element.style.pointerEvents = 'none';
+        element.style.opacity = '0.6'; // опционально: визуальный индикатор блокировки
+        targetElement = element;
+        isActive = true;
+    }
+
+    function unblockElement() {
+        if (!isActive) return;
+
+        if (targetElement) {
+            targetElement.style.pointerEvents = '';
+            targetElement.style.opacity = '';
+        }
+        targetElement = null;
+        isActive = false;
+    }
+
+    const observer = new MutationObserver(() => {
+        const element = document.querySelector("#Doc > div.bigform > table > tbody > tr > td:nth-child(1) > table > tbody > tr:nth-child(3)");
+        if (element) {
+            blockElement(element);
+        } else {
+            unblockElement();
+        }
+    });
+
+    observer.observe(document.body, { childList: true, subtree: true });
+
+    // Проверка при старте
+    const initialElement = document.querySelector("#Doc > div.bigform > table > tbody > tr > td:nth-child(1) > table > tbody > tr:nth-child(3)");
+    if (initialElement) {
+        blockElement(initialElement);
+    }
+};
+
+lockDateBuh ();
 
 
 
