@@ -1,5 +1,5 @@
 // ==UserScript==
-// @name         Проверка заказа 10.0.5
+// @name         Проверка заказа 10.0.5 (без фин стопа строка 2326)
 // @namespace    http://tampermonkey.net/
 // @version      1.6
 // @description
@@ -2323,40 +2323,40 @@ function lockManager() {
       const image = document.querySelector(paySchemaImage);
       const container = document.querySelector("#Summary > table > tbody > tr > td:nth-child(2) > table > tbody");
 
-      if (image) {
-        const oldWorkBtn = document.getElementById('workWithFilesBtn');
-        if (oldWorkBtn) oldWorkBtn.remove();
+    //   if (image) {
+    //     const oldWorkBtn = document.getElementById('workWithFilesBtn');
+    //     if (oldWorkBtn) oldWorkBtn.remove();
 
-        if (!document.getElementById('financialStopBtn')) {
-          const financialStopBtn = document.createElement('tr');
-          financialStopBtn.id = 'financialStopBtn';
-          financialStopBtn.innerHTML = `<td colspan="2">
-              <button style="
-                  -webkit-text-size-adjust: 100%;
-                  -webkit-tap-highlight-color: rgba(0,0,0,0);
-                  font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;
-                  line-height: 1.42857143;
-                  font-size: 14px;
-                  border-spacing: 0;
-                  border-collapse: collapse;
-                  box-sizing: border-box;
-                  border: solid 1px #a90000;
-                  background-color: #ff0000;
-                  color: #ffffff;
-                  text-align: center;
-                  padding: 6px 12px;
-                  margin: 10px 0;
-                  width: 100%;
-                  display: block;
-                  cursor: pointer;
-                  transition: all 0.2s ease;
-              ">Фин.стоп</button>
-          </td>`;
-          container.appendChild(financialStopBtn);
-        }
-      } else {
-        const oldFinBtn = document.getElementById('financialStopBtn');
-        if (oldFinBtn) oldFinBtn.remove();
+    //     if (!document.getElementById('financialStopBtn')) {
+    //       const financialStopBtn = document.createElement('tr');
+    //       financialStopBtn.id = 'financialStopBtn';
+    //       financialStopBtn.innerHTML = `<td colspan="2">
+    //           <button style="
+    //               -webkit-text-size-adjust: 100%;
+    //               -webkit-tap-highlight-color: rgba(0,0,0,0);
+    //               font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;
+    //               line-height: 1.42857143;
+    //               font-size: 14px;
+    //               border-spacing: 0;
+    //               border-collapse: collapse;
+    //               box-sizing: border-box;
+    //               border: solid 1px #a90000;
+    //               background-color: #ff0000;
+    //               color: #ffffff;
+    //               text-align: center;
+    //               padding: 6px 12px;
+    //               margin: 10px 0;
+    //               width: 100%;
+    //               display: block;
+    //               cursor: pointer;
+    //               transition: all 0.2s ease;
+    //           ">Фин.стоп</button>
+    //       </td>`;
+    //       container.appendChild(financialStopBtn);
+    //     }
+    //   } else {
+    //     const oldFinBtn = document.getElementById('financialStopBtn');
+    //     if (oldFinBtn) oldFinBtn.remove();
 
         const regButton = document.querySelector(regButtonSelector);
         const rightDiv = document.querySelector(rightContainerSelector);
@@ -4186,13 +4186,7 @@ setInterval(() => {
       datecheck = 0;
     }
     const links = document.body.querySelectorAll("a");
-    links.forEach((elem) => {
-      elem.addEventListener("click", () => {
-        setTimeout(() => {
-          datecheck = 0;
-        }, 200);
-      });
-    });
+
 
     // Выбираем все дочерние элементы первого уровня у div
 
@@ -4540,8 +4534,8 @@ setInterval(() => {
   }
 
   // Запускаем проверку при загрузке страницы
-  window.addEventListener("load");
-  setInterval(checkForText, 500); // Проверка наличия текста каждую секунду
+  //window.addEventListener("load");
+ // setInterval(checkForText, 500); // Проверка наличия текста каждую секунду
 
   setInterval(checkForcolorCheck, 100);
   setInterval(checkingClients, 100);
@@ -11129,8 +11123,6 @@ lockDateBuh ();
 
 
 
-
-
     // Функция для отображения обратной связи (изменение кнопки)
     function showFeedback(button) {
         button.innerText = 'Done'; // Меняем текст на "Done"
@@ -11145,5 +11137,94 @@ lockDateBuh ();
 
     // Проверяем наличие слова каждые 1000 миллисекунд
     setInterval(checkForWord, 1000);
+      function clearConsole() {
+    'use strict';
+
+    // Задержка для гарантированного перехвата console до других скриптов
+    setTimeout(() => {
+        const originalConsole = {};
+        const methods = ['log', 'warn', 'error', 'info', 'debug', 'table', 'group', 'groupEnd', 'trace', 'dir'];
+
+        // Сохраняем оригинальные методы
+        methods.forEach(method => {
+            if (typeof console[method] === 'function') {
+                originalConsole[method] = console[method];
+            }
+        });
+
+        // Переопределяем методы: сначала очищаем, потом — ничего не выводим
+        methods.forEach(method => {
+            if (originalConsole[method]) {
+                console[method] = function (...args) {
+                    console.clear(); // Очищаем консоль
+                    // Не выводим сообщение — полностью подавляем
+                    // Если хочешь видеть сообщения кратко — раскомментируй следующую строку:
+                    // originalConsole[method].apply(console, args);
+                };
+            }
+        });
+
+        // Блокируем системные ошибки (Uncaught, Violation и т.д.)
+        window.addEventListener('error', function (e) {
+            e.preventDefault();
+            console.clear();
+            return true;
+        }, true);
+
+        window.addEventListener('unhandledrejection', function (e) {
+            e.preventDefault();
+            console.clear();
+            return true;
+        }, true);
+
+        // Перехватываем window.onerror
+        const originalOnError = window.onerror;
+        window.onerror = function (message, source, lineno, colno, error) {
+            console.clear();
+            // Можно передать дальше, если нужно
+            if (typeof originalOnError === 'function') {
+                return originalOnError.apply(window, arguments);
+            }
+            return true; // предотвращаем стандартный вывод в консоль
+        };
+
+        // Также перехватываем console.clear(), чтобы не мешал
+        const originalClear = console.clear;
+        console.clear = function () {
+            // Ничего не делаем — или можно вызвать originalClear()
+            // originalClear();
+        };
+
+        // Дополнительно: блокируем вывод через Proxy (если используется)
+        try {
+            const proxyConsole = new Proxy(console, {
+                get(target, prop) {
+                    if (methods.includes(prop)) {
+                        return function (...args) {
+                            console.clear();
+                            // Не выводим
+                        };
+                    }
+                    return target[prop];
+                }
+            });
+            // Это может не сработать, если console уже был использован — но попробуем
+            Object.defineProperty(window, 'console', {
+                value: proxyConsole,
+                writable: false,
+                configurable: false
+            });
+        } catch (e) {
+            // Если не удалось — продолжаем работать без прокси
+        }
+
+        // Выводим в консоль, что скрипт активен (только один раз)
+        console.log('✅ Auto Clear Console: активирован');
+        console.clear();
+
+    }, 500); // небольшая задержка для надёжности
+
+};
+      clearConsole();
 })();
 })();
