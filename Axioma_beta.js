@@ -1,5 +1,5 @@
 // ==UserScript==
-// @name         Проверка заказа 10.0.5 (без фин стопа строка 2326)
+// @name         Проверка заказа 10.0.6
 // @namespace    http://tampermonkey.net/
 // @version      1.6
 // @description
@@ -2323,40 +2323,40 @@ function lockManager() {
       const image = document.querySelector(paySchemaImage);
       const container = document.querySelector("#Summary > table > tbody > tr > td:nth-child(2) > table > tbody");
 
-    //   if (image) {
-    //     const oldWorkBtn = document.getElementById('workWithFilesBtn');
-    //     if (oldWorkBtn) oldWorkBtn.remove();
+     if (image) {
+         const oldWorkBtn = document.getElementById('workWithFilesBtn');
+     if (oldWorkBtn) oldWorkBtn.remove();
 
-    //     if (!document.getElementById('financialStopBtn')) {
-    //       const financialStopBtn = document.createElement('tr');
-    //       financialStopBtn.id = 'financialStopBtn';
-    //       financialStopBtn.innerHTML = `<td colspan="2">
-    //           <button style="
-    //               -webkit-text-size-adjust: 100%;
-    //               -webkit-tap-highlight-color: rgba(0,0,0,0);
-    //               font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;
-    //               line-height: 1.42857143;
-    //               font-size: 14px;
-    //               border-spacing: 0;
-    //               border-collapse: collapse;
-    //               box-sizing: border-box;
-    //               border: solid 1px #a90000;
-    //               background-color: #ff0000;
-    //               color: #ffffff;
-    //               text-align: center;
-    //               padding: 6px 12px;
-    //               margin: 10px 0;
-    //               width: 100%;
-    //               display: block;
-    //               cursor: pointer;
-    //               transition: all 0.2s ease;
-    //           ">Фин.стоп</button>
-    //       </td>`;
-    //       container.appendChild(financialStopBtn);
-    //     }
-    //   } else {
-    //     const oldFinBtn = document.getElementById('financialStopBtn');
-    //     if (oldFinBtn) oldFinBtn.remove();
+     if (!document.getElementById('financialStopBtn')) {
+         const financialStopBtn = document.createElement('tr');
+        financialStopBtn.id = 'financialStopBtn';
+         financialStopBtn.innerHTML = `<td colspan="2">
+              <button style="
+                  -webkit-text-size-adjust: 100%;
+                   -webkit-tap-highlight-color: rgba(0,0,0,0);
+                   font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;
+                   line-height: 1.42857143;
+                  font-size: 14px;
+                   border-spacing: 0;
+                   border-collapse: collapse;
+                   box-sizing: border-box;
+                   border: solid 1px #a90000;
+                   background-color: #ff0000;
+                   color: #ffffff;
+                   text-align: center;
+                   padding: 6px 12px;
+                   margin: 10px 0;
+                   width: 100%;
+                   display: block;
+                   cursor: pointer;
+                   transition: all 0.2s ease;
+              ">Фин.стоп</button>
+          </td>`;
+           container.appendChild(financialStopBtn);
+         }
+      } else {
+         const oldFinBtn = document.getElementById('financialStopBtn');
+        if (oldFinBtn) oldFinBtn.remove();
 
         const regButton = document.querySelector(regButtonSelector);
         const rightDiv = document.querySelector(rightContainerSelector);
