@@ -1,5 +1,5 @@
 // ==UserScript==
-// @name         Проверка заказа 10.0.6
+// @name         Проверка заказа 10.0.7
 // @namespace    http://tampermonkey.net/
 // @version      1.6
 // @description
@@ -5284,7 +5284,7 @@ gs_fetchGoogleSheetData();
           closeDay = 10;
       } else if (quarter === 4) {
           closeMonth = 0; // Январь следующего года
-          closeDay = 25;
+          closeDay = 19;
       }
 
       if (quarter === 4) {
