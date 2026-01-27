@@ -1,5 +1,5 @@
 // ==UserScript==
-// @name         Проверка заказа 10.0.7
+// @name         Проверка заказа 10.0.8
 // @namespace    http://tampermonkey.net/
 // @version      1.6
 // @description
@@ -4331,132 +4331,79 @@ setInterval(() => {
 
   let dateListUpdate1 = 0;
 
-  function addDateOnOrderList() {
+function addDateOnOrderList() {
     const dateColumn = document.querySelector(
-      "#ManagerList > div > div.ax-table-body > table > thead > tr:nth-child(1) > th:nth-child(11) > span"
+        "#ManagerList > div > div.ax-table-body > table > thead > tr:nth-child(1) > th:nth-child(11) > span"
     );
-    setInterval(() => {
-      const orderListLoading = document.querySelectorAll(
-        "#ManagerList > div > div.ax-table-body > table > tbody > tr > td"
-      );
-      if (orderListLoading && orderListLoading.length <= 1) {
-        dateListUpdate1 = 0;
-      }
-    }, 0);
+
     if (dateColumn !== null && dateListUpdate1 === 0) {
-      function updateDates(selector) {
         dateListUpdate1 = 1;
-        const dateBlocks = document.querySelectorAll(selector);
 
-        dateBlocks.forEach((dateBlock) => {
-          const dateText = dateBlock.textContent.trim();
+        // Обработчик для существующих и новых элементов
+        function processDateElements() {
+            const dateElements = document.querySelectorAll(
+                "#ManagerList > div > div.ax-table-body > table > tbody > tr > td.nobreak > span"
+            );
 
-          // Регулярное выражение для определения формата даты
-          const fullDateRegex = /^\d{4}, \d{2} [а-яё]+ \d{2}:\d{2}$/i;
-          const shortDateRegex = /^\d{2} [а-яё]+ \d{2}:\d{2}$/i;
+            dateElements.forEach(element => {
+                // Пропускаем уже обработанные элементы
+                if (element.hasAttribute('data-date-processed')) return;
 
-          let newDate;
+                const dateText = element.textContent.trim();
+                const newDateRegex = /^\d{2}\.\d{2}\.\d{4}, \d{2}:\d{2}$/;
 
-          if (fullDateRegex.test(dateText)) {
-            // Формат: "2024, 30 дек 16:57"
-            newDate = parseFullDate(dateText);
-          } else if (shortDateRegex.test(dateText)) {
-            // Формат: "16 янв 09:35"
-            newDate = parseShortDate(dateText);
-          } else {
+                if (newDateRegex.test(dateText)) {
+                    try {
+                        const [datePart, timePart] = dateText.split(', ');
+                        const [day, month, year] = datePart.split('.').map(Number);
+                        const [hours, minutes] = timePart.split(':').map(Number);
 
-            return;
-          }
+                        let dateObj = new Date(year, month - 1, day, hours, minutes);
+                        dateObj.setDate(dateObj.getDate() + 1);
+                        dateObj.setHours(10, 0, 0, 0);
 
-          // Увеличиваем дату на 1 день и устанавливаем фиксированное время 10:00
-          newDate.setDate(newDate.getDate() + 1);
-          newDate.setHours(10, 0, 0, 0);
+                        const newDay = String(dateObj.getDate()).padStart(2, '0');
+                        const newMonth = String(dateObj.getMonth() + 1).padStart(2, '0');
+                        const newYear = dateObj.getFullYear();
 
-          // Обновляем текст в нужном формате
-          const updatedText = formatDate(newDate, dateText.includes(","));
-          dateBlock.textContent = updatedText;
-          dateBlock.style.backgroundColor = "yellow"
-        });
-      }
-
-      function parseFullDate(dateText) {
-        // "2024, 30 дек 16:57" -> Date
-        const [year, rest] = dateText.split(", ");
-        const [day, month, time] = rest.split(" ");
-        const [hours, minutes] = time.split(":");
-        const monthIndex = getMonthIndex(month);
-
-        return new Date(year, monthIndex, day, hours, minutes);
-      }
-
-      function parseShortDate(dateText) {
-        // "16 янв 09:35" -> Date
-        const [day, month, time] = dateText.split(" ");
-        const [hours, minutes] = time.split(":");
-        const currentYear = new Date().getFullYear();
-        const monthIndex = getMonthIndex(month);
-
-        return new Date(currentYear, monthIndex, day, hours, minutes);
-      }
-
-      function formatDate(date, includeYear) {
-        const day = String(date.getDate()).padStart(2, "0");
-        const month = getMonthName(date.getMonth());
-        const time = `${String(date.getHours()).padStart(2, "0")}:${String(
-          date.getMinutes()
-        ).padStart(2, "0")}`;
-
-        if (includeYear) {
-          return `${date.getFullYear()}, ${day} ${month}`;
-        } else {
-          return `${day} ${month} `;
+                        element.textContent = `${newDay}.${newMonth}.${newYear}, 10:00`;
+                        element.style.backgroundColor = "yellow";
+                        element.setAttribute('data-date-processed', 'true');
+                    } catch (e) {
+                        console.error("Error processing date:", e);
+                    }
+                }
+            });
         }
-      }
 
-      function getMonthIndex(monthName) {
-        const months = [
-          "янв",
-          "фев",
-          "мар",
-          "апр",
-          "мая",
-          "июн",
-          "июл",
-          "авг",
-          "сен",
-          "окт",
-          "ноя",
-          "дек",
-        ];
-        return months.indexOf(monthName.toLowerCase());
-      }
+        // Обрабатываем существующие элементы
+        processDateElements();
 
-      function getMonthName(monthIndex) {
-        const months = [
-          "янв",
-          "фев",
-          "мар",
-          "апр",
-          "мая",
-          "июн",
-          "июл",
-          "авг",
-          "сен",
-          "окт",
-          "ноя",
-          "дек",
-        ];
-        return months[monthIndex];
-      }
+        // Настройка наблюдателя для новых элементов
+        const tableBody = document.querySelector(
+            "#ManagerList > div > div.ax-table-body > table > tbody"
+        );
 
-      // Пример использования:
-      updateDates(
-        "#ManagerList > div > div.ax-table-body > table > tbody > tr > td.nobreak > span"
-      );
+        if (tableBody) {
+            const observer = new MutationObserver(mutations => {
+                mutations.forEach(mutation => {
+                    mutation.addedNodes.forEach(node => {
+                        if (node.nodeType === 1 && node.tagName === 'TR') {
+                            processDateElements();
+                        }
+                    });
+                });
+            });
+
+            observer.observe(tableBody, {
+                childList: true,
+                subtree: false
+            });
+        }
     } else if (dateColumn == null) {
-      dateListUpdate1 = 0;
+        dateListUpdate1 = 0;
     }
-  }
+}
   let prepressCheck = 0;
   function hideDropzone() {
     const searchText = "Номенклатура";
