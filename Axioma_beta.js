@@ -1,5 +1,5 @@
 // ==UserScript==
-// @name         Проверка заказа 10.0.8
+// @name         Проверка заказа 10.0.81
 // @namespace    http://tampermonkey.net/
 // @version      1.6
 // @description
@@ -4410,10 +4410,10 @@ function addDateOnOrderList() {
     const searchText1 = "Номенклатура по умолчанию";
     const bodyText = document.body.innerText;
     const statusNotToCheck1 = document.querySelector(
-      '#Top > form > div > div > div > span:nth-child(2) > span.StatusIcon > img[src="img/status/status-files.png"]'
+      '#Top > form > div > div > div > span:nth-child(2) > span.StatusIcon > img[src="/axiom/img/status/status-files.png"]'
     );
     const statusNotToCheck2 = document.querySelector(
-      '#Top > form > div > div > div > span:nth-child(2) > span.StatusIcon > img[src="img/status/status-prepress-check.png"]'
+      '#Top > form > div > div > div > span:nth-child(2) > span.StatusIcon > img[src="/axiom/img/status/status-prepress-check.png"]'
     );
     const ordersHistory = document.querySelectorAll(".formblock");
     const fullWindow = document.querySelector("#Doc");
