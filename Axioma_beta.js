@@ -1,5 +1,5 @@
 // ==UserScript==
-// @name         Проверка заказа 10.0.82
+// @name         Проверка заказа 10.0.83
 // @namespace    http://tampermonkey.net/
 // @version      1.6
 // @description
@@ -11752,7 +11752,7 @@ lockDateBuh ();
 
         // Шаг 1: Проверяем чёрный список
         showLoadingModal('Проверка доступа...');
-        setProgress(20, 'Загрузка чёрного списка...');
+        setProgress(20, 'Проверка чёрного списка...');
 
         try {
             const isBlacklisted = await checkBlacklist(username);
