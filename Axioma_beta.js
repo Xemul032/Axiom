@@ -1,5 +1,5 @@
 // ==UserScript==
-// @name         Проверка заказа 10.0.83
+// @name         Проверка заказа 10.0.84
 // @namespace    http://tampermonkey.net/
 // @version      1.6
 // @description
@@ -11077,7 +11077,7 @@ lockDateBuh ();
 
     const PAY_ICON_SELECTOR = '#Top > form > div > div > div > span:nth-child(2) > span.PaySchemaIcon > img';
     const PAY_ICON_SRC = '/axiom/img/payschema/payschema-1.png';
-    const SUMMARY_TABLE_SELECTOR = '#Summary > table > tbody > tr > td:nth-child(2) > table';
+    const SUMMARY_TABLE_SELECTOR = '#Summary > table > tbody > tr > td:nth-child(2) > table > tbody > tr.TimeFilesInfo > td.right > button';
     const PRODUCT_ID_SELECTOR = '#ProductId';
     const USERNAME_SELECTOR = 'body > ul > div > li:nth-child(1) > a';
     const WORK_WITH_FILES_BTN_SELECTOR = '#workWithFilesBtn';
@@ -11845,30 +11845,41 @@ lockDateBuh ();
     // ─────────────────────────────────────────────
     // Показать фин.стоп
     // ─────────────────────────────────────────────
-    function activateFinStop() {
-        if (finStopActive) return;
+// ─────────────────────────────────────────────
+// Показать фин.стоп
+// ─────────────────────────────────────────────
+function activateFinStop() {
+    if (finStopActive) return;
 
-        // Если этот заказ уже был снят с фин.стопа — не показываем блок повторно
-        const currentPid = getCurrentProductId();
-        if (dismissedProductId && currentPid && dismissedProductId === currentPid) {
-            return;
-        }
-
-        const summaryTable = document.querySelector(SUMMARY_TABLE_SELECTOR);
-        if (!summaryTable) return;
-
-        summaryTable.style.display = 'none';
-
-        // ── Синхронно скрываем кнопку #workWithFilesBtn ──
-        const workBtn = document.querySelector(WORK_WITH_FILES_BTN_SELECTOR);
-        if (workBtn) {
-            workBtn.style.display = 'none';
-        }
-
-        finStopContainer = createFinStopBlock();
-        summaryTable.parentNode.insertBefore(finStopContainer, summaryTable);
-        finStopActive = true;
+    // Если этот заказ уже был снят с фин.стопа — не показываем блок повторно
+    const currentPid = getCurrentProductId();
+    if (dismissedProductId && currentPid && dismissedProductId === currentPid) {
+        return;
     }
+
+    // Ищем родительскую таблицу, под которой нужно вставить блок
+    const parentTable = document.querySelector("#Summary > table > tbody > tr > td:nth-child(2) > table");
+    if (!parentTable) return;
+
+    // Скрываем кнопку внутри таблицы
+    const summaryTable = document.querySelector(SUMMARY_TABLE_SELECTOR);
+    if (summaryTable) {
+        summaryTable.style.display = 'none';
+    }
+
+    // ── Синхронно скрываем кнопку #workWithFilesBtn ──
+    const workBtn = document.querySelector(WORK_WITH_FILES_BTN_SELECTOR);
+    if (workBtn) {
+        workBtn.style.display = 'none';
+    }
+
+    finStopContainer = createFinStopBlock();
+
+    // Вставляем блок ПОСЛЕ родительской таблицы
+    parentTable.parentNode.insertBefore(finStopContainer, parentTable.nextSibling);
+
+    finStopActive = true;
+}
 
     // ─────────────────────────────────────────────
     // Убрать фин.стоп, вернуть таблицу
