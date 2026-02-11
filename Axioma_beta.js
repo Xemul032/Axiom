@@ -1,5 +1,5 @@
 // ==UserScript==
-// @name         Проверка заказа 10.0.84
+// @name         Проверка заказа 10.0.85
 // @namespace    http://tampermonkey.net/
 // @version      1.6
 // @description
@@ -11081,14 +11081,61 @@ lockDateBuh ();
     const PRODUCT_ID_SELECTOR = '#ProductId';
     const USERNAME_SELECTOR = 'body > ul > div > li:nth-child(1) > a';
     const WORK_WITH_FILES_BTN_SELECTOR = '#workWithFilesBtn';
+    const LOADING_INDICATOR_SELECTOR = '#DocLoadingIndicator';
 
     let finStopActive = false;
     let finStopContainer = null;
     let shadowRoot = null;
     let modalContainer = null;
-
-    // ─── Флаг: пользователь уже снял фин.стоп в текущей сессии ───
     let dismissedProductId = null;
+    let observer = null;
+    let isPageLoading = false;
+
+    // ─────────────────────────────────────────────
+    // Отслеживание состояния загрузки страницы
+    // ─────────────────────────────────────────────
+    function checkLoadingState() {
+        const indicator = document.querySelector(LOADING_INDICATOR_SELECTOR);
+        if (!indicator) return false;
+
+        return indicator.classList.contains('is-visible');
+    }
+
+    function handleLoadingStateChange() {
+        const nowLoading = checkLoadingState();
+
+        if (nowLoading && !isPageLoading) {
+            // Начало загрузки
+            isPageLoading = true;
+            console.log('[FinStop] Страница начала обновляться');
+        } else if (!nowLoading && isPageLoading) {
+            // Загрузка завершена
+            isPageLoading = false;
+            console.log('[FinStop] Страница загрузилась, перезапуск проверки');
+
+            // Сбрасываем состояние и перепроверяем
+            setTimeout(() => {
+                resetFinStopState();
+                checkPayIcon();
+            }, 300);
+        }
+    }
+
+    // ─────────────────────────────────────────────
+    // Сброс состояния фин.стопа
+    // ─────────────────────────────────────────────
+    function resetFinStopState() {
+        if (finStopContainer && finStopContainer.parentNode) {
+            finStopContainer.parentNode.removeChild(finStopContainer);
+        }
+        const orphan = document.getElementById('finstop-block');
+        if (orphan && orphan.parentNode) {
+            orphan.parentNode.removeChild(orphan);
+        }
+
+        finStopContainer = null;
+        finStopActive = false;
+    }
 
     // ─────────────────────────────────────────────
     // Ждём готовности body перед вставкой shadow-host
@@ -11297,7 +11344,6 @@ lockDateBuh ();
         return true;
     }
 
-    // Инициализация shadow-хоста
     if (!initShadowHost()) {
         const bodyWaiter = setInterval(() => {
             if (initShadowHost()) clearInterval(bodyWaiter);
@@ -11348,13 +11394,11 @@ lockDateBuh ();
     // Проверка совпадения менеджера с аккаунтом
     // ─────────────────────────────────────────────
     function getManagerLastName() {
-        // Ищем ФИО менеджера в выпадающем списке chosen-single > span
         const span = document.querySelector('.chosen-single > span');
         if (!span) return '';
         const fullText = span.textContent.trim();
         if (!fullText) return '';
         const words = fullText.split(/\s+/).filter(w => w.length > 0);
-        // Последнее слово — фамилия
         return words.length > 0 ? words[words.length - 1] : '';
     }
 
@@ -11372,7 +11416,6 @@ lockDateBuh ();
         const accountFirstWord = getTopMenuFirstWord();
 
         if (!managerLastName || !accountFirstWord) {
-            // Если данные не найдены — пропускаем проверку (не блокируем)
             return true;
         }
 
@@ -11380,7 +11423,7 @@ lockDateBuh ();
     }
 
     // ─────────────────────────────────────────────
-    // Модалка: Ошибка совпадения менеджера
+    // Модалки
     // ─────────────────────────────────────────────
     function showManagerMismatchModal() {
         const { overlay, box } = buildOverlay();
@@ -11412,7 +11455,6 @@ lockDateBuh ();
         box.appendChild(text);
         box.appendChild(buttons);
 
-        // Закрытие по клику вне модального окна
         overlay.addEventListener('click', (e) => {
             if (e.target === overlay) {
                 closeModal();
@@ -11422,11 +11464,7 @@ lockDateBuh ();
         showModal(overlay);
     }
 
-    // ─────────────────────────────────────────────
-    // Модалка: Подтверждение снятия с фин.стопа
-    // ─────────────────────────────────────────────
     function showConfirmModal() {
-        // ── Проверка совпадения менеджера перед показом подтверждения ──
         if (!isManagerMatchesAccount()) {
             showManagerMismatchModal();
             return;
@@ -11470,9 +11508,6 @@ lockDateBuh ();
         showModal(overlay);
     }
 
-    // ─────────────────────────────────────────────
-    // Модалка: Загрузка
-    // ─────────────────────────────────────────────
     function showLoadingModal(text) {
         const { overlay, box } = buildOverlay();
 
@@ -11513,9 +11548,6 @@ lockDateBuh ();
         if (sub && subText) sub.textContent = subText;
     }
 
-    // ─────────────────────────────────────────────
-    // Модалка: Успех
-    // ─────────────────────────────────────────────
     function showSuccessModal() {
         const { overlay, box } = buildOverlay();
 
@@ -11556,9 +11588,6 @@ lockDateBuh ();
         showModal(overlay);
     }
 
-    // ─────────────────────────────────────────────
-    // Модалка: Ошибка
-    // ─────────────────────────────────────────────
     function showErrorModal(message) {
         const { overlay, box } = buildOverlay();
 
@@ -11592,9 +11621,6 @@ lockDateBuh ();
         showModal(overlay);
     }
 
-    // ─────────────────────────────────────────────
-    // Модалка: Чёрный список
-    // ─────────────────────────────────────────────
     function showBlacklistModal() {
         const { overlay, box } = buildOverlay();
 
@@ -11645,16 +11671,13 @@ lockDateBuh ();
         return { productId, username };
     }
 
-    // ─────────────────────────────────────────────
-    // Получение текущего ProductId для сравнения
-    // ─────────────────────────────────────────────
     function getCurrentProductId() {
         const el = document.querySelector(PRODUCT_ID_SELECTOR);
         return el ? (el.value || el.textContent.trim()) : '';
     }
 
     // ─────────────────────────────────────────────
-    // Проверка Blacklist (GET)
+    // API запросы
     // ─────────────────────────────────────────────
     function checkBlacklist(username) {
         return new Promise((resolve, reject) => {
@@ -11706,9 +11729,6 @@ lockDateBuh ();
         });
     }
 
-    // ─────────────────────────────────────────────
-    // Запись данных в таблицу (POST)
-    // ─────────────────────────────────────────────
     function writeToSheet(productId, username) {
         return new Promise((resolve, reject) => {
             GM_xmlhttpRequest({
@@ -11739,9 +11759,6 @@ lockDateBuh ();
         });
     }
 
-    // ─────────────────────────────────────────────
-    // Обработчик нажатия «Ок» в модалке подтверждения
-    // ─────────────────────────────────────────────
     async function handleOk() {
         const { productId, username } = collectData();
 
@@ -11750,7 +11767,6 @@ lockDateBuh ();
             return;
         }
 
-        // Шаг 1: Проверяем чёрный список
         showLoadingModal('Проверка доступа...');
         setProgress(20, 'Проверка чёрного списка...');
 
@@ -11763,7 +11779,6 @@ lockDateBuh ();
                 return;
             }
 
-            // Шаг 2: Записываем данные
             setProgress(60, 'Запись данных в таблицу...');
 
             await new Promise(r => setTimeout(r, 300));
@@ -11842,66 +11857,47 @@ lockDateBuh ();
         return container;
     }
 
-    // ─────────────────────────────────────────────
-    // Показать фин.стоп
-    // ─────────────────────────────────────────────
-// ─────────────────────────────────────────────
-// Показать фин.стоп
-// ─────────────────────────────────────────────
-function activateFinStop() {
-    if (finStopActive) return;
+    function activateFinStop() {
+        if (finStopActive) return;
 
-    // Если этот заказ уже был снят с фин.стопа — не показываем блок повторно
-    const currentPid = getCurrentProductId();
-    if (dismissedProductId && currentPid && dismissedProductId === currentPid) {
-        return;
+        const currentPid = getCurrentProductId();
+        if (dismissedProductId && currentPid && dismissedProductId === currentPid) {
+            return;
+        }
+
+        const parentTable = document.querySelector("#Summary > table > tbody > tr > td:nth-child(2) > table");
+        if (!parentTable) return;
+
+        const summaryTable = document.querySelector(SUMMARY_TABLE_SELECTOR);
+        if (summaryTable) {
+            summaryTable.style.display = 'none';
+        }
+
+        const workBtn = document.querySelector(WORK_WITH_FILES_BTN_SELECTOR);
+        if (workBtn) {
+            workBtn.style.display = 'none';
+        }
+
+        finStopContainer = createFinStopBlock();
+        parentTable.parentNode.insertBefore(finStopContainer, parentTable.nextSibling);
+
+        finStopActive = true;
     }
 
-    // Ищем родительскую таблицу, под которой нужно вставить блок
-    const parentTable = document.querySelector("#Summary > table > tbody > tr > td:nth-child(2) > table");
-    if (!parentTable) return;
-
-    // Скрываем кнопку внутри таблицы
-    const summaryTable = document.querySelector(SUMMARY_TABLE_SELECTOR);
-    if (summaryTable) {
-        summaryTable.style.display = 'none';
-    }
-
-    // ── Синхронно скрываем кнопку #workWithFilesBtn ──
-    const workBtn = document.querySelector(WORK_WITH_FILES_BTN_SELECTOR);
-    if (workBtn) {
-        workBtn.style.display = 'none';
-    }
-
-    finStopContainer = createFinStopBlock();
-
-    // Вставляем блок ПОСЛЕ родительской таблицы
-    parentTable.parentNode.insertBefore(finStopContainer, parentTable.nextSibling);
-
-    finStopActive = true;
-}
-
-    // ─────────────────────────────────────────────
-    // Убрать фин.стоп, вернуть таблицу
-    // ─────────────────────────────────────────────
     function restoreSummaryTable() {
-        // Ищем таблицу заново на случай, если DOM обновился
         const summaryTable = document.querySelector(SUMMARY_TABLE_SELECTOR);
         if (summaryTable) {
             summaryTable.style.display = '';
         }
 
-        // ── Синхронно показываем кнопку #workWithFilesBtn ──
         const workBtn = document.querySelector(WORK_WITH_FILES_BTN_SELECTOR);
         if (workBtn) {
             workBtn.style.display = '';
         }
 
-        // Удаляем фин.стоп блок — сначала по ссылке, потом на всякий случай по ID
         if (finStopContainer && finStopContainer.parentNode) {
             finStopContainer.parentNode.removeChild(finStopContainer);
         }
-        // Защита: если ссылка «протухла», ищем в DOM по id
         const orphan = document.getElementById('finstop-block');
         if (orphan && orphan.parentNode) {
             orphan.parentNode.removeChild(orphan);
@@ -11911,19 +11907,16 @@ function activateFinStop() {
         finStopActive = false;
     }
 
-    // ─────────────────────────────────────────────
-    // Деактивация (когда иконка пропала)
-    // ─────────────────────────────────────────────
     function deactivateFinStop() {
         if (!finStopActive) return;
         dismissedProductId = null;
         restoreSummaryTable();
     }
 
-    // ─────────────────────────────────────────────
-    // Проверка наличия иконки
-    // ─────────────────────────────────────────────
     function checkPayIcon() {
+        // Не проверяем, если страница загружается
+        if (isPageLoading) return;
+
         const img = document.querySelector(PAY_ICON_SELECTOR);
         if (img && img.src && img.src.includes(PAY_ICON_SRC)) {
             activateFinStop();
@@ -11933,40 +11926,53 @@ function activateFinStop() {
     }
 
     // ─────────────────────────────────────────────
-    // Наблюдатель DOM
+    // Наблюдатель DOM с отслеживанием загрузки
     // ─────────────────────────────────────────────
-    const observer = new MutationObserver(() => {
-        checkPayIcon();
-    });
+    function startObserver() {
+        if (observer) {
+            observer.disconnect();
+        }
 
-    if (document.body) {
-        observer.observe(document.body, {
-            childList: true,
-            subtree: true,
-            attributes: true,
-            attributeFilter: ['src']
+        observer = new MutationObserver((mutations) => {
+            // Проверяем изменение класса индикатора загрузки
+            handleLoadingStateChange();
+
+            // Проверяем иконку оплаты
+            checkPayIcon();
         });
-    } else {
-        const obsWaiter = setInterval(() => {
-            if (document.body) {
-                clearInterval(obsWaiter);
-                observer.observe(document.body, {
-                    childList: true,
-                    subtree: true,
-                    attributes: true,
-                    attributeFilter: ['src']
-                });
-                checkPayIcon();
-            }
-        }, 100);
+
+        if (document.body) {
+            observer.observe(document.body, {
+                childList: true,
+                subtree: true,
+                attributes: true,
+                attributeFilter: ['src', 'class']
+            });
+        } else {
+            const obsWaiter = setInterval(() => {
+                if (document.body) {
+                    clearInterval(obsWaiter);
+                    observer.observe(document.body, {
+                        childList: true,
+                        subtree: true,
+                        attributes: true,
+                        attributeFilter: ['src', 'class']
+                    });
+                    checkPayIcon();
+                }
+            }, 100);
+        }
     }
+
+    // Запуск наблюдателя
+    startObserver();
 
     // Первичная проверка
     checkPayIcon();
+
     // Подстраховка — периодическая проверка
     setInterval(checkPayIcon, 2000);
-
-};
+}
 
 newFinStop();
 
