@@ -1,5 +1,5 @@
 // ==UserScript==
-// @name         Проверка заказа 10.0.85
+// @name         Проверка заказа 10.0.86
 // @namespace    http://tampermonkey.net/
 // @version      1.6
 // @description
@@ -5649,7 +5649,7 @@ sendButton.addEventListener('click', async () => {
             }
         } else {
             const existingError = popup.querySelector('.error-message');
-            const maxDesignValue = axiomPrice/1.75;
+            const maxDesignValue = axiomPrice/1.80;
             if (!existingError) {
                 const errorTable = document.createElement('table');
                 errorTable.style.width = '100%';
