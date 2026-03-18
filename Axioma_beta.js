@@ -1,5 +1,5 @@
 // ==UserScript==
-// @name         Проверка заказа 10.0.86
+// @name         Проверка заказа 10.0.87
 // @namespace    http://tampermonkey.net/
 // @version      1.6
 // @description
@@ -4144,7 +4144,8 @@ setInterval(() => {
 
         // Создаем объект Date и добавляем один день
         const currentDate = new Date(2025, monthNumber, dayNumber); // Год указан для примера
-        currentDate.setDate(currentDate.getDate() + 1);
+       // currentDate.setDate(currentDate.getDate() + 1);
+           currentDate.setDate(currentDate.getDate() );
 
         // Формируем новую строку с датой
         const newDay = currentDate.getDate();
@@ -4242,7 +4243,8 @@ setInterval(() => {
         const date = new Date(year, month, day);
 
         // Добавляем 1 день
-        date.setDate(date.getDate() + 1);
+       // date.setDate(date.getDate() + 1);
+           date.setDate(date.getDate());
 
         // Устанавливаем время на 21:30
        // date.setHours(10, 0, 0, 0);
@@ -4301,7 +4303,8 @@ setInterval(() => {
         const currentDate = new Date(year, month - 1, day);
 
         // Добавляем 1 день
-        currentDate.setDate(currentDate.getDate() + 1);
+       // currentDate.setDate(currentDate.getDate() + 1);
+           currentDate.setDate(currentDate.getDate());
 
         // Форматируем новую дату
         const newDayOfWeek = daysOfWeek[currentDate.getDay()];
@@ -4360,14 +4363,17 @@ function addDateOnOrderList() {
                         const [hours, minutes] = timePart.split(':').map(Number);
 
                         let dateObj = new Date(year, month - 1, day, hours, minutes);
-                        dateObj.setDate(dateObj.getDate() + 1);
-                        dateObj.setHours(10, 0, 0, 0);
+                       // dateObj.setDate(dateObj.getDate() + 1);
+ dateObj.setDate(dateObj.getDate());
+                       // dateObj.setHours(10, 0, 0, 0);
 
                         const newDay = String(dateObj.getDate()).padStart(2, '0');
                         const newMonth = String(dateObj.getMonth() + 1).padStart(2, '0');
                         const newYear = dateObj.getFullYear();
 
-                        element.textContent = `${newDay}.${newMonth}.${newYear}, 10:00`;
+                        //в списке заказов
+                      //  element.textContent = `${newDay}.${newMonth}.${newYear}, 10:00`;
+
                         element.style.backgroundColor = "yellow";
                         element.setAttribute('data-date-processed', 'true');
                     } catch (e) {
