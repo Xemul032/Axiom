@@ -1,5 +1,5 @@
 // ==UserScript==
-// @name         Проверка заказа 10.0.87
+// @name         Проверка заказа 10.0.88
 // @namespace    http://tampermonkey.net/
 // @version      1.6
 // @description
@@ -11399,14 +11399,24 @@ lockDateBuh ();
     // ─────────────────────────────────────────────
     // Проверка совпадения менеджера с аккаунтом
     // ─────────────────────────────────────────────
-    function getManagerLastName() {
-        const span = document.querySelector('.chosen-single > span');
-        if (!span) return '';
-        const fullText = span.textContent.trim();
-        if (!fullText) return '';
-        const words = fullText.split(/\s+/).filter(w => w.length > 0);
-        return words.length > 0 ? words[words.length - 1] : '';
-    }
+function getManagerLastName() {
+    // Проверяем, есть ли на странице блок брака
+    const brakBlock = document.querySelector('#BrakBlock');
+    
+    // Выбираем правильный селектор в зависимости от наличия #BrakBlock
+    const selector = brakBlock 
+        ? '#Summary > table > tbody > tr > td:nth-child(1) > table > tbody:nth-child(1) > tr:nth-child(1) > td:nth-child(2) > div > a > span'
+        : '.chosen-single > span';
+    
+    const span = document.querySelector(selector);
+    if (!span) return '';
+    
+    const fullText = span.textContent.trim();
+    if (!fullText) return '';
+    
+    const words = fullText.split(/\s+/).filter(w => w.length > 0);
+    return words.length > 0 ? words[words.length - 1] : '';
+}
 
     function getTopMenuFirstWord() {
         const el = document.querySelector(USERNAME_SELECTOR);
