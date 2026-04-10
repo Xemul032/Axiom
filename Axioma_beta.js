@@ -1,5 +1,5 @@
 // ==UserScript==
-// @name         Проверка заказа 10.0.91
+// @name         Проверка заказа 10.0.92
 // @namespace    http://tampermonkey.net/
 // @version      1.6
 // @description
@@ -11074,7 +11074,7 @@ lockDateBuh ();
 
 
 
- function newFinStop() {
+function newFinStop() {
     'use strict';
 
     // ====== ВСТАВЬ СЮДА URL СВОЕГО GOOGLE APPS SCRIPT ======
@@ -11399,24 +11399,24 @@ lockDateBuh ();
     // ─────────────────────────────────────────────
     // Проверка совпадения менеджера с аккаунтом
     // ─────────────────────────────────────────────
-function getManagerLastName() {
-    // Проверяем, есть ли на странице блок брака
-    const brakBlock = document.querySelector('#BrakBlock');
-    
-    // Выбираем правильный селектор в зависимости от наличия #BrakBlock
-    const selector = brakBlock 
-        ? '#Summary > table > tbody > tr > td:nth-child(1) > table > tbody:nth-child(1) > tr:nth-child(1) > td:nth-child(2) > div > a > span'
-        : '.chosen-single > span';
-    
-    const span = document.querySelector(selector);
-    if (!span) return '';
-    
-    const fullText = span.textContent.trim();
-    if (!fullText) return '';
-    
-    const words = fullText.split(/\s+/).filter(w => w.length > 0);
-    return words.length > 0 ? words[words.length - 1] : '';
-}
+    function getManagerLastName() {
+        // Проверяем, есть ли на странице блок брака
+        const brakBlock = document.querySelector('#BrakBlock');
+
+        // Выбираем правильный селектор в зависимости от наличия #BrakBlock
+        const selector = brakBlock
+            ? '#Summary > table > tbody > tr > td:nth-child(1) > table > tbody:nth-child(1) > tr:nth-child(1) > td:nth-child(2) > div > a > span'
+            : '.chosen-single > span';
+
+        const span = document.querySelector(selector);
+        if (!span) return '';
+
+        const fullText = span.textContent.trim();
+        if (!fullText) return '';
+
+        const words = fullText.split(/\s+/).filter(w => w.length > 0);
+        return words.length > 0 ? words[words.length - 1] : '';
+    }
 
     function getTopMenuFirstWord() {
         const el = document.querySelector(USERNAME_SELECTOR);
@@ -11775,6 +11775,23 @@ function getManagerLastName() {
         });
     }
 
+    // ─────────────────────────────────────────────
+    // Смена схемы оплаты на "Кредит"
+    // ─────────────────────────────────────────────
+    function changePaySchemaToCredit() {
+        const PAY_SCHEMA_SELECT_SELECTOR = 'select[onchange*="PaySchema"]';
+        const select = document.querySelector(PAY_SCHEMA_SELECT_SELECTOR);
+        if (select) {
+            select.value = "3";
+            select.dispatchEvent(new Event('change', { bubbles: true }));
+            select.dispatchEvent(new Event('input', { bubbles: true }));
+            console.log('[FinStop] Схема оплаты изменена на "Кредит"');
+            return true;
+        }
+        console.warn('[FinStop] Не удалось найти select схемы оплаты');
+        return false;
+    }
+
     async function handleOk() {
         const { productId, username } = collectData();
 
@@ -11803,6 +11820,9 @@ function getManagerLastName() {
             setProgress(30, 'Отправка данных...');
 
             await writeToSheet(productId, username);
+
+            // ✅ Успешно записали — меняем схему оплаты на "Кредит"
+            changePaySchemaToCredit();
 
             setProgress(100, 'Готово!');
 
@@ -11991,7 +12011,6 @@ function getManagerLastName() {
 }
 
 newFinStop();
-
      function easyPackMaker() {
     'use strict';
 
