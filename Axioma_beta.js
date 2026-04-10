@@ -1,5 +1,5 @@
 // ==UserScript==
-// @name         Проверка заказа 10.0.9
+// @name         Проверка заказа 10.0.91
 // @namespace    http://tampermonkey.net/
 // @version      1.6
 // @description
@@ -12399,7 +12399,7 @@ newFinStop();
             <div style="display:grid; grid-template-columns: repeat(3, 1fr); gap:20px;">
                 <div>
                     <div style="font-weight:700; color:#1565c0; margin-bottom:6px; font-size:13px; display:flex; align-items:center; gap:6px;">
-                        📝 Стоимость разработки развертки:
+                        📝 Стоимость разработки штампа:
                     </div>
                     <div style="color:#0d47a1; font-size:16px; font-weight:bold;">
                         500 ₽
