@@ -1,5 +1,5 @@
 // ==UserScript==
-// @name         Проверка заказа 10.0.93
+// @name         Проверка заказа 10.0.94
 // @namespace    http://tampermonkey.net/
 // @version      1.6
 // @description
@@ -7355,28 +7355,28 @@ function smartSerch() {
             name: "Korobka",
             title: "коробки",
             icon: "📦",
-            image: "https://raw.githubusercontent.com/Xemul032/Axiom_calcs/refs/heads/main/lmages/Smart_search/boxes.png", // Замените на свой URL
+            image: "https://raw.githubusercontent.com/Xemul032/Axiom_calcs/refs/heads/main/lmages/Smart_search/boxes.png",
             url: `https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?tqx=out:json&sheet=Korobka`
         },
         PACKAGE: {
             name: "Paket",
             title: "пакеты",
             icon: "🛍️",
-            image: "https://raw.githubusercontent.com/Xemul032/Axiom_calcs/refs/heads/main/lmages/Smart_search/bags.png", // Замените на свой URL
+            image: "https://raw.githubusercontent.com/Xemul032/Axiom_calcs/refs/heads/main/lmages/Smart_search/bags.png",
             url: `https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?tqx=out:json&sheet=Paket`
         },
         KONVERT: {
             name: "Konvert",
             title: "конверты",
             icon: "✉️",
-            image: "https://raw.githubusercontent.com/Xemul032/Axiom_calcs/refs/heads/main/lmages/Smart_search/folders.png", // Замените на свой URL
+            image: "https://raw.githubusercontent.com/Xemul032/Axiom_calcs/refs/heads/main/lmages/Smart_search/letters.png",
             url: `https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?tqx=out:json&sheet=Konvert`
         },
         PAPKA: {
             name: "Papka",
             title: "папки",
             icon: "📁",
-            image: "https://raw.githubusercontent.com/Xemul032/Axiom_calcs/refs/heads/main/lmages/Smart_search/letters.png", // Замените на свой URL
+            image: "https://raw.githubusercontent.com/Xemul032/Axiom_calcs/refs/heads/main/lmages/Smart_search/folders.png",
             url: `https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?tqx=out:json&sheet=Papka`
         }
     };
@@ -7409,7 +7409,7 @@ function smartSerch() {
             position: relative;
             scroll-behavior: smooth;
         }
-        /* Кастомный скролл */
+        /* Кастомный скролл основного окна */
         .box-picker-content::-webkit-scrollbar {
             width: 8px;
         }
@@ -7506,8 +7506,8 @@ function smartSerch() {
             font-size: 18px;
             font-weight: 600;
             color: #333;
-            margin-bottom: 20px;
-            padding-bottom: 10px;
+            margin-bottom: 15px;
+            padding-bottom: 5px;
             border-bottom: 2px solid #e0e0e0;
         }
         .back-btn {
@@ -7529,19 +7529,107 @@ function smartSerch() {
             border-color: #ccc;
         }
         /* Стили для изображения изделия */
-            .product-image-container {
+        .product-image-container {
             margin-bottom: 25px;
             padding: 0;
             border-radius: 8px;
             overflow: hidden;
+            text-align: center;
         }
         .product-image {
             width: 100%;
             height: auto;
             max-height: 300px;
             object-fit: contain;
-            display: block;
+            display: inline-block;
         }
+
+        /* === СТИЛИ СПОЙЛЕРА (ФИЛЬТР) === */
+        .filter-spoiler {
+            margin-bottom: 20px;
+        }
+        .filter-toggle-btn {
+            width: 100%;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 12px 16px;
+            background: #f5f5f5;
+            border: 2px solid #e0e0e0;
+            border-radius: 8px;
+            font-size: 14px;
+            font-weight: 600;
+            color: #333;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            text-align: left;
+            margin-bottom: 0; /* Чтобы прижать к контенту */
+        }
+        .filter-toggle-btn:hover {
+            background: #ebebeb;
+            border-color: #0091D3;
+        }
+        .filter-toggle-btn.active {
+            background: #e3f2fd;
+            border-color: #0091D3;
+            color: #0091D3;
+            border-bottom-left-radius: 0;
+            border-bottom-right-radius: 0;
+            margin-bottom: -2px; /* Компенсация бордера */
+            z-index: 2;
+            position: relative;
+        }
+        .filter-toggle-icon {
+            font-size: 16px;
+            transition: transform 0.3s ease;
+            margin-left: 10px;
+        }
+        .filter-toggle-btn.active .filter-toggle-icon {
+            transform: rotate(180deg);
+        }
+
+        /* Контейнер с прокруткой */
+        .filter-content {
+            max-height: 0;
+            overflow: hidden;
+            transition: max-height 0.4s ease-out;
+            border: 2px solid #e0e0e0;
+            border-top: none;
+            border-radius: 0 0 8px 8px;
+            background: #fafafa;
+        }
+        .filter-content.expanded {
+            max-height: 300px; /* Ограничение высоты для скролла */
+            overflow-y: auto;
+            border-color: #0091D3;
+            border-top: 1px solid #0091D3; /* Визуальная связь */
+        }
+        /* Кастомный скролл для фильтра */
+        .filter-content.expanded::-webkit-scrollbar {
+            width: 6px;
+        }
+        .filter-content.expanded::-webkit-scrollbar-track {
+            background: #f1f1f1;
+            border-radius: 3px;
+        }
+        .filter-content.expanded::-webkit-scrollbar-thumb {
+            background: linear-gradient(135deg, #0091D3 0%, #005189 100%);
+            border-radius: 3px;
+        }
+        .filter-content.expanded::-webkit-scrollbar-thumb:hover {
+            background: linear-gradient(135deg, #007bb8 0%, #004373 100%);
+        }
+        /* Для Firefox */
+        .filter-content.expanded {
+            scrollbar-width: thin;
+            scrollbar-color: #0091D3 #f1f1f1;
+        }
+
+        .filter-content-inner {
+            padding: 15px;
+        }
+        /* === КОНЕЦ СТИЛЕЙ СПОЙЛЕРА === */
+
         .dimension-row {
             display: flex;
             align-items: center;
@@ -7551,7 +7639,7 @@ function smartSerch() {
         .dimension-label {
             font-weight: 500;
             color: #555;
-            width: 120px;
+            width: 130px;
             font-size: 14px;
             flex-shrink: 0;
         }
@@ -7571,19 +7659,18 @@ function smartSerch() {
         .types-container {
             display: grid;
             grid-template-columns: repeat(2, 1fr);
-            gap: 15px;
-            margin-bottom: 10px;
+            gap: 10px;
         }
         .type-checkbox {
             display: flex;
             align-items: center;
-            padding: 15px;
+            padding: 10px 12px;
             border: 2px solid #e0e0e0;
-            border-radius: 8px;
+            border-radius: 6px;
             cursor: pointer;
             transition: all 0.3s ease;
-            background: #fafafa;
-            min-height: 50px;
+            background: #fff;
+            min-height: 40px;
         }
         .type-checkbox:hover {
             border-color: #0091D3;
@@ -7591,17 +7678,18 @@ function smartSerch() {
         }
         .type-checkbox input[type="checkbox"] {
             margin-right: 10px;
-            width: 18px;
-            height: 18px;
+            width: 16px;
+            height: 16px;
             accent-color: #0091D3;
             flex-shrink: 0;
         }
         .type-checkbox label {
-            font-size: 14px;
+            font-size: 13px;
             font-weight: 500;
             color: #333;
             cursor: pointer;
             flex: 1;
+            line-height: 1.2;
         }
         .submit-btn {
             width: 100%;
@@ -7893,7 +7981,6 @@ function smartSerch() {
 
     function initRubricatorPreviewCache() {
         if (sessionStorage.getItem('stampPreviews')) {
-
             return;
         }
 
@@ -8071,27 +8158,26 @@ function smartSerch() {
         const content = document.createElement("div");
         content.className = "box-picker-content";
 
-
-            // Конфигурация подписей для каждого типа изделия
-    const DIM_LABELS = {
-        BOX: {
-            l: 'Высота (H)', w: 'Ширина (L)', h: 'Глубина (W)',
-            pl: 'Введите длину', pw: 'Введите ширину', ph: 'Введите глубину'
-        },
-        PACKAGE: {
-            l: 'Длина пакета (L)', w: 'Высота пакета (H)', h: 'Глубина по дну (W)',
-            pl: 'Введите длину', pw: 'Введите высоту', ph: 'Введите глубину дна'
-        },
-        KONVERT: {
-            l: 'Длина (L)', w: 'Ширина (W)',
-            pl: 'Введите длину', pw: 'Введите ширину'
-        },
-        PAPKA: {
-            l: 'Длина (L)', w: 'Ширина (W)',
-            pl: 'Введите длину', pw: 'Введите ширину'
-        }
-    };
-    const lbl = DIM_LABELS[productType];
+        // Конфигурация подписей для каждого типа изделия
+        const DIM_LABELS = {
+            BOX: {
+                l: 'Высота (H)', w: 'Ширина (L)', h: 'Глубина (W)',
+                pl: 'Введите длину', pw: 'Введите ширину', ph: 'Введите глубину'
+            },
+            PACKAGE: {
+                l: 'Длина пакета (L)', w: 'Высота пакета (H)', h: 'Глубина по дну (W)',
+                pl: 'Введите длину', pw: 'Введите высоту', ph: 'Введите глубину дна'
+            },
+            KONVERT: {
+                l: 'Длина (L)', w: 'Ширина (W)',
+                pl: 'Введите длину', pw: 'Введите ширину'
+            },
+            PAPKA: {
+                l: 'Длина (L)', w: 'Ширина (W)',
+                pl: 'Введите длину', pw: 'Введите ширину'
+            }
+        };
+        const lbl = DIM_LABELS[productType];
 
         // Создаем HTML для изображения
         const imageHtml = sheet.image ?
@@ -8112,7 +8198,7 @@ function smartSerch() {
                     ${imageHtml}
                 </div>` : ''}
 
-                               <div class="form-section">
+                <div class="form-section">
                     <div class="section-title">Габариты изделия</div>
                     <div id="dimensions-container">
                         <div class="dimension-row">
@@ -8130,27 +8216,57 @@ function smartSerch() {
                         </div>` : ''}
                     </div>
                 </div>
-                <div class="form-section">
+
+                <!-- Спойлер для фильтра типов -->
+                <div class="form-section filter-spoiler">
                     <div class="section-title">Тип ${sheet.title}</div>
-                    <div id="types-container" class="types-container"></div>
+                    <button class="filter-toggle-btn" id="filter-toggle">
+                        <span>🔍 Фильтр по типам</span>
+                        <span class="filter-toggle-icon">▼</span>
+                    </button>
+                    <div class="filter-content" id="filter-content">
+                        <div class="filter-content-inner">
+                            <div id="types-container" class="types-container"></div>
+                            <div style="text-align: center; margin-top: 10px; padding-top: 10px; border-top: 1px solid #eee;">
+                                <button type="button" id="select-all-types" style="
+                                    background: none; border: none; color: #0091D3;
+                                    font-size: 13px; cursor: pointer; text-decoration: underline; padding: 0 5px;
+                                ">Выбрать все</button>
+                                <span style="color: #ccc; margin: 0 5px;">|</span>
+                                <button type="button" id="deselect-all-types" style="
+                                    background: none; border: none; color: #0091D3;
+                                    font-size: 13px; cursor: pointer; text-decoration: underline; padding: 0 5px;
+                                ">Снять выделение</button>
+                            </div>
+                        </div>
+                    </div>
                 </div>
+
                 <button id="submit-btn" class="submit-btn">Найти подходящие ${sheet.title}</button>
                 <div id="result" class="result-section" style="display: none;"></div>
             </div>
         `;
         modal.appendChild(content);
         document.body.appendChild(modal);
+
         content.querySelector('.back-btn').addEventListener('click', () => {
             modal.remove();
             openProductSelector();
         });
+
         const types = [...new Set(allData.map(d => d.type))].filter(Boolean);
         const typesContainer = content.querySelector("#types-container");
+
         types.forEach(type => {
             const div = document.createElement("div");
             div.className = "type-checkbox";
-            div.innerHTML = `<input type="checkbox" name="type" value="${type}"><label>${type}</label>`;
+            const safeId = `type-${type.replace(/\s+/g, '-')}`;
+            div.innerHTML = `<input type="checkbox" name="type" value="${type}" id="${safeId}"><label for="${safeId}">${type}</label>`;
             const checkbox = div.querySelector("input");
+
+            // Синхронизация визуального состояния
+            if (checkbox.checked) div.classList.add("checked");
+
             div.addEventListener("click", (e) => {
                 if (e.target !== checkbox) {
                     checkbox.checked = !checkbox.checked;
@@ -8162,108 +8278,156 @@ function smartSerch() {
             });
             typesContainer.appendChild(div);
         });
-const createResultItem = (item, index, isOtherType = false) => {
-    const lengthInputEl = document.getElementById("length");
-    const widthInputEl = document.getElementById("width");
-    const depthInputEl = document.getElementById("depth");
 
-    const length = lengthInputEl ? parseFloat(lengthInputEl.value) || 0 : 0;
-    const width = widthInputEl ? parseFloat(widthInputEl.value) || 0 : 0;
-    const depth = depthInputEl ? parseFloat(depthInputEl.value) || 0 : 0;
+        // Логика спойлера для фильтра
+        const filterToggle = content.querySelector("#filter-toggle");
+        const filterContent = content.querySelector("#filter-content");
+        const selectAllBtn = content.querySelector("#select-all-types");
+        const deselectAllBtn = content.querySelector("#deselect-all-types");
+        const typeCheckboxes = content.querySelectorAll("input[name=type]");
 
-    const lengthDiff = length - item.length;
-    const widthDiff = width - item.width;
-
-    let description = "";
-    let statusIcon = "✅";
-
-    if (lengthDiff === 0 && widthDiff === 0) {
-        description = "Размеры полностью совпадают";
-        statusIcon = "🎯";
-    } else {
-        const differences = [];
-        if (lengthDiff !== 0) {
-            differences.push(`длина ${lengthDiff > 0 ? "меньше" : "больше"} на ${Math.abs(lengthDiff)} мм`);
+        // Раскрытие/скрытие спойлера
+        if (filterToggle && filterContent) {
+            filterToggle.addEventListener("click", () => {
+                filterToggle.classList.toggle("active");
+                filterContent.classList.toggle("expanded");
+            });
         }
-        if (widthDiff !== 0) {
-            differences.push(`ширина ${widthDiff > 0 ? "меньше" : "больше"} на ${Math.abs(widthDiff)} мм`);
+
+        // Выбрать все типы
+        if (selectAllBtn) {
+            selectAllBtn.addEventListener("click", (e) => {
+                e.preventDefault();
+                typeCheckboxes.forEach(cb => {
+                    cb.checked = true;
+                    cb.closest(".type-checkbox")?.classList.add("checked");
+                });
+            });
         }
-        description = differences.join(", ");
-    }
 
-    const bestBadge = index === 0 ? '<span style="background: #4CAF50; color: white; padding: 2px 8px; border-radius: 12px; font-size: 12px; margin-left: 10px;">ЛУЧШИЙ</span>' : '';
-    const typeMismatchNotice = isOtherType ? '<div class="type-mismatch-notice">⚠️ Другой тип</div>' : '';
+        // Снять выделение со всех
+        if (deselectAllBtn) {
+            deselectAllBtn.addEventListener("click", (e) => {
+                e.preventDefault();
+                typeCheckboxes.forEach(cb => {
+                    cb.checked = false;
+                    cb.closest(".type-checkbox")?.classList.remove("checked");
+                });
+            });
+        }
 
-    // Определяем, нужна ли глубина
-    const usesDepth = ['BOX', 'PACKAGE'].includes(currentProductType);
-
-    // Формируем HTML для размеров
-    let dimensionsHtml = `
-        <strong>Размеры:</strong> ${item.length} × ${item.width} мм
-    `;
-    if (usesDepth) {
-        dimensionsHtml += ` × ${item.depth} мм`;
-    }
-
-    const resultElement = document.createElement('div');
-    resultElement.className = `result-item ${isOtherType ? 'other-type' : ''}`;
-    resultElement.innerHTML = `
-        <div class="result-header">${statusIcon} Штамп №${item.number} ${bestBadge}</div>
-        <div class="result-details">
-            ${dimensionsHtml}<br>
-            <strong>Тип:</strong> ${item.type}
-        </div>
-        <div class="result-description">${description}</div>
-        ${typeMismatchNotice}
-        <div class="click-hint">💡 Нажмите, чтобы выбрать этот штамп</div>
-        <button class="preview-btn" style="margin-top: 10px; background: none; color: #0091D3; border: none; padding: 0; font-size: 14px; cursor: pointer;">
-            📷 <strong>Просмотр превью</strong> 📷
-        </button>
-    `;
-
-    // Обработчик кнопки "Просмотр превью"
-    const previewBtn = resultElement.querySelector('.preview-btn');
-    if (previewBtn) {
-        previewBtn.addEventListener('click', (e) => {
-            e.stopPropagation();
-            const stampNumber = item.number;
-            const cachedPreviews = JSON.parse(sessionStorage.getItem('stampPreviews') || '[]');
-            const preview = cachedPreviews.find(p => p.number === stampNumber);
-            if (preview) {
-                showPreviewModal(preview.url);
-            } else {
-                alert("Превью не найдено");
-            }
+        // Авто-раскрытие при первом выборе чекбокса
+        typeCheckboxes.forEach(cb => {
+            cb.addEventListener("change", () => {
+                if (filterContent && !filterContent.classList.contains("expanded")) {
+                    filterToggle?.classList.add("active");
+                    filterContent?.classList.add("expanded");
+                }
+            });
         });
-    }
 
-    // Обработчик клика по карточке
-    resultElement.addEventListener('click', () => {
-        const inputField = document.querySelector("#UtList > div.input-group.inputcontainer > input");
-        if (inputField) {
-            inputField.focus();
-            inputField.value = '';
-            inputField.dispatchEvent(new Event('input', { bubbles: true }));
-            setTimeout(() => {
-                const stampText = `Штамп №${item.number}`;
-                inputField.value = stampText;
-                inputField.dispatchEvent(new Event('input', { bubbles: true }));
-                inputField.dispatchEvent(new Event('change', { bubbles: true }));
-                const lastChar = String(item.number).slice(-1);
-                inputField.dispatchEvent(new KeyboardEvent('keyup', {
-                    key: lastChar,
-                    code: `Digit${lastChar}`,
-                    bubbles: true
-                }));
-                setTimeout(() => inputField.blur(), 100);
-                showSuccessNotification(stampText);
-                setTimeout(() => modal.remove(), 500);
-            }, 100);
-        }
-    });
+        const createResultItem = (item, index, isOtherType = false) => {
+            const lengthInputEl = document.getElementById("length");
+            const widthInputEl = document.getElementById("width");
+            const depthInputEl = document.getElementById("depth");
 
-    return resultElement;
-};
+            const length = lengthInputEl ? parseFloat(lengthInputEl.value) || 0 : 0;
+            const width = widthInputEl ? parseFloat(widthInputEl.value) || 0 : 0;
+            const depth = depthInputEl ? parseFloat(depthInputEl.value) || 0 : 0;
+
+            const lengthDiff = length - item.length;
+            const widthDiff = width - item.width;
+
+            let description = "";
+            let statusIcon = "✅";
+
+            if (lengthDiff === 0 && widthDiff === 0) {
+                description = "Размеры полностью совпадают";
+                statusIcon = "🎯";
+            } else {
+                const differences = [];
+                if (lengthDiff !== 0) {
+                    differences.push(`длина ${lengthDiff > 0 ? "меньше" : "больше"} на ${Math.abs(lengthDiff)} мм`);
+                }
+                if (widthDiff !== 0) {
+                    differences.push(`ширина ${widthDiff > 0 ? "меньше" : "больше"} на ${Math.abs(widthDiff)} мм`);
+                }
+                description = differences.join(", ");
+            }
+
+            const bestBadge = index === 0 ? '<span style="background: #4CAF50; color: white; padding: 2px 8px; border-radius: 12px; font-size: 12px; margin-left: 10px;">ЛУЧШИЙ</span>' : '';
+            const typeMismatchNotice = isOtherType ? '<div class="type-mismatch-notice">⚠️ Другой тип</div>' : '';
+
+            // Определяем, нужна ли глубина
+            const usesDepth = ['BOX', 'PACKAGE'].includes(currentProductType);
+
+            // Формируем HTML для размеров
+            let dimensionsHtml = `
+                <strong>Размеры:</strong> ${item.length} × ${item.width} мм
+            `;
+            if (usesDepth) {
+                dimensionsHtml += ` × ${item.depth} мм`;
+            }
+
+            const resultElement = document.createElement('div');
+            resultElement.className = `result-item ${isOtherType ? 'other-type' : ''}`;
+            resultElement.innerHTML = `
+                <div class="result-header">${statusIcon} Штамп №${item.number} ${bestBadge}</div>
+                <div class="result-details">
+                    ${dimensionsHtml}<br>
+                    <strong>Тип:</strong> ${item.type}
+                </div>
+                <div class="result-description">${description}</div>
+                ${typeMismatchNotice}
+                <div class="click-hint">💡 Нажмите, чтобы выбрать этот штамп</div>
+                <button class="preview-btn" style="margin-top: 10px; background: none; color: #0091D3; border: none; padding: 0; font-size: 14px; cursor: pointer;">
+                    📷 <strong>Просмотр превью</strong> 📷
+                </button>
+            `;
+
+            // Обработчик кнопки "Просмотр превью"
+            const previewBtn = resultElement.querySelector('.preview-btn');
+            if (previewBtn) {
+                previewBtn.addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    const stampNumber = item.number;
+                    const cachedPreviews = JSON.parse(sessionStorage.getItem('stampPreviews') || '[]');
+                    const preview = cachedPreviews.find(p => p.number === stampNumber);
+                    if (preview) {
+                        showPreviewModal(preview.url);
+                    } else {
+                        alert("Превью не найдено");
+                    }
+                });
+            }
+
+            // Обработчик клика по карточке
+            resultElement.addEventListener('click', () => {
+                const inputField = document.querySelector("#UtList > div.input-group.inputcontainer > input");
+                if (inputField) {
+                    inputField.focus();
+                    inputField.value = '';
+                    inputField.dispatchEvent(new Event('input', { bubbles: true }));
+                    setTimeout(() => {
+                        const stampText = `Штамп №${item.number}`;
+                        inputField.value = stampText;
+                        inputField.dispatchEvent(new Event('input', { bubbles: true }));
+                        inputField.dispatchEvent(new Event('change', { bubbles: true }));
+                        const lastChar = String(item.number).slice(-1);
+                        inputField.dispatchEvent(new KeyboardEvent('keyup', {
+                            key: lastChar,
+                            code: `Digit${lastChar}`,
+                            bubbles: true
+                        }));
+                        setTimeout(() => inputField.blur(), 100);
+                        showSuccessNotification(stampText);
+                        setTimeout(() => modal.remove(), 500);
+                    }, 100);
+                }
+            });
+
+            return resultElement;
+        };
 
         content.querySelector("#submit-btn").addEventListener("click", () => {
             const resultDiv = content.querySelector("#result");
@@ -8418,8 +8582,7 @@ const createResultItem = (item, index, isOtherType = false) => {
     }
 };
 
-
-smartSerch ();
+smartSerch();
 
 
 
