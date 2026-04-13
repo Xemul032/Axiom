@@ -1,5 +1,5 @@
 // ==UserScript==
-// @name         Проверка заказа 10.0.92
+// @name         Проверка заказа 10.0.93
 // @namespace    http://tampermonkey.net/
 // @version      1.6
 // @description
@@ -7355,24 +7355,28 @@ function smartSerch() {
             name: "Korobka",
             title: "коробки",
             icon: "📦",
+            image: "https://raw.githubusercontent.com/Xemul032/Axiom_calcs/refs/heads/main/lmages/Smart_search/boxes.png", // Замените на свой URL
             url: `https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?tqx=out:json&sheet=Korobka`
         },
         PACKAGE: {
             name: "Paket",
             title: "пакеты",
             icon: "🛍️",
+            image: "https://raw.githubusercontent.com/Xemul032/Axiom_calcs/refs/heads/main/lmages/Smart_search/bags.png", // Замените на свой URL
             url: `https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?tqx=out:json&sheet=Paket`
         },
         KONVERT: {
             name: "Konvert",
             title: "конверты",
             icon: "✉️",
+            image: "https://raw.githubusercontent.com/Xemul032/Axiom_calcs/refs/heads/main/lmages/Smart_search/folders.png", // Замените на свой URL
             url: `https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?tqx=out:json&sheet=Konvert`
         },
         PAPKA: {
             name: "Papka",
             title: "папки",
             icon: "📁",
+            image: "https://raw.githubusercontent.com/Xemul032/Axiom_calcs/refs/heads/main/lmages/Smart_search/letters.png", // Замените на свой URL
             url: `https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?tqx=out:json&sheet=Papka`
         }
     };
@@ -7394,7 +7398,7 @@ function smartSerch() {
             font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
         }
         .box-picker-content {
-            background: white;
+            background: #fafafa;
             border-radius: 12px;
             box-shadow: 0 20px 40px rgba(0, 0, 0, 0.3);
             padding: 0;
@@ -7523,6 +7527,20 @@ function smartSerch() {
         .back-btn:hover {
             background: #ebebeb;
             border-color: #ccc;
+        }
+        /* Стили для изображения изделия */
+            .product-image-container {
+            margin-bottom: 25px;
+            padding: 0;
+            border-radius: 8px;
+            overflow: hidden;
+        }
+        .product-image {
+            width: 100%;
+            height: auto;
+            max-height: 300px;
+            object-fit: contain;
+            display: block;
         }
         .dimension-row {
             display: flex;
@@ -8052,6 +8070,34 @@ function smartSerch() {
         modal.className = "box-picker-modal";
         const content = document.createElement("div");
         content.className = "box-picker-content";
+
+
+            // Конфигурация подписей для каждого типа изделия
+    const DIM_LABELS = {
+        BOX: {
+            l: 'Высота (H)', w: 'Ширина (L)', h: 'Глубина (W)',
+            pl: 'Введите длину', pw: 'Введите ширину', ph: 'Введите глубину'
+        },
+        PACKAGE: {
+            l: 'Длина пакета (L)', w: 'Высота пакета (H)', h: 'Глубина по дну (W)',
+            pl: 'Введите длину', pw: 'Введите высоту', ph: 'Введите глубину дна'
+        },
+        KONVERT: {
+            l: 'Длина (L)', w: 'Ширина (W)',
+            pl: 'Введите длину', pw: 'Введите ширину'
+        },
+        PAPKA: {
+            l: 'Длина (L)', w: 'Ширина (W)',
+            pl: 'Введите длину', pw: 'Введите ширину'
+        }
+    };
+    const lbl = DIM_LABELS[productType];
+
+        // Создаем HTML для изображения
+        const imageHtml = sheet.image ?
+            `<img src="${sheet.image}" alt="${sheet.title}" class="product-image" onerror="this.style.display='none'">` :
+            '';
+
         content.innerHTML = `
             <div class="box-picker-header">
                 ${sheet.icon} Подбор ${sheet.title}
@@ -8059,21 +8105,28 @@ function smartSerch() {
             </div>
             <div class="box-picker-form">
                 <button class="back-btn">← Назад к выбору типа</button>
-                <div class="form-section">
+
+                <!-- Изображение изделия -->
+                ${imageHtml ? `
+                <div class="product-image-container">
+                    ${imageHtml}
+                </div>` : ''}
+
+                               <div class="form-section">
                     <div class="section-title">Габариты изделия</div>
                     <div id="dimensions-container">
                         <div class="dimension-row">
-                            <span class="dimension-label">${productType === 'PACKAGE' ? 'Ширина' : 'Длина'} (мм)</span>
-                            <input type="number" id="length" class="param-input" placeholder="${productType === 'PACKAGE' ? 'Введите ширину' : 'Введите длину'}">
+                            <span class="dimension-label">${lbl.l} (мм)</span>
+                            <input type="number" id="length" class="param-input" placeholder="${lbl.pl}">
                         </div>
                         <div class="dimension-row">
-                            <span class="dimension-label">${productType === 'PACKAGE' ? 'Высота' : 'Ширина'} (мм)</span>
-                            <input type="number" id="width" class="param-input" placeholder="${productType === 'PACKAGE' ? 'Введите высоту' : 'Введите ширину'}">
+                            <span class="dimension-label">${lbl.w} (мм)</span>
+                            <input type="number" id="width" class="param-input" placeholder="${lbl.pw}">
                         </div>
                         ${usesDepth ? `
                         <div class="dimension-row">
-                            <span class="dimension-label">Глубина (мм)</span>
-                            <input type="number" id="depth" class="param-input" placeholder="Введите глубину">
+                            <span class="dimension-label">${lbl.h} (мм)</span>
+                            <input type="number" id="depth" class="param-input" placeholder="${lbl.ph}">
                         </div>` : ''}
                     </div>
                 </div>
@@ -8367,6 +8420,8 @@ const createResultItem = (item, index, isOtherType = false) => {
 
 
 smartSerch ();
+
+
 
 
 
@@ -12085,7 +12140,7 @@ newFinStop();
         if (!header) return null;
 
         const headerText = header.textContent.toLowerCase().trim();
-        
+
         // Сортируем ключи по длине (убывание) чтобы сначала проверять более длинные ключи
         // Это предотвращает ложные совпадения: "Тип_10" не будет совпадать с "Тип_1"
         const sortedKeys = Object.keys(formulasData)
