@@ -1,0 +1,17 @@
+{
+  "version": "2.0",
+  "enabled": true,
+  "checkIntervalSec": 1800,
+  "features": {
+    "finstop": {
+      "enabled": false,
+      "url": "https://raw.githubusercontent.com/Xemul032/axiomWait/refs/heads/main/features/finstop.js",
+      "runAt": "document-end",
+      "config": {}
+    }
+  },
+  "fallback": {
+    "enabled": true,
+    "showErrorIndicator": true
+  }
+}
