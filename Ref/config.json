@@ -1,11 +1,17 @@
 {
-  "version": "2.0",
+  "version": "2.1",
   "enabled": true,
   "checkIntervalSec": 1800,
   "features": {
     "finstop": {
       "enabled": true,
-      "url": "https://raw.githubusercontent.com/Xemul032/Axiom/refs/heads/main/Ref/features/finstop.js",
+      "url": "https://raw.githubusercontent.com/Xemul032/Axiom/refs/heads/main/Ref/finstop.js",
+      "runAt": "document-end",
+      "config": {}
+    },
+    "confidAgree": {
+      "enabled": true,
+      "url": "https://raw.githubusercontent.com/Xemul032/Axiom/refs/heads/main/Ref/confidAgree.js",
       "runAt": "document-end",
       "config": {}
     }
