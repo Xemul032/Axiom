@@ -4,7 +4,7 @@
   "checkIntervalSec": 1800,
   "features": {
     "finstop": {
-      "enabled": false,
+      "enabled": true,
       "url": "https://raw.githubusercontent.com/Xemul032/axiomWait/refs/heads/main/features/finstop.js",
       "runAt": "document-end",
       "config": {}
