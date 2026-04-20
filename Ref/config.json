@@ -5,13 +5,13 @@
   "features": {
     "finstop": {
       "enabled": true,
-      "url": "https://raw.githubusercontent.com/Xemul032/Axiom/refs/heads/main/Ref/finstop.js",
+      "url": "https://raw.githubusercontent.com/Xemul032/Axiom/refs/heads/main/Ref/features/finstop.js",
       "runAt": "document-end",
       "config": {}
     },
     "confidAgree": {
       "enabled": true,
-      "url": "https://raw.githubusercontent.com/Xemul032/Axiom/refs/heads/main/Ref/confidAgree.js",
+      "url": "https://raw.githubusercontent.com/Xemul032/Axiom/refs/heads/main/Ref/features/confidAgree.js",
       "runAt": "document-end",
       "config": {}
     }
