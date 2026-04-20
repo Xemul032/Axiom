@@ -1,17 +1,14 @@
 // Глобальные функции проекта Axiom
 
 function showCenterMessage(input) {
-    // Поддержка двух форматов вызова:
-    // 1. showCenterMessage("Просто текст")
-    // 2. showCenterMessage({ message: "Текст", buttonText: "Ок", ... })
-    
+    // Поддержка двух форматов вызова
     const opts = typeof input === "string" ? { message: input } : (input || {});
     
     const {
         message = "",
         buttonText = "Ок",
         onClose = null,
-        duration = 0  // мс, 0 = без автозакрытия
+        duration = 0
     } = opts;
 
     // Если окно уже открыто — выходим
@@ -44,6 +41,10 @@ function showCenterMessage(input) {
 
     messageContainer.innerHTML = messageHTML;
 
+    // 🔥 ВАЖНО: Сначала добавляем элементы в DOM
+    document.body.appendChild(blurOverlay);
+    document.body.appendChild(messageContainer);
+
     // Логика закрытия
     const close = () => {
         if (messageContainer.parentNode) messageContainer.parentNode.removeChild(messageContainer);
@@ -51,12 +52,13 @@ function showCenterMessage(input) {
         if (typeof onClose === "function") onClose();
     };
 
-    document.getElementById("closeMessage").addEventListener("click", close);
+    // 🔥 ТЕПЕРЬ элемент существует в DOM, getElementById найдёт его
+    const closeBtn = document.getElementById("closeMessage");
+    if (closeBtn) {
+        closeBtn.addEventListener("click", close);
+    }
+    
     blurOverlay.addEventListener("click", close);
-
-    // Вставка в DOM
-    document.body.appendChild(blurOverlay);
-    document.body.appendChild(messageContainer);
 
     // Автозакрытие
     if (duration > 0) setTimeout(close, duration);
