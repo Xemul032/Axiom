@@ -1,4 +1,4 @@
-(function() {
+(function(config, GM, utils) {
     'use strict';
 
     // ====== ВСТАВЬ СЮДА URL СВОЕГО GOOGLE APPS SCRIPT ======
@@ -22,18 +22,16 @@
     let isPageLoading = false;
 
     // ─────────────────────────────────────────────
-    // Проверка наличия необходимых зависимостей
+    // Проверка зависимостей (сразу в начале)
     // ─────────────────────────────────────────────
-    function ensureDependencies(GM, utils) {
-        if (!GM || !GM.xmlhttpRequest) {
-            console.error('[FinStop] ❌ GM API не передан. Модуль не может работать.');
-            return false;
-        }
-        if (!utils || !utils.$) {
-            console.warn('[FinStop] ⚠️ jQuery не передан, некоторые функции могут не работать');
-        }
-        return true;
+    if (!GM || !GM.xmlhttpRequest) {
+        console.error('[FinStop] ❌ GM API не передан. Модуль не может работать.');
+        return;
     }
+    if (!utils || !utils.$) {
+        console.warn('[FinStop] ⚠️ jQuery не передан, некоторые функции могут не работать');
+    }
+    console.log('[FinStop] 🚀 Модуль запущен, зависимости получены');
 
     // ─────────────────────────────────────────────
     // Отслеживание состояния загрузки страницы
@@ -283,7 +281,7 @@
         const okBtn = document.createElement('button');
         okBtn.className = 'modal-btn btn-ok';
         okBtn.textContent = 'Ок';
-        okBtn.addEventListener('click', handleOk);
+        okBtn.addEventListener('click', handleOk); // ← handleOk использует замыкание на GM, utils
         buttons.appendChild(cancelBtn); buttons.appendChild(okBtn);
         box.appendChild(icon); box.appendChild(title); box.appendChild(text); box.appendChild(buttons);
         showModal(overlay);
@@ -413,7 +411,7 @@
     // ─────────────────────────────────────────────
     // API запросы (используют переданный GM объект)
     // ─────────────────────────────────────────────
-    function checkBlacklist(username, GM) {
+    function checkBlacklist(username) {
         return new Promise((resolve, reject) => {
             GM.xmlhttpRequest({
                 method: 'GET',
@@ -458,7 +456,7 @@
         });
     }
 
-    function writeToSheet(productId, username, GM) {
+    function writeToSheet(productId, username) {
         return new Promise((resolve, reject) => {
             GM.xmlhttpRequest({
                 method: 'POST',
@@ -491,7 +489,7 @@
     // ─────────────────────────────────────────────
     // Смена схемы оплаты на "Кредит"
     // ─────────────────────────────────────────────
-    function changePaySchemaToCredit(utils) {
+    function changePaySchemaToCredit() {
         const PAY_SCHEMA_SELECT_SELECTOR = 'select[onchange*="PaySchema"]';
         const select = document.querySelector(PAY_SCHEMA_SELECT_SELECTOR);
         if (select) {
@@ -506,9 +504,9 @@
     }
 
     // ─────────────────────────────────────────────
-    // Обработчик кнопки "Ок" (принимает GM и utils)
+    // Обработчик кнопки "Ок" (использует замыкание на GM, utils)
     // ─────────────────────────────────────────────
-    async function handleOk(GM, utils) {
+    async function handleOk() {
         const { productId, username } = collectData();
         if (!productId || !username) {
             showErrorModal('Не удалось собрать данные со страницы. Проверьте наличие ProductId и имени пользователя.');
@@ -517,7 +515,7 @@
         showLoadingModal('Проверка доступа...');
         setProgress(20, 'Проверка чёрного списка...');
         try {
-            const isBlacklisted = await checkBlacklist(username, GM);
+            const isBlacklisted = await checkBlacklist(username);
             setProgress(50, 'Проверка завершена');
             if (isBlacklisted) {
                 setTimeout(() => showBlacklistModal(), 400);
@@ -527,8 +525,8 @@
             await new Promise(r => setTimeout(r, 300));
             showLoadingModal('Сохранение данных...');
             setProgress(30, 'Отправка данных...');
-            await writeToSheet(productId, username, GM);
-            changePaySchemaToCredit(utils);
+            await writeToSheet(productId, username);
+            changePaySchemaToCredit(); // ← utils.$ не нужен, используем нативный JS
             setProgress(100, 'Готово!');
             await new Promise(r => setTimeout(r, 500));
             showSuccessModal();
@@ -573,7 +571,7 @@
             btn.style.transform = 'translateY(0)';
             btn.style.boxShadow = '0 2px 8px rgba(0,0,0,0.2)';
         });
-        btn.addEventListener('click', () => showConfirmModal());
+        btn.addEventListener('click', showConfirmModal);
         container.appendChild(subtitle);
         container.appendChild(btn);
         return container;
@@ -653,59 +651,15 @@
     }
 
     // ─────────────────────────────────────────────
-    // 🚀 ТОЧКА ВХОДА В МОДУЛЬ (принимает зависимости)
+    // 🚀 ЗАПУСК ЛОГИКИ (сразу, без обёртки)
     // ─────────────────────────────────────────────
-    function newFinStop(config, GM, utils) {
-        console.log('[FinStop] 🚀 Модуль запущен');
-        
-        if (!ensureDependencies(GM, utils)) {
-            showErrorModal('Ошибка инициализации модуля. Обратитесь к администратору.');
-            return;
-        }
+    startObserver();
+    checkPayIcon();
+    console.log('[FinStop] ✅ Наблюдатель запущен, проверка иконки выполнена');
 
-        // Переопределяем handleOk для передачи зависимостей
-        const originalShowConfirm = showConfirmModal;
-        showConfirmModal = function() {
-            if (!isManagerMatchesAccount()) {
-                showManagerMismatchModal();
-                return;
-            }
-            // При клике на "Ок" вызываем handleOk с зависимостями
-            const { overlay, box } = buildOverlay();
-            const icon = document.createElement('div');
-            icon.className = 'modal-icon warning';
-            icon.textContent = '⚠️';
-            const title = document.createElement('div');
-            title.className = 'modal-title';
-            title.textContent = 'Снятие с фин. стопа';
-            const text = document.createElement('div');
-            text.className = 'modal-text';
-            text.textContent = 'Снимая заказ с фин. стопа, Вы подтверждаете, что платёж поступит в течении трёх рабочих дней.';
-            const buttons = document.createElement('div');
-            buttons.className = 'modal-buttons';
-            const cancelBtn = document.createElement('button');
-            cancelBtn.className = 'modal-btn btn-cancel';
-            cancelBtn.textContent = 'Отмена';
-            cancelBtn.addEventListener('click', () => closeModal());
-            const okBtn = document.createElement('button');
-            okBtn.className = 'modal-btn btn-ok';
-            okBtn.textContent = 'Ок';
-            okBtn.addEventListener('click', () => handleOk(GM, utils)); // ← передаём зависимости
-            buttons.appendChild(cancelBtn); buttons.appendChild(okBtn);
-            box.appendChild(icon); box.appendChild(title); box.appendChild(text); box.appendChild(buttons);
-            showModal(overlay);
-        };
-
-        startObserver();
-        checkPayIcon();
-        console.log('[FinStop] ✅ Наблюдатель запущен, проверка иконки выполнена');
-    }
-
-    // ✅ АВТО-ВЫЗОВ: если модуль загружен как строка, функция выполнится сама
-    if (typeof FinStop === 'function') {
-        // Пустые аргументы — зависимости подставит загрузчик основного скрипта
-        // Если вызываете напрямую — передайте {xmlhttpRequest: GM_xmlhttpRequest}, { $: jQuery }
-        console.log('[FinStop] 📦 Модуль готов к загрузке через userscript');
-    }
-
-})(); // ← закрывающая скобка обёртки
+})(
+    // Эти аргументы подставит загрузчик из основного userscript
+    typeof config !== 'undefined' ? config : {},
+    typeof GM !== 'undefined' ? GM : {},
+    typeof utils !== 'undefined' ? utils : {}
+);
