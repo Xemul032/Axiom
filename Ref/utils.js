@@ -1,55 +1,71 @@
 // Глобальные функции проекта Axiom
 
-function showCenterMessage(message) {
-    // ✅ ПРОВЕРКА: Если окно уже открыто, выходим
-    if (document.getElementById("messageContainer")) return;
+function showCenterMessage(input) {
+    // Поддержка двух форматов вызова:
+    // 1. showCenterMessage("Просто текст")
+    // 2. showCenterMessage({ message: "Текст", buttonText: "Ок", ... })
+    
+    const opts = typeof input === "string" ? { message: input } : (input || {});
+    
+    const {
+        message = "",
+        buttonText = "Ок",
+        onClose = null,
+        duration = 0  // мс, 0 = без автозакрытия
+    } = opts;
 
-    // Создаем затемнение
+    // Если окно уже открыто — выходим
+    if (document.getElementById("messageContainer")) return { close: () => {} };
+
+    // Создаём затемнение
     const blurOverlay = document.createElement("div");
     blurOverlay.id = "blueOverlay";
-    blurOverlay.style.position = "fixed";
-    blurOverlay.style.top = "0";
-    blurOverlay.style.left = "0";
-    blurOverlay.style.width = "100%";
-    blurOverlay.style.height = "100%";
-    blurOverlay.style.backgroundColor = "rgba(0, 0, 0, 0.5)";
-    blurOverlay.style.backdropFilter = "blur(5px)";
-    blurOverlay.style.zIndex = "9998";
+    Object.assign(blurOverlay.style, {
+        position: "fixed", top: "0", left: "0", width: "100%", height: "100%",
+        backgroundColor: "rgba(0, 0, 0, 0.5)", backdropFilter: "blur(5px)",
+        WebkitBackdropFilter: "blur(5px)", zIndex: "9998"
+    });
 
-    // Создаем контейнер сообщения
+    // Создаём контейнер
     const messageContainer = document.createElement("div");
     messageContainer.id = "messageContainer";
-    messageContainer.style.position = "fixed";
-    messageContainer.style.top = "50%";
-    messageContainer.style.left = "50%";
-    messageContainer.style.transform = "translate(-50%, -50%)";
-    messageContainer.style.backgroundColor = "white";
-    messageContainer.style.padding = "20px 30px";
-    messageContainer.style.boxShadow = "0 4px 15px rgba(0, 0, 0, 0.4)";
-    messageContainer.style.zIndex = "10000";
-    messageContainer.style.borderRadius = "12px";
-    messageContainer.style.textAlign = "center";
-    messageContainer.style.minWidth = "250px";
+    Object.assign(messageContainer.style, {
+        position: "fixed", top: "50%", left: "50%", transform: "translate(-50%, -50%)",
+        backgroundColor: "#ffffff", padding: "24px 28px",
+        boxShadow: "0 8px 24px rgba(0,0,0,0.25)", zIndex: "10000",
+        borderRadius: "12px", minWidth: "320px", maxWidth: "90vw",
+        textAlign: "center", fontFamily: "system-ui, -apple-system, Segoe UI, Roboto, sans-serif",
+        boxSizing: "border-box"
+    });
 
     // Формируем HTML
-    let messageHTML = `<div style="margin-bottom: 15px; font-size: 16px; font-weight: bold; color: #333;">${message}</div>`;
-    messageHTML += `<button id="closeMessage" style="padding: 8px 24px; font-size: 14px; cursor: pointer; background: linear-gradient(to bottom, #5BB75B, #429742); border: none; color: white; border-radius: 6px;">Ок</button>`;
+    let messageHTML = `<div style="margin-bottom: 20px; font-size: 16px; font-weight: 600; color: #333; line-height: 1.5;">${message}</div>`;
+    messageHTML += `<button id="closeMessage" style="padding: 10px 32px; font-size: 14px; font-weight: 500; cursor: pointer; background: linear-gradient(to bottom, #5BB75B, #429742); border: none; color: white; border-radius: 6px; transition: all 0.2s;">${buttonText}</button>`;
 
     messageContainer.innerHTML = messageHTML;
 
-    // Добавляем в DOM
+    // Логика закрытия
+    const close = () => {
+        if (messageContainer.parentNode) messageContainer.parentNode.removeChild(messageContainer);
+        if (blurOverlay.parentNode) blurOverlay.parentNode.removeChild(blurOverlay);
+        if (typeof onClose === "function") onClose();
+    };
+
+    document.getElementById("closeMessage").addEventListener("click", close);
+    blurOverlay.addEventListener("click", close);
+
+    // Вставка в DOM
     document.body.appendChild(blurOverlay);
     document.body.appendChild(messageContainer);
 
-    // Обработчик кнопки закрытия
-    document.getElementById("closeMessage").addEventListener("click", function () {
-        // Удаляем элементы
-        if (messageContainer.parentNode) messageContainer.parentNode.removeChild(messageContainer);
-        if (blurOverlay.parentNode) blurOverlay.parentNode.removeChild(blurOverlay);
-    });
+    // Автозакрытие
+    if (duration > 0) setTimeout(close, duration);
+
+    // Возвращаем объект управления
+    return { close };
 }
 
-// 🔥 ЭКСПОРТ: Возвращаем функции, чтобы они стали доступны через api.showCenterMessage
+// 🔥 ЭКСПОРТ
 return {
     showCenterMessage: showCenterMessage
 };
