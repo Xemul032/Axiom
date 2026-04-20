@@ -1,4 +1,4 @@
-// Глобальные функции проекта Axiom
+// Глобальные функции проекта Axiom1
 
 function showCenterMessage(input) {
     // Поддержка двух форматов вызова
@@ -10,6 +10,12 @@ function showCenterMessage(input) {
         onClose = null,
         duration = 0
     } = opts;
+
+    // 🔥 ПРОВЕРКА: существует ли document.body
+    if (!document.body) {
+        console.error('[utils.js] document.body не найден! Функция вызвана слишком рано.');
+        return { close: () => {} };
+    }
 
     // Если окно уже открыто — выходим
     if (document.getElementById("messageContainer")) return { close: () => {} };
@@ -41,24 +47,36 @@ function showCenterMessage(input) {
 
     messageContainer.innerHTML = messageHTML;
 
-    // 🔥 ВАЖНО: Сначала добавляем элементы в DOM
+    // 🔥 Добавляем элементы в DOM
     document.body.appendChild(blurOverlay);
     document.body.appendChild(messageContainer);
 
     // Логика закрытия
     const close = () => {
-        if (messageContainer.parentNode) messageContainer.parentNode.removeChild(messageContainer);
-        if (blurOverlay.parentNode) blurOverlay.parentNode.removeChild(blurOverlay);
+        if (messageContainer && messageContainer.parentNode) {
+            messageContainer.parentNode.removeChild(messageContainer);
+        }
+        if (blurOverlay && blurOverlay.parentNode) {
+            blurOverlay.parentNode.removeChild(blurOverlay);
+        }
         if (typeof onClose === "function") onClose();
     };
 
-    // 🔥 ТЕПЕРЬ элемент существует в DOM, getElementById найдёт его
-    const closeBtn = document.getElementById("closeMessage");
-    if (closeBtn) {
-        closeBtn.addEventListener("click", close);
+    // 🔥 Безопасное добавление обработчиков
+    try {
+        const closeBtn = document.getElementById("closeMessage");
+        if (closeBtn) {
+            closeBtn.addEventListener("click", close);
+        } else {
+            console.warn('[utils.js] Кнопка closeMessage не найдена после добавления в DOM');
+        }
+        
+        if (blurOverlay) {
+            blurOverlay.addEventListener("click", close);
+        }
+    } catch (e) {
+        console.error('[utils.js] Ошибка при добавлении обработчиков:', e);
     }
-    
-    blurOverlay.addEventListener("click", close);
 
     // Автозакрытие
     if (duration > 0) setTimeout(close, duration);
