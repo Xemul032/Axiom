@@ -702,7 +702,7 @@
     }
 
     // ✅ АВТО-ВЫЗОВ: если модуль загружен как строка, функция выполнится сама
-    if (typeof newFinStop === 'function') {
+    if (typeof FinStop === 'function') {
         // Пустые аргументы — зависимости подставит загрузчик основного скрипта
         // Если вызываете напрямую — передайте {xmlhttpRequest: GM_xmlhttpRequest}, { $: jQuery }
         console.log('[FinStop] 📦 Модуль готов к загрузке через userscript');
