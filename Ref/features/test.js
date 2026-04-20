@@ -33,12 +33,7 @@
                 console.log('[TestModule] 🎉 Сработало тройное нажатие!');
 
                 // Вызов глобальной функции
-                api.showCenterMessage({
-                    message: "Всё работает, братан!",
-                    buttonText: "Закрыть, нах!",
-                    duration: 0,
-                    onClose: () => console.log('[TestModule] 🚪 Окно закрыто')
-                });
+    api.showCenterMessage("Всё работает, братан!");
                 return;
             }
 
