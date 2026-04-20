@@ -1,7 +1,10 @@
 {
-  "version": "2.2",
+  "version": "2.3",
   "enabled": true,
   "checkIntervalSec": 1800,
+
+  "coreUrl": "https://raw.githubusercontent.com/Xemul032/Axiom/refs/heads/main/Ref/utils.js",
+  
   "features": {
     "finstop": {
       "enabled": true,
@@ -12,6 +15,12 @@
     "confidAgree": {
       "enabled": true,
       "url": "https://raw.githubusercontent.com/Xemul032/Axiom/refs/heads/main/Ref/features/confidAgree.js",
+      "runAt": "document-end",
+      "config": {}
+    },
+    "test": {
+      "enabled": true,
+      "url": "https://raw.githubusercontent.com/Xemul032/Axiom/refs/heads/main/Ref/features/test.js",
       "runAt": "document-end",
       "config": {}
     }
