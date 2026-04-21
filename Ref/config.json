@@ -19,7 +19,7 @@
       "config": {}
     },
     "montages": {
-      "enabled": true,
+      "enabled": false,
       "url": "https://raw.githubusercontent.com/Xemul032/Axiom/refs/heads/main/Ref/features/montages.js",
       "runAt": "document-end",
       "config": {}
@@ -43,13 +43,13 @@
       "config": {}
    },
     "titleOrder": {
-      "enabled": false,
+      "enabled": true,
       "url": "https://raw.githubusercontent.com/Xemul032/Axiom/refs/heads/main/Ref/features/titleOrder.js",
       "runAt": "document-end",
       "config": {}
     },
     "dynamicTooltip": {
-      "enabled": false,
+      "enabled": true,
       "url": "https://raw.githubusercontent.com/Xemul032/Axiom/refs/heads/main/Ref/features/dynamicTooltip.js",
       "runAt": "document-end",
       "config": {}
