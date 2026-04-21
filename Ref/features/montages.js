@@ -26,7 +26,7 @@
     const UNIQUE_PREFIX = 'montage-script-v2-';
     let buttonAdded = false;
     let createdButton = null;
-    let productIdCache = new Map();
+    let productIdCache = new Set();
     let isProcessing = false;
     let typesCache = [];
     let files = [];
