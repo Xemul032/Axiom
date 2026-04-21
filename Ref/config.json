@@ -41,6 +41,18 @@
       "url": "https://raw.githubusercontent.com/Xemul032/Axiom/refs/heads/main/Ref/features/lockManager.js",
       "runAt": "document-end",
       "config": {}
+   },
+    "titleOrder": {
+      "enabled": false,
+      "url": "https://raw.githubusercontent.com/Xemul032/Axiom/refs/heads/main/Ref/features/titleOrder.js",
+      "runAt": "document-end",
+      "config": {}
+    },
+    "dynamicTooltip": {
+      "enabled": false,
+      "url": "https://raw.githubusercontent.com/Xemul032/Axiom/refs/heads/main/Ref/features/dynamicTooltip.js",
+      "runAt": "document-end",
+      "config": {}
     }
   },
   "fallback": {
