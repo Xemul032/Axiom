@@ -71,8 +71,13 @@
       "url": "https://raw.githubusercontent.com/Xemul032/Axiom/refs/heads/main/Ref/features/smartSerch.js",
       "runAt": "document-end",
       "config": {}
-    }
-  },
+    },
+      "perezakazBtn"
+      "enabled": true,
+      "url": "https://raw.githubusercontent.com/Xemul032/Axiom/refs/heads/main/Ref/features/perezakazBtn.js",
+      "runAt": "document-end",
+      "config": {}
+      },
   "fallback": {
     "enabled": true,
     "showErrorIndicator": true
