@@ -53,6 +53,24 @@
       "url": "https://raw.githubusercontent.com/Xemul032/Axiom/refs/heads/main/Ref/features/dynamicTooltip.js",
       "runAt": "document-end",
       "config": {}
+    },
+    "easyPackMaker": {
+      "enabled": true,
+      "url": "https://raw.githubusercontent.com/Xemul032/Axiom/refs/heads/main/Ref/features/easyPackMaker.js",
+      "runAt": "document-end",
+      "config": {}
+    },
+    "checkIzdelia": {
+      "enabled": true,
+      "url": "https://raw.githubusercontent.com/Xemul032/Axiom/refs/heads/main/Ref/features/checkIzdelia.js",
+      "runAt": "document-end",
+      "config": {}
+    },
+    "smartSerch": {
+      "enabled": true,
+      "url": "https://raw.githubusercontent.com/Xemul032/Axiom/refs/heads/main/Ref/features/smartSerch.js",
+      "runAt": "document-end",
+      "config": {}
     }
   },
   "fallback": {
