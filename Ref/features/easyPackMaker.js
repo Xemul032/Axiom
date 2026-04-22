@@ -1,11 +1,4 @@
-/**
- * Easy Pack Maker - Калькулятор упаковки
- * Модуль для автоматического расчёта размеров и доступности изготовления упаковки
- *
- * @param {Object} config - Конфигурация фичи
- * @param {Object} GM - GM API объект
- * @param {Object} utils - Утилиты
- */
+
 (function(config, GM, utils) {
     'use strict';
 
