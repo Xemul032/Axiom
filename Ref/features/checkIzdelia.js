@@ -1,11 +1,4 @@
-/**
- * Check Izdelia - Проверка выбора всех параметров изделия
- * Модуль подсвечивает незаполненные параметры и скрывает кнопку расчёта
- *
- * @param {Object} config - Конфигурация фичи
- * @param {Object} GM - GM API объект
- * @param {Object} utils - Утилиты
- */
+
 (function(config, GM, utils) {
     'use strict';
 
