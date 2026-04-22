@@ -18,47 +18,140 @@
     let domObserver = null;
 
     // ─────────────────────────────────────────────
-    // 🔥 КОПИРОВАНИЕ СТИЛЕЙ С #TopButtons
+    // 🔥 СТИЛИ: только для модального окна (изолированные)
     // ─────────────────────────────────────────────
-    function copyButtonStyles(sourceBtn, targetBtn) {
-        if (!sourceBtn || !targetBtn) return;
+    function injectModalStyles() {
+        if (document.getElementById(`${UNIQUE_PREFIX}modal-styles`)) return;
+        const style = document.createElement('style');
+        style.id = `${UNIQUE_PREFIX}modal-styles`;
+        style.textContent = `
+            .${UNIQUE_PREFIX}modal-overlay {
+                position: fixed !important;
+                top: 0 !important; left: 0 !important; right: 0 !important; bottom: 0 !important;
+                background: rgba(0, 0, 0, 0.6) !important;
+                display: flex !important; align-items: center !important; justify-content: center !important;
+                z-index: 99999 !important;
+                font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif !important;
+                animation: ${UNIQUE_PREFIX}fadeIn 0.2s ease-out !important;
+            }
+            .${UNIQUE_PREFIX}modal-box {
+                background: #ffffff !important;
+                border-radius: 12px !important;
+                padding: 24px !important;
+                width: 420px !important; max-width: 95vw !important;
+                box-shadow: 0 12px 40px rgba(0, 0, 0, 0.25) !important;
+                animation: ${UNIQUE_PREFIX}slideUp 0.25s ease-out !important;
+            }
+            .${UNIQUE_PREFIX}modal-title {
+                margin: 0 0 20px 0 !important;
+                font-size: 18px !important; font-weight: 600 !important;
+                color: #1a1a1a !important; text-align: center !important;
+            }
+            .${UNIQUE_PREFIX}input-group { margin-bottom: 20px !important; }
+            .${UNIQUE_PREFIX}input-label {
+                display: block !important; margin-bottom: 8px !important;
+                font-size: 14px !important; font-weight: 500 !important; color: #333 !important;
+            }
+            .${UNIQUE_PREFIX}input-field {
+                width: 100% !important; padding: 10px 12px !important;
+                border: 2px solid #d0d0d0 !important; border-radius: 6px !important;
+                font-size: 14px !important; box-sizing: border-box !important;
+                transition: border-color 0.2s ease !important;
+            }
+            .${UNIQUE_PREFIX}input-field:focus {
+                outline: none !important; border-color: #4a90d9 !important;
+                box-shadow: 0 0 0 3px rgba(74, 144, 217, 0.15) !important;
+            }
+            .${UNIQUE_PREFIX}input-field.error {
+                border-color: #e74c3c !important;
+                box-shadow: 0 0 0 3px rgba(231, 76, 60, 0.15) !important;
+            }
+            .${UNIQUE_PREFIX}modal-actions {
+                display: flex !important; gap: 12px !important; justify-content: center !important; margin-top: 24px !important;
+            }
+            .${UNIQUE_PREFIX}modal-btn {
+                padding: 10px 28px !important; border: none !important; border-radius: 6px !important;
+                font-size: 14px !important; font-weight: 500 !important; cursor: pointer !important;
+                transition: all 0.2s ease !important; min-width: 110px !important;
+            }
+            .${UNIQUE_PREFIX}modal-btn-primary {
+                background: #4a90d9 !important; color: #fff !important;
+            }
+            .${UNIQUE_PREFIX}modal-btn-primary:hover:not(:disabled) {
+                background: #3a7fc8 !important; transform: translateY(-1px) !important;
+            }
+            .${UNIQUE_PREFIX}modal-btn-primary:disabled {
+                opacity: 0.7 !important; cursor: not-allowed !important;
+            }
+            .${UNIQUE_PREFIX}modal-btn-secondary {
+                background: #f5f5f5 !important; color: #333 !important; border: 1px solid #ddd !important;
+            }
+            .${UNIQUE_PREFIX}modal-btn-secondary:hover {
+                background: #e8e8e8 !important; transform: translateY(-1px) !important;
+            }
+            .${UNIQUE_PREFIX}notification {
+                position: fixed !important; top: 20px !important; right: 20px !important;
+                padding: 12px 20px !important; border-radius: 8px !important;
+                font-size: 14px !important; font-weight: 500 !important;
+                z-index: 100000 !important; box-shadow: 0 8px 24px rgba(0,0,0,0.2) !important;
+                animation: ${UNIQUE_PREFIX}slideIn 0.3s ease-out !important;
+            }
+            .${UNIQUE_PREFIX}notification.success {
+                background: #2ecc71 !important; color: #fff !important;
+            }
+            .${UNIQUE_PREFIX}notification.error {
+                background: #e74c3c !important; color: #fff !important;
+            }
+            .${UNIQUE_PREFIX}spinner {
+                display: inline-block !important; width: 14px !important; height: 14px !important;
+                border: 2px solid rgba(255,255,255,0.4) !important;
+                border-top-color: #fff !important; border-radius: 50% !important;
+                animation: ${UNIQUE_PREFIX}spin 0.7s linear infinite !important;
+                vertical-align: middle !important; margin-right: 6px !important;
+            }
+            @keyframes ${UNIQUE_PREFIX}fadeIn { from { opacity: 0; } to { opacity: 1; } }
+            @keyframes ${UNIQUE_PREFIX}slideUp { from { opacity: 0; transform: translateY(16px); } to { opacity: 1; transform: translateY(0); } }
+            @keyframes ${UNIQUE_PREFIX}slideIn { from { opacity: 0; transform: translateX(100%); } to { opacity: 1; transform: translateX(0); } }
+            @keyframes ${UNIQUE_PREFIX}spin { to { transform: rotate(360deg); } }
+        `;
+        document.head.appendChild(style);
+    }
 
-        // Копируем все классы источника
-        targetBtn.className = sourceBtn.className;
-        // Добавляем наш префикс для изоляции, если нужно
-        if (!targetBtn.classList.contains(`${UNIQUE_PREFIX}custom-btn`)) {
-            targetBtn.classList.add(`${UNIQUE_PREFIX}custom-btn`);
+    // ─────────────────────────────────────────────
+    // 🔥 КНОПКА: копируем стили ТОЛЬКО с #TopButtons
+    // ─────────────────────────────────────────────
+    function applyTopButtonsStyle(targetBtn) {
+        const topButtons = document.querySelector("#TopButtons");
+        if (!topButtons || !targetBtn) return;
+
+        // Ищем первую подходящую кнопку/ссылку для копирования стилей
+        const styleSource = topButtons.querySelector('button, a.btn, input[type="button"], [role="button"], .btn') ||
+                           topButtons.querySelector('a, input') ||
+                           topButtons.firstElementChild;
+
+        if (!styleSource) return;
+
+        // Копируем классы
+        if (styleSource.className) {
+            targetBtn.className = styleSource.className + ` ${UNIQUE_PREFIX}custom-btn`;
         }
 
-        // Копируем inline-стили (если есть)
-        const sourceStyle = sourceBtn.getAttribute('style');
+        // Копируем inline-стили
+        const sourceStyle = styleSource.getAttribute('style');
         if (sourceStyle) {
             targetBtn.setAttribute('style', sourceStyle);
         }
 
-        // Копируем data-атрибуты (для совместимости с существующими обработчиками)
-        Array.from(sourceBtn.attributes).forEach(attr => {
+        // Копируем data-атрибуты
+        Array.from(styleSource.attributes).forEach(attr => {
             if (attr.name.startsWith('data-') && !targetBtn.hasAttribute(attr.name)) {
                 targetBtn.setAttribute(attr.name, attr.value);
             }
         });
-    }
 
-    function applyTopButtonsStyle(btn) {
-        const topButtons = document.querySelector("#TopButtons");
-        if (!topButtons) return;
-
-        // Ищем первую подходящую кнопку/ссылку для копирования стилей
-        const styleSource = topButtons.querySelector('button, a.btn, input[type="button"], .btn') ||
-                           topButtons.firstElementChild;
-
-        if (styleSource) {
-            copyButtonStyles(styleSource, btn);
-        }
-
-        // Дополнительные правки для нашей кнопки
-        btn.style.cursor = 'pointer';
-        btn.style.userSelect = 'none';
+        // Гарантируем интерактивность
+        targetBtn.style.cursor = 'pointer';
+        targetBtn.style.userSelect = 'none';
     }
 
     // ─────────────────────────────────────────────
@@ -80,136 +173,99 @@
     }
 
     function showNotification(message, type = 'success') {
-        // Создаём уведомление с минимальными стилями, наследуя от системы
         const notification = document.createElement('div');
-        
-        // Копируем стиль с существующих алертов/уведомлений на странице, если есть
-        const systemAlert = document.querySelector('.alert, .notification, .message, [class*="alert"], [class*="notify"]');
-        if (systemAlert) {
-            notification.className = systemAlert.className;
-        } else {
-            // Fallback: базовые стили
-            notification.style.cssText = `
-                position: fixed; top: 20px; right: 20px; z-index: 10001;
-                padding: 12px 20px; border-radius: 6px; font-size: 14px;
-                font-weight: 500; box-shadow: 0 4px 12px rgba(0,0,0,0.15);
-                background: ${type === 'success' ? '#4CAF50' : '#f44336'};
-                color: white; font-family: inherit;
-            `;
-        }
-        
+        notification.className = `${UNIQUE_PREFIX}notification ${type === 'success' ? 'success' : 'error'}`;
         notification.innerHTML = `
             <div style="display: flex; align-items: center; gap: 8px;">
-                <span>${type === 'success' ? '✅' : '❌'}</span>
+                <span style="font-size: 16px;">${type === 'success' ? '✅' : '❌'}</span>
                 <span>${message}</span>
             </div>
         `;
-        
         document.body.appendChild(notification);
         setTimeout(() => {
             notification.style.opacity = '0';
             notification.style.transition = 'opacity 0.3s ease';
-            setTimeout(() => notification.remove(), 300);
+            setTimeout(() => { if (notification.parentNode) notification.parentNode.removeChild(notification); }, 300);
         }, 4000);
     }
 
     // ─────────────────────────────────────────────
-    // Модальное окно (стили копируются с системы)
+    // Модальное окно (СОБСТВЕННЫЕ стили)
     // ─────────────────────────────────────────────
     function showModal(onSubmit) {
-        const modal = document.createElement('div');
+        const overlay = document.createElement('div');
+        overlay.className = `${UNIQUE_PREFIX}modal-overlay`;
         
-        // Копируем стиль модальных окон, если они есть в системе
-        const systemModal = document.querySelector('.modal, .popup, [class*="modal"], [class*="popup"]');
-        if (systemModal) {
-            modal.className = systemModal.className;
-        } else {
-            modal.style.cssText = `
-                position: fixed; top: 0; left: 0; right: 0; bottom: 0;
-                background: rgba(0,0,0,0.5); display: flex;
-                align-items: center; justify-content: center;
-                z-index: 10000; font-family: inherit;
-            `;
-        }
-
-        const content = document.createElement('div');
-        // Копируем стиль контента модального окна
-        const systemModalContent = document.querySelector('.modal-content, .popup-content, [class*="modal-content"]');
-        if (systemModalContent) {
-            content.className = systemModalContent.className;
-        } else {
-            content.style.cssText = `
-                background: white; padding: 24px; border-radius: 8px;
-                width: 400px; max-width: 90vw; box-shadow: 0 8px 24px rgba(0,0,0,0.2);
-            `;
-        }
-
-        content.innerHTML = `
-            <div style="margin-bottom: 20px; text-align: center; font-weight: 600; font-size: 18px;">${MODAL_TITLE}</div>
-            <div style="margin-bottom: 20px;">
-                <label style="display: block; margin-bottom: 8px; font-weight: 500;">Счёт от подрядчика</label>
-                <input type="text" id="${UNIQUE_PREFIX}invoiceInput" placeholder="${INPUT_PLACEHOLDER}"
-                    style="width: 100%; padding: 10px 12px; border: 1px solid #ccc; border-radius: 4px; font-size: 14px; box-sizing: border-box;">
+        const box = document.createElement('div');
+        box.className = `${UNIQUE_PREFIX}modal-box`;
+        
+        box.innerHTML = `
+            <h3 class="${UNIQUE_PREFIX}modal-title">${MODAL_TITLE}</h3>
+            <div class="${UNIQUE_PREFIX}input-group">
+                <label class="${UNIQUE_PREFIX}input-label">Счёт от подрядчика</label>
+                <input type="text" class="${UNIQUE_PREFIX}input-field" id="${UNIQUE_PREFIX}invoiceInput" placeholder="${INPUT_PLACEHOLDER}" autocomplete="off">
             </div>
-            <div style="display: flex; gap: 12px; justify-content: center;">
-                <button id="${UNIQUE_PREFIX}submitBtn" style="padding: 10px 24px; border-radius: 4px; font-weight: 500; cursor: pointer;">Сохранить</button>
-                <button id="${UNIQUE_PREFIX}cancelBtn" style="padding: 10px 24px; border-radius: 4px; font-weight: 500; cursor: pointer; background: #f5f5f5; border: 1px solid #ddd;">Отмена</button>
+            <div class="${UNIQUE_PREFIX}modal-actions">
+                <button class="${UNIQUE_PREFIX}modal-btn ${UNIQUE_PREFIX}modal-btn-primary" id="${UNIQUE_PREFIX}submitBtn">
+                    <span id="${UNIQUE_PREFIX}submitText">Сохранить</span>
+                </button>
+                <button class="${UNIQUE_PREFIX}modal-btn ${UNIQUE_PREFIX}modal-btn-secondary" id="${UNIQUE_PREFIX}cancelBtn">Отмена</button>
             </div>
         `;
+        
+        overlay.appendChild(box);
 
-        // Применяем стили к кнопкам внутри модалки из системы
-        const systemBtn = document.querySelector('#TopButtons button, #TopButtons .btn');
-        if (systemBtn) {
-            const submitBtn = content.querySelector(`#${UNIQUE_PREFIX}submitBtn`);
-            const cancelBtn = content.querySelector(`#${UNIQUE_PREFIX}cancelBtn`);
-            copyButtonStyles(systemBtn, submitBtn);
-            copyButtonStyles(systemBtn, cancelBtn);
-            // Немного отличаем вторичную кнопку
-            cancelBtn.style.opacity = '0.9';
-        }
+        const input = box.querySelector(`#${UNIQUE_PREFIX}invoiceInput`);
+        const submitBtn = box.querySelector(`#${UNIQUE_PREFIX}submitBtn`);
+        const cancelBtn = box.querySelector(`#${UNIQUE_PREFIX}cancelBtn`);
+        const submitText = box.querySelector(`#${UNIQUE_PREFIX}submitText`);
 
-        modal.appendChild(content);
+        setTimeout(() => { if (input) input.focus(); }, 50);
 
-        const input = content.querySelector(`#${UNIQUE_PREFIX}invoiceInput`);
-        const submitBtn = content.querySelector(`#${UNIQUE_PREFIX}submitBtn`);
-        const cancelBtn = content.querySelector(`#${UNIQUE_PREFIX}cancelBtn`);
-
-        setTimeout(() => { if (input) input.focus(); }, 100);
-
+        // Обработчики
         if (input) {
             input.addEventListener('keypress', (e) => { if (e.key === 'Enter' && submitBtn) submitBtn.click(); });
-            input.addEventListener('input', () => { if (input) input.style.borderColor = ''; });
+            input.addEventListener('input', () => { if (input) input.classList.remove(`${UNIQUE_PREFIX}input-field-error`); });
         }
 
         if (submitBtn) {
-            submitBtn.onclick = () => {
+            submitBtn.addEventListener('click', () => {
                 const value = input?.value.trim();
                 if (!value) {
                     if (input) {
-                        input.style.borderColor = '#f44336';
+                        input.classList.add(`${UNIQUE_PREFIX}input-field-error`);
                         input.focus();
                     }
                     return;
                 }
-                const originalText = submitBtn.textContent;
+                // Состояние загрузки
                 submitBtn.disabled = true;
-                submitBtn.textContent = 'Сохранение...';
+                const originalText = submitText.textContent;
+                submitText.innerHTML = `<span class="${UNIQUE_PREFIX}spinner"></span>Сохранение...`;
 
                 onSubmit(value, () => {
-                    if (modal.parentNode) modal.parentNode.removeChild(modal);
+                    // Восстановление
                     submitBtn.disabled = false;
-                    submitBtn.textContent = originalText;
+                    submitText.textContent = originalText;
+                    if (overlay.parentNode) overlay.parentNode.removeChild(overlay);
                 });
-            };
+            });
         }
 
         if (cancelBtn) {
-            cancelBtn.onclick = () => { if (modal.parentNode) modal.parentNode.removeChild(modal); };
+            cancelBtn.addEventListener('click', () => {
+                if (overlay.parentNode) overlay.parentNode.removeChild(overlay);
+            });
         }
 
-        modal.onclick = (e) => { if (e.target === modal && modal.parentNode) modal.parentNode.removeChild(modal); };
+        // Закрытие по клику вне окна
+        overlay.addEventListener('click', (e) => {
+            if (e.target === overlay && overlay.parentNode) {
+                overlay.parentNode.removeChild(overlay);
+            }
+        });
 
-        document.body.appendChild(modal);
+        document.body.appendChild(overlay);
     }
 
     // ─────────────────────────────────────────────
@@ -315,7 +371,7 @@
             button = document.createElement("button");
             button.textContent = BUTTON_TEXT;
             
-            // 🔥 Копируем стили с существующих кнопок в #TopButtons
+            // 🔥 Копируем стили ТОЛЬКО для кнопки
             applyTopButtonsStyle(button);
             
             button.addEventListener("click", handleButtonClick);
@@ -332,6 +388,8 @@
     function init() {
         if (active) return;
         active = true;
+        
+        injectModalStyles(); // Стили модалки — свои
         checkAndToggleButton();
         
         domObserver = new MutationObserver(checkAndToggleButton);
@@ -354,6 +412,10 @@
             button.parentNode.removeChild(button);
             button = null;
         }
+        // Удаляем открытые модалки при очистке
+        document.querySelectorAll(`.${UNIQUE_PREFIX}modal-overlay`).forEach(el => {
+            if (el.parentNode) el.parentNode.removeChild(el);
+        });
     }
 
     function toggle() {
@@ -379,9 +441,8 @@
         cleanup,
         toggle,
         isActive,
-        copyButtonStyles,      // полезно для других модулей
         applyTopButtonsStyle,  // полезно для других модулей
-        checkAndToggleButton   // публичный метод обновления кнопки
+        checkAndToggleButton
     };
 
 })(config, GM, utils, api);
