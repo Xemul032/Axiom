@@ -1,11 +1,4 @@
-/**
- * Smart Search - Умный поиск коробок, пакетов, конвертов и папок
- * Модуль для подбора подходящих изделий по размерам с использованием Google Sheets
- *
- * @param {Object} config - Конфигурация фичи
- * @param {Object} GM - GM API объект
- * @param {Object} utils - Утилиты
- */
+
 (function(config, GM, utils) {
     'use strict';
 
