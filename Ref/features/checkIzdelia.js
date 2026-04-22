@@ -1,8 +1,8 @@
+// checkIzdelia.js — модуль валидации выбора параметров
+// Загружается через GM_xmlhttpRequest и выполняется как модуль
 
-(function(config, GM, utils) {
+(function(config, GM, utils, api) {
     'use strict';
-
-    if (!config || !config.enabled) return;
 
     let active = false;
     let domObserver = null;
@@ -10,14 +10,18 @@
     let periodicChecker = null;
     let calcButton = null;
     let warningElement = null;
-
+    
     const HIGHLIGHT_CLASS = 'tm-highlight-missing-row-cell';
     const LABEL_HIGHLIGHT_CLASS = 'tm-ut-label-error';
+    const CONFIG = Object.assign({
+        checkIntervalMs: 1000,
+        initDelayMs: 50,
+        targetSelector: '#CalcUt',
+        calcButtonSelector: 'button.btn.btn-success'
+    }, config || {});
 
-    // Внедрение стилей
     function injectStyles() {
         if (document.querySelector(`#${LABEL_HIGHLIGHT_CLASS}-style`)) return;
-
         const style = document.createElement('style');
         style.id = `${LABEL_HIGHLIGHT_CLASS}-style`;
         style.textContent = `
@@ -30,8 +34,6 @@
             .${HIGHLIGHT_CLASS}:not(:last-child) {
                 outline-right: none !important;
             }
-
-            /* Полный стиль для ut_label в ошибках */
             td.ut_label.${LABEL_HIGHLIGHT_CLASS} {
                 -webkit-text-size-adjust: 100% !important;
                 -webkit-tap-highlight-color: rgba(0,0,0,0) !important;
@@ -53,21 +55,17 @@
         document.head.appendChild(style);
     }
 
-    // Проверка, находится ли элемент внутри стиля документа
     function isInsideDocStyle(element) {
         const docStyle = document.querySelector('#Doc > style');
         return docStyle && docStyle.contains(element);
     }
 
-    // Получение валидных TD с радиокнопками
     function getValidRadioSelectTds() {
         const allTds = document.querySelectorAll('td.a_radioselect');
         return Array.from(allTds).filter(td => !isInsideDocStyle(td));
     }
 
-    // Обновление подсветки
     function updateHighlights() {
-        // Убираем все временные классы
         document.querySelectorAll(`.${HIGHLIGHT_CLASS}`).forEach(el => el.classList.remove(HIGHLIGHT_CLASS));
         document.querySelectorAll(`.${LABEL_HIGHLIGHT_CLASS}`).forEach(el => el.classList.remove(LABEL_HIGHLIGHT_CLASS));
 
@@ -81,7 +79,6 @@
             }
         }
 
-        // Подсвечиваем строки
         rowsToHighlight.forEach(tr => {
             tr.querySelectorAll('td').forEach(td => {
                 td.classList.add(HIGHLIGHT_CLASS);
@@ -92,18 +89,16 @@
         });
     }
 
-    // Проверка, все ли радиокнопки выбраны
     function areAllSelected() {
         const tds = getValidRadioSelectTds();
         if (tds.length === 0) return false;
         return tds.every(td => td.querySelector('input[type=radio]:checked'));
     }
 
-    // Обновление UI
     function updateUI() {
         if (!active) return;
 
-        calcButton = calcButton || document.querySelector('button.btn.btn-success');
+        calcButton = calcButton || document.querySelector(CONFIG.calcButtonSelector);
         if (!calcButton) return;
 
         const allSelected = areAllSelected();
@@ -128,7 +123,6 @@
         }
     }
 
-    // Очистка
     function cleanup() {
         if (!active) return;
         active = false;
@@ -154,7 +148,6 @@
         warningElement = null;
     }
 
-    // Инициализация
     function init() {
         if (active) return;
         active = true;
@@ -170,25 +163,40 @@
         };
         document.addEventListener('change', radioChangeListener);
 
-        periodicChecker = setInterval(updateUI, 1000);
+        periodicChecker = setInterval(updateUI, CONFIG.checkIntervalMs);
         updateUI();
     }
 
-    // Наблюдатель за появлением #CalcUt
-    const presenceObserver = new MutationObserver(() => {
-        const calcUtExists = !!document.querySelector('#CalcUt');
-        if (calcUtExists && !active) {
-            init();
-        } else if (!calcUtExists && active) {
-            cleanup();
+    function toggle(forceState) {
+        if (typeof forceState === 'boolean') {
+            if (forceState && !active) init();
+            if (!forceState && active) cleanup();
+        } else {
+            if (active) cleanup(); else init();
         }
-    });
-
-    presenceObserver.observe(document.body, { childList: true, subtree: true });
-
-    // Проверка при старте
-    if (document.querySelector('#CalcUt')) {
-        setTimeout(init, 50);
     }
 
-})(typeof config !== 'undefined' ? config.checkIzdelia : {}, typeof GM !== 'undefined' ? GM : {}, typeof utils !== 'undefined' ? utils : {});
+    function isActive() {
+        return active;
+    }
+
+    function getStatus() {
+        return {
+            active,
+            allSelected: areAllSelected(),
+            calcButtonVisible: calcButton?.style.display !== 'none'
+        };
+    }
+
+    // 🔥 Экспортируем публичный API
+    return {
+        init,
+        cleanup,
+        toggle,
+        isActive,
+        getStatus,
+        updateUI,
+        version: '1.0.0'
+    };
+
+})(config, GM, utils, api);
