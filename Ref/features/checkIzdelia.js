@@ -1,5 +1,6 @@
-// checkIzdelia.js — модуль валидации выбора параметров
-// Загружается через GM_xmlhttpRequest и выполняется как модуль
+// checkIzdelia.js — модуль подсветки обязательных параметров
+// Загружается динамически из config.json через Axiom Status Indicator
+// Возвращает API управления: { init, cleanup, toggle, isActive }
 
 (function(config, GM, utils, api) {
     'use strict';
@@ -13,12 +14,7 @@
     
     const HIGHLIGHT_CLASS = 'tm-highlight-missing-row-cell';
     const LABEL_HIGHLIGHT_CLASS = 'tm-ut-label-error';
-    const CONFIG = Object.assign({
-        checkIntervalMs: 1000,
-        initDelayMs: 50,
-        targetSelector: '#CalcUt',
-        calcButtonSelector: 'button.btn.btn-success'
-    }, config || {});
+    const TARGET_SELECTOR = config?.targetSelector || '#CalcUt';
 
     function injectStyles() {
         if (document.querySelector(`#${LABEL_HIGHLIGHT_CLASS}-style`)) return;
@@ -98,7 +94,7 @@
     function updateUI() {
         if (!active) return;
 
-        calcButton = calcButton || document.querySelector(CONFIG.calcButtonSelector);
+        calcButton = calcButton || document.querySelector('button.btn.btn-success');
         if (!calcButton) return;
 
         const allSelected = areAllSelected();
@@ -163,16 +159,15 @@
         };
         document.addEventListener('change', radioChangeListener);
 
-        periodicChecker = setInterval(updateUI, CONFIG.checkIntervalMs);
+        periodicChecker = setInterval(updateUI, config?.checkIntervalMs || 1000);
         updateUI();
     }
 
-    function toggle(forceState) {
-        if (typeof forceState === 'boolean') {
-            if (forceState && !active) init();
-            if (!forceState && active) cleanup();
+    function toggle() {
+        if (active) {
+            cleanup();
         } else {
-            if (active) cleanup(); else init();
+            init();
         }
     }
 
@@ -180,23 +175,29 @@
         return active;
     }
 
-    function getStatus() {
-        return {
-            active,
-            allSelected: areAllSelected(),
-            calcButtonVisible: calcButton?.style.display !== 'none'
-        };
+    // 🔥 Авто-инициализация при наличии целевого элемента
+    const presenceObserver = new MutationObserver(() => {
+        const targetExists = !!document.querySelector(TARGET_SELECTOR);
+        if (targetExists && !active) {
+            init();
+        } else if (!targetExists && active) {
+            cleanup();
+        }
+    });
+
+    presenceObserver.observe(document.body, { childList: true, subtree: true });
+
+    if (document.querySelector(TARGET_SELECTOR)) {
+        setTimeout(init, 50);
     }
 
-    // 🔥 Экспортируем публичный API
+    // 🔥 Экспорт API для внешнего управления
     return {
         init,
         cleanup,
         toggle,
         isActive,
-        getStatus,
-        updateUI,
-        version: '1.0.0'
+        updateUI // на случай ручного триггера
     };
 
 })(config, GM, utils, api);
