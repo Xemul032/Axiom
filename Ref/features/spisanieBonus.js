@@ -9,7 +9,7 @@
     
     // Селекторы (можно переопределить в конфиге)
     const SELECTORS = {
-        bonusTd: config?.selectors?.bonusTd || "#Fin > table > tbody:nth-child(4) > tr > td:nth-child(1) > table > tbody > tr.bonus-row > td",
+        bonusTd: config?.selectors?.bonusTd || "#Fin > table > tbody:nth-child(4) > tr > td:nth-child(1) > table > tbody > tr.bonus-finder-bonus-row > td",
         bonusTbody: config?.selectors?.bonusTbody || "#Fin > table > tbody:nth-child(4) > tr > td:nth-child(1) > table > tbody",
         productId: config?.selectors?.productId || "#ProductId",
         finInput: config?.selectors?.finInput || "#Fin > table > tbody:nth-child(4) > tr > td:nth-child(1) > table > tbody > tr:nth-child(1) > td.right > input",
