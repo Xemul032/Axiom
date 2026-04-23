@@ -15,7 +15,7 @@
         // Таблица 2: остатки бонусов (ОСТАТОК)
         bonusSheetId: config?.bonusSheetId || '1J-AqPpr5y9HEl0Q0WhSvafZFTjw5DpLi_jWYy0g7KqQ',
         bonusSheetName: config?.bonusSheetName || 'ОСТАТОК',
-        bonusApiKey: config?.bonusApiKey || '',
+        bonusApiKey: config?.bonusApiKey || 'AIzaSyCiGZzZ85qCs-xJmlCbM-bz9IdAQxEq5z0',
 
         // Таблица 3: списанные бонусы (idCheck)
         spentSheetId: config?.spentSheetId || '1VNlFOnfbc_pyCGsRjiV6WD1e6WUrT3UJBDgBkFl970',
