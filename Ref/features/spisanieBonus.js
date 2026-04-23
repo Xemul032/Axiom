@@ -1,3 +1,5 @@
+// spisanieBonus.js — модуль списания бонусов клиента (версия с отладкой)
+// Загружается динамически из config.json через Axiom Status Indicator
 
 (function(config, GM, utils, api) {
     'use strict';
@@ -7,6 +9,18 @@
     const UNIQUE_PREFIX = config?.uniquePrefix || 'bonus-module-';
     const BUTTON_TEXT = config?.buttonText || 'Списать бонусы';
     
+    // 🔥 Логгирование с префиксом
+    const LOG_PREFIX = '[BonusModule]';
+    function log(...args) {
+        console.log(LOG_PREFIX, ...args);
+    }
+    function warn(...args) {
+        console.warn(LOG_PREFIX, ...args);
+    }
+    function error(...args) {
+        console.error(LOG_PREFIX, ...args);
+    }
+
     // Селекторы (можно переопределить в конфиге)
     const SELECTORS = {
         bonusTd: config?.selectors?.bonusTd || "#Fin > table > tbody:nth-child(4) > tr > td:nth-child(1) > table > tbody > tr.bonus-finder-bonus-row > td",
@@ -17,6 +31,9 @@
         summaryRow: config?.selectors?.summaryRow || "#Summary > table > tbody > tr > td:nth-child(1) > table.table.table-condensed.table-striped > tbody:nth-child(1) > tr:nth-child(2)",
         clientSelect: config?.selectors?.clientSelect || "#Summary > table > tbody > tr > td:nth-child(1) > table.table.table-condensed.table-striped > tbody:nth-child(1) > tr:nth-child(2) > td:nth-child(2) > select"
     };
+
+    log('📦 Модуль загружен. Конфиг:', { SCRIPT_URL, UNIQUE_PREFIX, BUTTON_TEXT });
+    log('🔍 Селекторы:', SELECTORS);
 
     // 🔥 Внутреннее состояние
     let active = false;
@@ -29,7 +46,11 @@
     // 🔥 СТИЛИ: изолированные для модалки
     // ─────────────────────────────────────────────
     function injectModalStyles() {
-        if (document.getElementById(`${UNIQUE_PREFIX}modal-styles`)) return;
+        log('🎨 injectModalStyles() вызвана');
+        if (document.getElementById(`${UNIQUE_PREFIX}modal-styles`)) {
+            log('⚠️ Стили уже инжектированы, пропускаем');
+            return;
+        }
         const style = document.createElement('style');
         style.id = `${UNIQUE_PREFIX}modal-styles`;
         style.textContent = `
@@ -145,42 +166,61 @@
             }
         `;
         document.head.appendChild(style);
+        log('✅ Стили инжектированы в <head>');
     }
 
     // ─────────────────────────────────────────────
     // Утилиты
     // ─────────────────────────────────────────────
     function extractBonusValue(text) {
-        if (!text) return null;
+        log('🔢 extractBonusValue(): входной текст:', text);
+        if (!text) { log('⚠️ text пустой'); return null; }
         const cleaned = text.replace(/[^0-9,\s.]/g, '').trim();
-        if (!cleaned) return null;
+        if (!cleaned) { log('⚠️ после очистки строка пустая'); return null; }
         const noSpaces = cleaned.replace(/\s+/g, '');
         const normalized = noSpaces.replace(/,/g, '.');
         const num = parseFloat(normalized);
+        log('🔢 Результат:', isNaN(num) ? null : num);
         return isNaN(num) ? null : num;
     }
 
     function extractNumericProductId(productId) {
-        if (!productId) return null;
+        log('🔢 extractNumericProductId(): вход:', productId);
+        if (!productId) { log('⚠️ productId пустой'); return null; }
         const numericValue = productId.toString().replace(/\D/g, '');
+        log('🔢 Результат:', numericValue || null);
         return numericValue || null;
     }
 
     function getText(selector) {
         const el = document.querySelector(selector);
-        return el ? (el.textContent || el.innerText || '').trim() : '';
+        if (!el) {
+            log('⚠️ getText(): элемент не найден по селектору:', selector);
+            return null;
+        }
+        const text = (el.textContent || el.innerText || '').trim();
+        log('📝 getText():', selector, '→', text);
+        return text;
     }
 
     // ─────────────────────────────────────────────
     // Управление кнопкой
     // ─────────────────────────────────────────────
     function tryToAddButton() {
-        if (buttonAdded) return;
+        log('🔘 tryToAddButton() вызвана. buttonAdded:', buttonAdded);
+        if (buttonAdded) { log('⚠️ Кнопка уже добавлена, выход'); return; }
 
         const targetTd = document.querySelector(SELECTORS.bonusTd);
         const targetTbody = document.querySelector(SELECTORS.bonusTbody);
+        
+        log('🔍 Поиск элементов:');
+        log('  • bonusTd:', SELECTORS.bonusTd, '→', targetTd ? 'найдено' : 'НЕ НАЙДЕНО');
+        log('  • bonusTbody:', SELECTORS.bonusTbody, '→', targetTbody ? 'найдено' : 'НЕ НАЙДЕНО');
 
-        if (!targetTd || !targetTbody) return;
+        if (!targetTd || !targetTbody) {
+            log('⚠️ Один из целевых элементов не найден, выход');
+            return;
+        }
 
         const hasCorrectAttributes =
             targetTd.colSpan === 2 &&
@@ -188,12 +228,29 @@
             targetTd.style.fontWeight === 'bold' &&
             targetTd.style.color === 'green';
 
+        log('🎯 Проверка атрибутов targetTd:', {
+            colSpan: targetTd.colSpan,
+            textAlign: targetTd.style.textAlign,
+            fontWeight: targetTd.style.fontWeight,
+            color: targetTd.style.color,
+            результат: hasCorrectAttributes
+        });
+
         const text = targetTd.textContent || targetTd.innerText;
-        if (!hasCorrectAttributes || !text.includes('Доступно бонусов:')) return;
+        log('📝 Текст в targetTd:', text);
+        
+        if (!hasCorrectAttributes || !text.includes('Доступно бонусов:')) {
+            log('⚠️ Не пройдена проверка атрибутов или текста, выход');
+            return;
+        }
 
         const value = extractBonusValue(text);
-        if (value === null) return;
+        if (value === null) {
+            log('⚠️ Не удалось извлечь числовое значение бонуса, выход');
+            return;
+        }
 
+        log('✅ Все проверки пройдены. bonusValue:', value);
         bonusValue = value;
         buttonAdded = true;
 
@@ -220,17 +277,25 @@
         `;
         button.onmouseover = () => { if (!button.disabled) button.style.transform = 'scale(1.03)'; };
         button.onmouseout = () => { if (!button.disabled) button.style.transform = 'scale(1)'; };
-        button.onclick = createModal;
+        button.onclick = (e) => {
+            log('🖱️ Клик по кнопке "Списать бонусы"');
+            createModal();
+        };
 
         newCell.appendChild(button);
         newRow.appendChild(newCell);
         targetTbody.appendChild(newRow);
+        log('✅ Кнопка добавлена в DOM');
     }
 
     function removeButton() {
+        log('🗑️ removeButton() вызвана');
         const button = document.getElementById(`${UNIQUE_PREFIX}useBonusBtn`);
         if (button && button.parentElement?.parentElement) {
             button.parentElement.parentElement.remove();
+            log('✅ Кнопка удалена из DOM');
+        } else {
+            log('⚠️ Кнопка не найдена или уже удалена');
         }
         buttonAdded = false;
         bonusValue = null;
@@ -240,8 +305,11 @@
     // Модальное окно
     // ─────────────────────────────────────────────
     function createModal() {
+        log('🪟 createModal() вызвана');
+        
         // Удаляем предыдущую модалку, если есть
         if (currentModal?.parentNode) {
+            log('🗑️ Удаляем предыдущую модалку');
             currentModal.parentNode.removeChild(currentModal);
         }
 
@@ -266,10 +334,12 @@
 
         modal.appendChild(content);
         document.body.appendChild(modal);
+        log('✅ Модалка добавлена в DOM');
 
         // Закрытие по ESC
         const handleEsc = (e) => {
             if (e.key === 'Escape') {
+                log('⌨️ Нажат ESC, закрываем модалку');
                 closeModal();
                 window.removeEventListener('keydown', handleEsc);
             }
@@ -278,7 +348,10 @@
 
         // Закрытие по клику вне контента
         modal.addEventListener('click', (e) => {
-            if (e.target === modal) closeModal();
+            if (e.target === modal) {
+                log('🖱️ Клик вне модалки, закрываем');
+                closeModal();
+            }
         });
 
         // Загрузка данных
@@ -286,24 +359,33 @@
     }
 
     function closeModal() {
+        log('🔒 closeModal() вызвана');
         if (currentModal?.parentNode) {
             currentModal.parentNode.removeChild(currentModal);
             currentModal = null;
+            log('✅ Модалка удалена');
         }
     }
 
     async function loadBonusData(modal) {
+        log('📡 loadBonusData() вызвана');
         const loadingDiv = document.getElementById(`${UNIQUE_PREFIX}loading`);
         const formDiv = document.getElementById(`${UNIQUE_PREFIX}form`);
 
         // Получаем ProductId
         const productIdEl = document.querySelector(SELECTORS.productId);
+        log('🔍 Поиск #ProductId:', productIdEl ? 'найдено' : 'НЕ НАЙДЕНО');
+        
         let productId = productIdEl
             ? (productIdEl.value !== undefined ? productIdEl.value : (productIdEl.textContent || productIdEl.innerText).trim())
             : null;
+        log('🆔 ProductId (сырой):', productId);
+        
         const numericProductId = extractNumericProductId(productId);
+        log('🔢 numericProductId:', numericProductId);
 
         if (!numericProductId) {
+            log('❌ Не удалось получить числовой ProductId');
             loadingDiv.innerHTML = `
                 <h3 class="${UNIQUE_PREFIX}modal-title">💵 Бонусы клиента</h3>
                 <p class="${UNIQUE_PREFIX}balance-text">
@@ -318,6 +400,7 @@
         // Получаем summaryText
         let summaryText = getText(SELECTORS.summarySpan);
         if (!summaryText) {
+            log('⚠️ summarySpan не найден, пробуем fallback');
             const fallbackRow = document.querySelector(SELECTORS.summaryRow);
             if (fallbackRow) {
                 const tds = fallbackRow.querySelectorAll('td');
@@ -325,36 +408,48 @@
                     const firstCellText = (tds[0].textContent || tds[0].innerText || '').trim().toLowerCase();
                     if (firstCellText.includes('заказчик') || firstCellText === 'клиент') {
                         summaryText = (tds[1].textContent || tds[1].innerText || '').trim();
+                        log('✅ fallback: summaryText =', summaryText);
                     }
                 }
             }
         }
+        log('📝 summaryText:', summaryText);
 
         // Запрос к скрипту
         const checkUrl = `${SCRIPT_URL}?action=get&productId=${encodeURIComponent(numericProductId)}`;
+        log('🌐 GET запрос:', checkUrl);
 
         try {
             const response = await fetch(checkUrl, { method: "GET", mode: "cors" });
+            log('📥 Ответ сервера: status=', response.status);
             const result = await response.json();
+            log('📦 Распарсенный JSON:', result);
 
-            if (result.status !== "success") throw new Error(result.message || "Ошибка проверки");
+            if (result.status !== "success") {
+                log('❌ Ошибка в ответе: status !== "success"');
+                throw new Error(result.message || "Ошибка проверки");
+            }
 
             loadingDiv.style.display = 'none';
             formDiv.style.display = 'block';
+            log('✅ Показываем форму');
 
             // Если заказ в зарплате — только просмотр
             if (result.found && result.data.inSalary) {
+                log('🔒 Заказ в зарплате, показываем заблокированную форму');
                 renderSalaryLockedForm(formDiv, numericProductId);
                 return;
             }
 
             // Получаем suggestedAmount из Fin-инпута
             const finInput = document.querySelector(SELECTORS.finInput);
+            log('🔍 finInput:', finInput ? 'найдено' : 'НЕ НАЙДЕНО');
             let suggestedAmount = 0;
             if (finInput) {
                 const rawValue = parseFloat(finInput.value);
                 if (!isNaN(rawValue)) {
                     suggestedAmount = rawValue < 0 ? Math.round(Math.abs(rawValue)) : 0;
+                    log('💰 suggestedAmount:', suggestedAmount);
                 }
             }
 
@@ -363,13 +458,19 @@
             const clientSelect = document.querySelector(SELECTORS.clientSelect);
             if (clientSelect?.value) {
                 gettingClientId = clientSelect.value;
+                log('👤 gettingClientId из select:', gettingClientId);
             } else {
+                log('⚠️ clientSelect не найден или пуст, ищем в <script>');
                 const scripts = document.querySelectorAll('script');
                 for (const script of scripts) {
                     const text = script.textContent || script.innerText || '';
                     if (text.includes('Product = {') && text.includes('ClientId:')) {
                         const match = text.match(/ClientId:\s*(\d+)/);
-                        if (match) { gettingClientId = match[1]; break; }
+                        if (match) { 
+                            gettingClientId = match[1]; 
+                            log('✅ gettingClientId из скрипта:', gettingClientId);
+                            break; 
+                        }
                     }
                 }
             }
@@ -385,6 +486,7 @@
             });
 
         } catch (err) {
+            error('❌ Ошибка в loadBonusData:', err);
             loadingDiv.style.display = 'none';
             formDiv.innerHTML = `
                 <h3 class="${UNIQUE_PREFIX}modal-title">💵 Бонусы клиента</h3>
@@ -398,6 +500,7 @@
     }
 
     function renderSalaryLockedForm(container, numericProductId) {
+        log('🔒 renderSalaryLockedForm()');
         container.innerHTML = `
             <h3 class="${UNIQUE_PREFIX}modal-title">
                 <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#007BFF" stroke-width="2">
@@ -413,10 +516,14 @@
                 <button id="${UNIQUE_PREFIX}modalCloseBtn" class="${UNIQUE_PREFIX}modal-btn ${UNIQUE_PREFIX}btn-close">Закрыть</button>
             </div>
         `;
-        document.getElementById(`${UNIQUE_PREFIX}modalCloseBtn`).onclick = closeModal;
+        const closeBtn = document.getElementById(`${UNIQUE_PREFIX}modalCloseBtn`);
+        if (closeBtn) {
+            closeBtn.onclick = () => { log('🔒 Клик "Закрыть" в заблокированной форме'); closeModal(); };
+        }
     }
 
     function renderBonusForm(container, data) {
+        log('✏️ renderBonusForm():', data);
         const { isEditing, existingAmount, existingTaxi, suggestedAmount, gettingClientId, summaryText, numericProductId } = data;
         const title = isEditing ? "Редактирование бонусов" : "Списание бонусов";
         const amountLabel = isEditing
@@ -455,7 +562,10 @@
 
         // Инициализация чекбокса
         const taxiCheckbox = document.getElementById(`${UNIQUE_PREFIX}taxiCheckbox`);
-        if (taxiCheckbox) taxiCheckbox.checked = !!existingTaxi;
+        if (taxiCheckbox) {
+            taxiCheckbox.checked = !!existingTaxi;
+            log('🚕 taxiCheckbox установлен:', taxiCheckbox.checked);
+        }
 
         // Настройка инпута: только цифры
         const input = document.getElementById(`${UNIQUE_PREFIX}bonusAmountInput`);
@@ -466,24 +576,32 @@
                 const allowed = (e.key >= '0' && e.key <= '9') ||
                     ['Backspace', 'Delete', 'Tab', 'Escape', 'Enter', 'ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown'].includes(e.key) ||
                     (e.ctrlKey && ['a', 'c', 'v', 'x'].includes(e.key.toLowerCase()));
-                if (!allowed) e.preventDefault();
+                if (!allowed) {
+                    log('⌨️ Блокируем ввод:', e.key);
+                    e.preventDefault();
+                }
             });
             input.addEventListener('input', () => {
                 input.value = input.value.replace(/[^0-9]/g, '');
                 if (input.classList.contains(`${UNIQUE_PREFIX}input-field-error`)) {
                     input.classList.remove(`${UNIQUE_PREFIX}input-field-error`);
-                    errorDiv.textContent = '';
+                    if (errorDiv) errorDiv.textContent = '';
                 }
             });
         }
 
         // Обработчики кнопок
-        document.getElementById(`${UNIQUE_PREFIX}modalCloseBtn`).onclick = closeModal;
+        const closeBtn = document.getElementById(`${UNIQUE_PREFIX}modalCloseBtn`);
+        if (closeBtn) {
+            closeBtn.onclick = () => { log('❌ Клик "Закрыть"'); closeModal(); };
+        }
+        
         setupDeleteButton(numericProductId);
         setupSubmitButton(numericProductId, summaryText, gettingClientId);
     }
 
     function showError(input, errorDiv, message) {
+        log('⚠️ showError():', message);
         if (input) {
             input.classList.add(`${UNIQUE_PREFIX}input-field-error`);
             input.style.borderColor = '#dc3545';
@@ -492,13 +610,16 @@
     }
 
     function setupDeleteButton(numericProductId) {
+        log('🗑️ setupDeleteButton()');
         const deleteBtn = document.getElementById(`${UNIQUE_PREFIX}modalDeleteBtn`);
-        if (!deleteBtn) return;
+        if (!deleteBtn) { log('⚠️ Кнопка удаления не найдена'); return; }
 
         let deleteConfirmActive = false;
         let deleteTimeout = null;
 
         deleteBtn.onclick = async () => {
+            log('🗑️ Клик по кнопке удаления. deleteConfirmActive:', deleteConfirmActive);
+            
             if (deleteConfirmActive) {
                 clearTimeout(deleteTimeout);
                 deleteConfirmActive = false;
@@ -508,17 +629,25 @@
                 deleteBtn.style.cursor = 'not-allowed';
 
                 const delUrl = `${SCRIPT_URL}?action=delete&productId=${encodeURIComponent(numericProductId)}`;
+                log('🌐 DELETE запрос:', delUrl);
+                
                 try {
                     const res = await fetch(delUrl, { method: "GET", mode: "cors" });
+                    log('📥 Ответ удаления: status=', res.status);
                     const data = await res.json();
+                    log('📦 Ответ удаления:', data);
+                    
                     if (data.status === "success") {
+                        log('✅ Удаление успешно');
                         deleteBtn.innerHTML = '✅ Успешно!';
                         setTimeout(closeModal, 2000);
                     } else {
+                        log('❌ Ошибка удаления:', data.message);
                         deleteBtn.innerHTML = '❌ Ошибка';
                         resetDeleteButton(deleteBtn);
                     }
                 } catch (err) {
+                    error('❌ Ошибка сети при удалении:', err);
                     deleteBtn.innerHTML = '❌ Ошибка';
                     resetDeleteButton(deleteBtn);
                 }
@@ -526,7 +655,9 @@
                 deleteConfirmActive = true;
                 deleteBtn.textContent = "Точно?";
                 deleteBtn.classList.add(`${UNIQUE_PREFIX}btn-delete-confirm`);
+                log('⏳ Ждём подтверждения...');
                 deleteTimeout = setTimeout(() => {
+                    log('⏰ Таймаут подтверждения');
                     deleteConfirmActive = false;
                     resetDeleteButton(deleteBtn);
                 }, 3000);
@@ -535,6 +666,7 @@
     }
 
     function resetDeleteButton(btn) {
+        log('🔄 resetDeleteButton()');
         btn.disabled = false;
         btn.innerHTML = '<span>Удалить</span><span>списание</span>';
         btn.classList.remove(`${UNIQUE_PREFIX}btn-delete-confirm`);
@@ -543,22 +675,34 @@
     }
 
     function setupSubmitButton(numericProductId, summaryText, gettingClientId) {
+        log('💾 setupSubmitButton()');
         const submitBtn = document.getElementById(`${UNIQUE_PREFIX}modalSubmitBtn`);
         const input = document.getElementById(`${UNIQUE_PREFIX}bonusAmountInput`);
         const taxiCheckbox = document.getElementById(`${UNIQUE_PREFIX}taxiCheckbox`);
         const errorDiv = document.getElementById(`${UNIQUE_PREFIX}errorMessage`);
         
-        if (!submitBtn || !input) return;
+        if (!submitBtn || !input) { 
+            log('⚠️ Не найдены submitBtn или input'); 
+            return; 
+        }
 
         submitBtn.onclick = async () => {
+            log('💾 Клик по кнопке сохранения');
             const amount = parseFloat(input.value);
             const taxiChecked = taxiCheckbox?.checked || false;
+            log('📊 Данные отправки:', { amount, taxiChecked, numericProductId, summaryText, gettingClientId });
 
             if (errorDiv) errorDiv.textContent = '';
             if (input) input.classList.remove(`${UNIQUE_PREFIX}input-field-error`);
 
-            if (isNaN(amount) || amount <= 0) return showError(input, errorDiv, 'Введите корректную сумму');
-            if (amount > bonusValue) return showError(input, errorDiv, 'Нельзя списать больше, чем доступно');
+            if (isNaN(amount) || amount <= 0) {
+                log('❌ Валидация: некорректная сумма');
+                return showError(input, errorDiv, 'Введите корректную сумму');
+            }
+            if (amount > bonusValue) {
+                log('❌ Валидация: сумма больше баланса');
+                return showError(input, errorDiv, 'Нельзя списать больше, чем доступно');
+            }
 
             // Блокируем кнопку
             submitBtn.disabled = true;
@@ -567,17 +711,24 @@
             submitBtn.style.cursor = 'not-allowed';
 
             const saveUrl = `${SCRIPT_URL}?action=save&productId=${encodeURIComponent(numericProductId)}&taxi=${taxiChecked}&summaryText=${encodeURIComponent(summaryText || "")}&amount=${encodeURIComponent(amount)}&gettingClientId=${encodeURIComponent(gettingClientId)}`;
+            log('🌐 SAVE запрос:', saveUrl);
 
             try {
                 const res = await fetch(saveUrl, { method: "GET", mode: "cors" });
+                log('📥 Ответ сохранения: status=', res.status);
                 const data = await res.json();
+                log('📦 Ответ сохранения:', data);
+                
                 if (data.status === "success") {
+                    log('✅ Сохранение успешно');
                     submitBtn.innerHTML = '✅ Успешно!';
                     setTimeout(closeModal, 2000);
                 } else {
+                    log('❌ Ошибка сохранения:', data.message);
                     throw new Error(data.message || "Ошибка сервера");
                 }
             } catch (err) {
+                error('❌ Ошибка при сохранении:', err);
                 submitBtn.innerHTML = '❌ Ошибка';
                 submitBtn.disabled = false;
                 setTimeout(() => {
@@ -593,7 +744,8 @@
     // 🔥 API модуля
     // ─────────────────────────────────────────────
     function init() {
-        if (active) return;
+        log('🚀 init() вызвана');
+        if (active) { log('⚠️ Модуль уже активен'); return; }
         active = true;
         
         injectModalStyles();
@@ -609,22 +761,27 @@
         });
         
         domObserver.observe(document.body, { childList: true, subtree: true });
+        log('✅ init() завершена, модуль активен');
     }
 
     function cleanup() {
-        if (!active) return;
+        log('🧹 cleanup() вызвана');
+        if (!active) { log('⚠️ Модуль уже не активен'); return; }
         active = false;
         
         if (domObserver) {
             domObserver.disconnect();
             domObserver = null;
+            log('🔌 MutationObserver отключён');
         }
         
         removeButton();
         closeModal();
+        log('✅ cleanup() завершена');
     }
 
     function toggle() {
+        log('🔄 toggle() вызвана');
         if (active) { cleanup(); } else { init(); }
     }
 
@@ -634,14 +791,22 @@
 
     // 🔥 Авто-запуск, если не отключено в конфиге
     if (config?.autoInit !== false) {
+        log('⚡ autoInit=true, запускаем...');
         if (document.readyState === 'loading') {
-            document.addEventListener('DOMContentLoaded', init);
+            document.addEventListener('DOMContentLoaded', () => {
+                log('📄 DOMContentLoaded, вызываем init()');
+                init();
+            });
         } else {
+            log('📄 Документ уже загружен, вызываем init()');
             init();
         }
+    } else {
+        log('⚡ autoInit=false, модуль не запустится автоматически');
     }
 
     // 🔥 Экспорт API
+    log('📤 Экспортируем API:', ['init', 'cleanup', 'toggle', 'isActive', 'createModal', 'closeModal', 'tryToAddButton', 'getBonusValue']);
     return {
         init,
         cleanup,
