@@ -29,7 +29,7 @@
             summarySpan: config?.selectors?.summarySpan || '#Summary > table > tbody > tr > td:nth-child(1) > table > tbody:nth-child(1) > tr:nth-child(2) > td:nth-child(2) > div > a > span',
             summaryRow: config?.selectors?.summaryRow || '#Summary > table > tbody > tr > td:nth-child(1) > table > tbody:nth-child(1) > tr:nth-child(2)',
             chosenSingle: config?.selectors?.chosenSingle || '#Summary > table > tbody > tr > td:nth-child(1) > table.table.table-condensed.table-striped > tbody:nth-child(1) > tr:nth-child(2) > td:nth-child(2) > div > a',
-            clientSelectContainer: config?.selectors?.clientSelectContainer || '#Summary > table > tbody > tr > td:nth-child(1) > table.table.table-condensed.table-striped > tbody:nth-child(1) > tr:nth-child(2) > td:nth-child(2) > div'
+            clientSelectContainer: config?.selectors?.clientSelectContainer || '#Summary > table > tbody > tr > td:nth-child(1) > table > tbody:nth-child(1) > tr:nth-child(2) > td:nth-child(2) > div'
         },
 
         pageKeywords: config?.pageKeywords || ['Номенклатура', 'Номенклатура по умолчанию'],
