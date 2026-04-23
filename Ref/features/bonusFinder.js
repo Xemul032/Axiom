@@ -18,7 +18,7 @@
         bonusApiKey: config?.bonusApiKey || 'AIzaSyCiGZzZ85qCs-xJmlCbM-bz9IdAQxEq5z0',
 
         // Таблица 3: списанные бонусы (idCheck)
-        spentSheetId: config?.spentSheetId || '1VNlFOnfbc_pyCGsRjiV6WD1e6WUrT3UJBDgBkFl970',
+        spentSheetId: config?.spentSheetId || '1VNlFOnfbc_pyCGsRjiV6WD1e6WUrT3UJBDgBkCFl970',
         spentSheetName: config?.spentSheetName || 'idCheck',
         spentRefreshMs: config?.spentRefreshMs || 900000,
 
