@@ -18,6 +18,18 @@
       "runAt": "document-end",
       "config": {}
     },
+        "bonusFinder": {
+      "enabled": true,
+      "url": "https://raw.githubusercontent.com/Xemul032/Axiom/refs/heads/main/Ref/features/bonusFinder.js",
+      "runAt": "document-end",
+      "config": {}
+    },
+        "spisanieBonus": {
+      "enabled": true,
+      "url": "https://raw.githubusercontent.com/Xemul032/Axiom/refs/heads/main/Ref/features/spisanieBonus.js",
+      "runAt": "document-end",
+      "config": {}
+    },
     "montages": {
       "enabled": true,
       "url": "https://raw.githubusercontent.com/Xemul032/Axiom/refs/heads/main/Ref/features/montages.js",
