@@ -37,7 +37,7 @@
       "config": {}
     },
     "test": {
-      "enabled": true,
+      "enabled": false
       "url": "https://raw.githubusercontent.com/Xemul032/Axiom/refs/heads/main/Ref/features/test.js",
       "runAt": "document-end",
       "config": {}
