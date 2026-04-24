@@ -11,10 +11,12 @@
     const BUTTON_TEXT = config?.buttonText || '💾 В таблицу перезаказов';
     const MODAL_TITLE = config?.modalTitle || '📋 Счёт от подрядчика';
     const INPUT_PLACEHOLDER = config?.inputPlaceholder || 'Счёт № . . .';
+    
+    // 🔥 Уникальный класс для поиска кнопки в DOM
+    const BTN_CLASS = `${UNIQUE_PREFIX}custom-btn`;
 
     // 🔥 Внутреннее состояние
     let active = false;
-    let button = null;
     let domObserver = null;
 
     // ─────────────────────────────────────────────
@@ -124,32 +126,27 @@
         const topButtons = document.querySelector("#TopButtons");
         if (!topButtons || !targetBtn) return;
 
-        // Ищем первую подходящую кнопку/ссылку для копирования стилей
         const styleSource = topButtons.querySelector('button, a.btn, input[type="button"], [role="button"], .btn') ||
                            topButtons.querySelector('a, input') ||
                            topButtons.firstElementChild;
 
         if (!styleSource) return;
 
-        // Копируем классы
         if (styleSource.className) {
-            targetBtn.className = styleSource.className + ` ${UNIQUE_PREFIX}custom-btn`;
+            targetBtn.className = styleSource.className + ` ${BTN_CLASS}`;
         }
 
-        // Копируем inline-стили
         const sourceStyle = styleSource.getAttribute('style');
         if (sourceStyle) {
             targetBtn.setAttribute('style', sourceStyle);
         }
 
-        // Копируем data-атрибуты
         Array.from(styleSource.attributes).forEach(attr => {
             if (attr.name.startsWith('data-') && !targetBtn.hasAttribute(attr.name)) {
                 targetBtn.setAttribute(attr.name, attr.value);
             }
         });
 
-        // Гарантируем интерактивность
         targetBtn.style.cursor = 'pointer';
         targetBtn.style.userSelect = 'none';
     }
@@ -190,7 +187,7 @@
     }
 
     // ─────────────────────────────────────────────
-    // Модальное окно (СОБСТВЕННЫЕ стили)
+    // Модальное окно
     // ─────────────────────────────────────────────
     function showModal(onSubmit) {
         const overlay = document.createElement('div');
@@ -222,7 +219,6 @@
 
         setTimeout(() => { if (input) input.focus(); }, 50);
 
-        // Обработчики
         if (input) {
             input.addEventListener('keypress', (e) => { if (e.key === 'Enter' && submitBtn) submitBtn.click(); });
             input.addEventListener('input', () => { if (input) input.classList.remove(`${UNIQUE_PREFIX}input-field-error`); });
@@ -238,13 +234,11 @@
                     }
                     return;
                 }
-                // Состояние загрузки
                 submitBtn.disabled = true;
                 const originalText = submitText.textContent;
                 submitText.innerHTML = `<span class="${UNIQUE_PREFIX}spinner"></span>Сохранение...`;
 
                 onSubmit(value, () => {
-                    // Восстановление
                     submitBtn.disabled = false;
                     submitText.textContent = originalText;
                     if (overlay.parentNode) overlay.parentNode.removeChild(overlay);
@@ -258,7 +252,6 @@
             });
         }
 
-        // Закрытие по клику вне окна
         overlay.addEventListener('click', (e) => {
             if (e.target === overlay && overlay.parentNode) {
                 overlay.parentNode.removeChild(overlay);
@@ -357,7 +350,7 @@
     }
 
     // ─────────────────────────────────────────────
-    // Управление кнопкой
+    // 🔥 Управление кнопкой — ИСПРАВЛЕННАЯ ВЕРСИЯ
     // ─────────────────────────────────────────────
     function checkAndToggleButton() {
         const topButtons = document.querySelector("#TopButtons");
@@ -367,18 +360,23 @@
         const meetsLabelTextCondition = hasContractorLabel();
         const shouldShowButton = !isLoading && meetsLabelTextCondition;
 
-        if (shouldShowButton && !button) {
-            button = document.createElement("button");
-            button.textContent = BUTTON_TEXT;
+        // 🔥 Ищем кнопку в DOM по уникальному классу (не полагаемся на переменную!)
+        const existingBtn = topButtons.querySelector(`.${BTN_CLASS}`);
+
+        if (shouldShowButton && !existingBtn) {
+            // Создаём новую кнопку
+            const newBtn = document.createElement("button");
+            newBtn.textContent = BUTTON_TEXT;
             
-            // 🔥 Копируем стили ТОЛЬКО для кнопки
-            applyTopButtonsStyle(button);
+            applyTopButtonsStyle(newBtn); // внутри уже добавляется класс
+            newBtn.addEventListener("click", handleButtonClick);
+            topButtons.appendChild(newBtn);
             
-            button.addEventListener("click", handleButtonClick);
-            topButtons.appendChild(button);
-        } else if (!shouldShowButton && button) {
-            if (button.parentNode) button.parentNode.removeChild(button);
-            button = null;
+            console.log('[PerezakazBtn] ✅ Кнопка добавлена');
+        } else if (!shouldShowButton && existingBtn) {
+            // Удаляем кнопку из DOM
+            existingBtn.remove();
+            console.log('[PerezakazBtn] 🗑 Кнопка удалена');
         }
     }
 
@@ -389,7 +387,7 @@
         if (active) return;
         active = true;
         
-        injectModalStyles(); // Стили модалки — свои
+        injectModalStyles();
         checkAndToggleButton();
         
         domObserver = new MutationObserver(checkAndToggleButton);
@@ -398,6 +396,8 @@
             subtree: true,
             attributes: true
         });
+        
+        console.log('[PerezakazBtn] 🚀 Модуль инициализирован');
     }
 
     function cleanup() {
@@ -408,14 +408,15 @@
             domObserver.disconnect();
             domObserver = null;
         }
-        if (button && button.parentNode) {
-            button.parentNode.removeChild(button);
-            button = null;
-        }
-        // Удаляем открытые модалки при очистке
+        // 🔥 Удаляем кнопку по классу, а не по переменной
+        document.querySelectorAll(`.${BTN_CLASS}`).forEach(btn => btn.remove());
+        
+        // Удаляем открытые модалки
         document.querySelectorAll(`.${UNIQUE_PREFIX}modal-overlay`).forEach(el => {
             if (el.parentNode) el.parentNode.removeChild(el);
         });
+        
+        console.log('[PerezakazBtn] 🧹 Модуль очищен');
     }
 
     function toggle() {
@@ -426,7 +427,7 @@
         return active;
     }
 
-    // 🔥 Авто-запуск, если не отключено в конфиге
+    // 🔥 Авто-запуск
     if (config?.autoInit !== false) {
         if (document.readyState === 'loading') {
             document.addEventListener('DOMContentLoaded', init);
@@ -435,13 +436,13 @@
         }
     }
 
-    // 🔥 Экспорт API для внешнего управления
+    // 🔥 Экспорт API
     return {
         init,
         cleanup,
         toggle,
         isActive,
-        applyTopButtonsStyle,  // полезно для других модулей
+        applyTopButtonsStyle,
         checkAndToggleButton
     };
 
