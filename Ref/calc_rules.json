@@ -62,7 +62,25 @@
         "field": "postpress_qty",
         "op": "lte",
         "value": "1",
-        "target_op": "по видам"
+        "target_op": "Счет листов"
+      }
+    ]
+  },
+  {
+    "id": "probnik1",
+    "message": "Пробников две штуки давай!",
+    "conditions": [
+      {
+        "scope": "global",
+        "field": "prod_name",
+        "op": "contains",
+        "value": "Пробник"
+      },
+      {
+        "scope": "order",
+        "field": "tirazh",
+        "op": "lt",
+        "value": "2"
       }
     ]
   }
