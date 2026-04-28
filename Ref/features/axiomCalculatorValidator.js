@@ -1,4 +1,4 @@
-// V.3 axiomCalculatorValidator.js — модуль валидации калькулятора перед расчётом
+// V.4 axiomCalculatorValidator.js — модуль валидации калькулятора перед расчётом
 // Загружается динамически из config.json через Axiom Status Indicator
 // Возвращает API управления: { init, cleanup, toggle, isActive }
 
@@ -190,7 +190,7 @@
         if (errors.length === 0) {
             originalBtn.click();
         } else {
-            // 🔥 Форматируем ошибки: нумерованный список с новой строки
+            // 🔥 Форматируем ошибки с <br> для HTML
             const formattedErrors = errors.map((err, idx) => {
                 if (err.isGlobal) {
                     return `${idx + 1}. ${err.message}`;
@@ -200,7 +200,7 @@
 
             if (api?.showCenterMessage) {
                 api.showCenterMessage({
-                    message: `❌ Ошибки валидации:\n\n${formattedErrors.join('\n')}`,
+                    message: formattedErrors.join('<br><br>'), 
                     buttonText: 'Понятно',
                     duration: 0
                 });
