@@ -63,6 +63,12 @@
         "op": "lte",
         "value": "1",
         "target_op": "Счет листов"
+      },
+      {
+        "scope": "global",
+        "field": "tirazh",
+        "op": "gt",
+        "value": "1"
       }
     ]
   },
