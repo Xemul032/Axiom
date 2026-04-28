@@ -151,7 +151,7 @@
 
 
 
-    // ✅ ВАЛИДАЦИЯ ПЕРЕД РАСЧЕТОМ (v3 с поддержкой target_op)
+    // ✅ ВАЛИДАЦИЯ ПЕРЕД РАСЧЕТОМ (v4 — ошибки через api.showCenterMessage)
     async function validateAndCalculate(originalBtn) {
         const rules = await loadRules();
         const errors = [];
@@ -163,11 +163,11 @@
         const globalData = getGlobalData();
 
         for (const rule of rules) {
-            // 1. Глобальные условия
+            // 1. Глобальные условия — фильтр
             const globalConds = rule.conditions.filter(c => c.scope === 'global');
             if (!globalConds.every(c => checkCondition(c, globalData))) continue;
 
-            // 2. Локальные условия
+            // 2. Локальные условия — проверка по ордерам
             const orderConds = rule.conditions.filter(c => c.scope === 'order');
             
             orderContainers.forEach((el, idx) => {
@@ -176,9 +176,11 @@
                 const orderData = getOrderData(el);
 
                 const orderOk = orderConds.every(c => {
+                    // Специальная проверка количества для конкретной операции (target_op)
                     if (c.target_op && c.op.startsWith('qty_')) {
-                        // Специальная проверка количества для конкретной операции
-                        const target = orderData.postpress.find(p => p.name.toUpperCase().includes(c.target_op.toUpperCase()));
+                        const target = orderData.postpress.find(p => 
+                            p.name.toUpperCase().includes(c.target_op.toUpperCase())
+                        );
                         if (!target) return false;
                         
                         switch(c.op) {
@@ -188,32 +190,52 @@
                             default: return false;
                         }
                     }
+                    // Стандартная проверка условия
                     return checkCondition(c, orderData);
                 });
 
                 if (orderOk) {
-                    const context = orderConds.length > 0 ? ` (Ордер №${num} - ${name})` : ' (Глобально)';
-                    errors.push(`${rule.message}${context}`);
+                    // 🔥 Сохраняем ошибку как объект для форматирования
+                    errors.push({
+                        message: rule.message,
+                        orderNum: num,
+                        orderName: name,
+                        isGlobal: orderConds.length === 0
+                    });
                 }
             });
         }
+
+        // 🎯 Результат валидации
         if (errors.length === 0) {
+            // Всё ок — запускаем оригинальный расчёт
             originalBtn.click();
         } else {
-            // 🔥 Форматируем ошибки с <br> для HTML
+            // 🔥 Форматируем ошибки для отображения в модальном окне
             const formattedErrors = errors.map((err, idx) => {
                 if (err.isGlobal) {
-                    return `${idx + 1}. ${err.message}`;
+                    return `<b>${idx + 1}.</b> ${err.message}`;
                 }
-                return `${idx + 1}. Ордер №${err.orderNum} - ${err.orderName}. ${err.message}`;
+                return `<b>${idx + 1}.</b> Ордер №${err.orderNum} (${err.orderName}):<br>${err.message}`;
             });
 
+            // 🔥 Показываем сообщение через глобальную функцию
             if (api?.showCenterMessage) {
                 api.showCenterMessage({
-                    message: formattedErrors.join('<br><br>'), 
-                    buttonText: 'Понятно',
-                    duration: 0
+                    title: '⚠️ Ошибки валидации',
+                    message: formattedErrors.join('<hr style="margin:8px 0;opacity:0.3">'), 
+                    buttonText: 'Понятно, исправлю',
+                    duration: 0,  // Не закрывать автоматически
+                    type: 'error' // Стиль ошибки
                 });
+            } else {
+                // Фолбэк: если функция недоступна, выводим в консоль
+                console.group('%c❌ ОШИБКИ ВАЛИДАЦИИ', 'color: #dc3545; font-weight: bold;');
+                errors.forEach((err, i) => {
+                    const prefix = err.isGlobal ? '[Глобально]' : `Ордер №${err.orderNum} (${err.orderName})`;
+                    console.log(`🔴 ${prefix}: ${err.message}`);
+                });
+                console.groupEnd();
             }
         }
     }
