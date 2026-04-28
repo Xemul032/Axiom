@@ -1,4 +1,4 @@
-// V.5 axiomCalculatorValidator.js — модуль валидации калькулятора перед расчётом
+// V.5.1 axiomCalculatorValidator.js — модуль валидации калькулятора перед расчётом
 // Загружается динамически из config.json через Axiom Status Indicator
 // Возвращает API управления: { init, cleanup, toggle, isActive }
 
@@ -9,7 +9,7 @@
     const RULES_URL = config?.rulesUrl || 'https://raw.githubusercontent.com/Xemul032/Axiom/refs/heads/main/Ref/calc_rules.json';
     const UNIQUE_PREFIX = config?.uniquePrefix || 'axiom-calc-val-';
     const CACHE_DURATION = config?.cacheDurationSec || 300;
-    const WRAPPED_ATTR = `data-${UNIQUE_PREFIX}wrapped`; // 🔥 Атрибут для пометки
+    const WRAPPED_ATTR = `data-${UNIQUE_PREFIX}wrapped`;
 
     // 🔥 Внутреннее состояние
     let cachedRules = null;
@@ -95,10 +95,14 @@
         };
     }
 
-    // 🌍 Сбор глобальных данных
+    // 🌍 Сбор глобальных данных (включая prod_name)
     function getGlobalData() {
         const container = document.querySelector("#Doc > div > div:nth-child(2)") || document.querySelector(".calc_input > div.block:first-child");
         const getVal = id => container?.querySelector(`input#${id}`)?.value?.trim() || '';
+        
+        // 🔥 Получаем название заказа из #ProdName
+        const prodNameInput = document.querySelector('#ProdName');
+        const prodName = prodNameInput ? prodNameInput.value.trim() : '';
 
         const postpress = [];
         const list = document.querySelector('#ProductPostpress > #PostpressList, #ProductPostpress tbody#PostpressList');
@@ -122,6 +126,7 @@
             tirazh: parseFloat(getVal('Tirazh')) || 0,
             size_w: parseFloat(getVal('SizeWidth')) || 0,
             size_h: parseFloat(getVal('SizeHeight')) || 0,
+            prod_name: prodName,  // 🔥 Новое поле
             postpress_text: postpress.map(p => p.name).join(' | '),
             postpress: postpress
         };
@@ -142,16 +147,14 @@
             case 'lte': return Number(target) <= Number(value);
             case 'contains': return String(target).toUpperCase().includes(String(value).toUpperCase());
             case 'not_contains': return !String(target).toUpperCase().includes(String(value).toUpperCase());
-            case 'has_qty': return data.postpress.some(p => p.qty == Number(value));
-            case 'qty_gt': return data.postpress.some(p => p.qty > Number(value));
-            case 'qty_lt': return data.postpress.some(p => p.qty < Number(value));
+            case 'has_qty': return data.postpress?.some(p => p.qty == Number(value)) || false;
+            case 'qty_gt': return data.postpress?.some(p => p.qty > Number(value)) || false;
+            case 'qty_lt': return data.postpress?.some(p => p.qty < Number(value)) || false;
             default: return false;
         }
     }
 
-
-
-    // ✅ ВАЛИДАЦИЯ ПЕРЕД РАСЧЕТОМ (v4 — ошибки через api.showCenterMessage)
+    // ✅ ВАЛИДАЦИЯ ПЕРЕД РАСЧЕТОМ (v5.1 — чистые глобальные ошибки)
     async function validateAndCalculate(originalBtn) {
         const rules = await loadRules();
         const errors = [];
@@ -165,20 +168,30 @@
         for (const rule of rules) {
             // 1. Глобальные условия — фильтр
             const globalConds = rule.conditions.filter(c => c.scope === 'global');
-            if (!globalConds.every(c => checkCondition(c, globalData))) continue;
+            if (globalConds.length > 0 && !globalConds.every(c => checkCondition(c, globalData))) continue;
 
-            // 2. Локальные условия — проверка по ордерам
+            // 2. Локальные условия
             const orderConds = rule.conditions.filter(c => c.scope === 'order');
             
+            // 🔥 Если правило ТОЛЬКО глобальное — проверяем один раз и выводим чистую ошибку
+            if (orderConds.length === 0 && globalConds.length > 0) {
+                errors.push({
+                    message: rule.message,
+                    isGlobal: true
+                });
+                continue;
+            }
+            
+            // Если есть order-условия — проверяем по каждому ордеру
             orderContainers.forEach((el, idx) => {
                 const num = idx + 1;
                 const name = getOrderName(el, idx);
                 const orderData = getOrderData(el);
 
                 const orderOk = orderConds.every(c => {
-                    // Специальная проверка количества для конкретной операции (target_op)
+                    // Специальная проверка количества для конкретной операции
                     if (c.target_op && c.op.startsWith('qty_')) {
-                        const target = orderData.postpress.find(p => 
+                        const target = orderData.postpress?.find(p => 
                             p.name.toUpperCase().includes(c.target_op.toUpperCase())
                         );
                         if (!target) return false;
@@ -190,17 +203,15 @@
                             default: return false;
                         }
                     }
-                    // Стандартная проверка условия
                     return checkCondition(c, orderData);
                 });
 
                 if (orderOk) {
-                    // 🔥 Сохраняем ошибку как объект для форматирования
                     errors.push({
                         message: rule.message,
                         orderNum: num,
                         orderName: name,
-                        isGlobal: orderConds.length === 0
+                        isGlobal: false
                     });
                 }
             });
@@ -208,28 +219,25 @@
 
         // 🎯 Результат валидации
         if (errors.length === 0) {
-            // Всё ок — запускаем оригинальный расчёт
             originalBtn.click();
         } else {
-            // 🔥 Форматируем ошибки для отображения в модальном окне
+            // 🔥 Форматируем ошибки: глобальные — без номера ордера
             const formattedErrors = errors.map((err, idx) => {
                 if (err.isGlobal) {
-                    return `<b>${idx + 1}.</b> ${err.message}`;
+                    return `<b>${idx + 1}.</b> ${err.message}`;  // 🔥 Чистый текст
                 }
                 return `<b>${idx + 1}.</b> Ордер №${err.orderNum} (${err.orderName}):<br>${err.message}`;
             });
 
-            // 🔥 Показываем сообщение через глобальную функцию
             if (api?.showCenterMessage) {
                 api.showCenterMessage({
-                    title: '⚠️ Ошибки валидации',
+                    
                     message: formattedErrors.join('<hr style="margin:8px 0;opacity:0.3">'), 
                     buttonText: 'Понятно, исправлю',
-                    duration: 0,  // Не закрывать автоматически
-                    type: 'error' // Стиль ошибки
+                    duration: 0,
+                    type: 'error'
                 });
             } else {
-                // Фолбэк: если функция недоступна, выводим в консоль
                 console.group('%c❌ ОШИБКИ ВАЛИДАЦИИ', 'color: #dc3545; font-weight: bold;');
                 errors.forEach((err, i) => {
                     const prefix = err.isGlobal ? '[Глобально]' : `Ордер №${err.orderNum} (${err.orderName})`;
@@ -240,38 +248,30 @@
         }
     }
 
-    // 🔘 Замена кнопки расчёта — 🔥 ИСПРАВЛЕННАЯ ВЕРСИЯ
+    // 🔘 Замена кнопки расчёта
     function setupCalculateButton() {
         const originalBtn = document.querySelector('button[onclick*="ProductSave"]');
         if (!originalBtn) return;
-        
-        // Уже обработана?
         if (originalBtn.getAttribute(WRAPPED_ATTR) === 'true') return;
 
-        // 1. Сохраняем оригинальный display и скрываем кнопку
         const origDisplay = originalBtn.style.display || '';
         originalBtn.style.display = 'none';
         originalBtn.setAttribute(WRAPPED_ATTR, 'true');
-        originalBtn.dataset._origDisplay = origDisplay; // Храним для восстановления
+        originalBtn.dataset._origDisplay = origDisplay;
 
-        // 2. Создаём новую кнопку
         const newBtn = document.createElement('button');
         newBtn.type = 'button';
         newBtn.className = originalBtn.className || '';
         newBtn.textContent = 'Рассчитать';
-        
-        // 🔥 Гарантируем видимость (не копируем inline-стили оригинала!)
         newBtn.style.display = '';
         newBtn.style.visibility = 'visible';
         newBtn.style.opacity = '1';
         newBtn.style.cursor = 'pointer';
 
-        // 3. Вставляем перед оригиналом
         if (originalBtn.parentNode) {
             originalBtn.parentNode.insertBefore(newBtn, originalBtn);
         }
 
-        // 4. Обработчик
         newBtn.addEventListener('click', (e) => {
             e.preventDefault();
             e.stopPropagation();
@@ -279,7 +279,7 @@
         });
     }
 
-    // 📦 Внутренние функции анализа (без вывода в консоль)
+    // 📦 Вспомогательные функции (без логов)
     function extractPostpressOps(listElement) {
         if (!listElement) return [];
         const ops = [];
@@ -304,7 +304,6 @@
     }
     function getGlobalPostpressOps() { return extractPostpressOps(document.querySelector('#ProductPostpress > #PostpressList, #ProductPostpress tbody#PostpressList')); }
     function getOrderPostpressOps(c) { return extractPostpressOps(c.querySelector('#Postpress #PostpressList, #PostpressList')); }
-
     function getOrderName(container, idx) {
         const input = container.querySelector('input#name, input.head');
         if (input && input.value.trim()) return input.value.trim();
@@ -343,7 +342,6 @@
 
         isCalcActive = true;
         setupCalculateButton();
-        // Внутренний анализ (без логов)
         getGlobalPostpressOps();
     }
 
@@ -372,34 +370,20 @@
     function cleanup() {
         if (!active) return;
         active = false;
-        
-        if (observer) {
-            observer.disconnect();
-            observer = null;
-        }
+        if (observer) { observer.disconnect(); observer = null; }
         clearTimeout(debounceTimer);
         
-        // 🔥 Восстановление оригинальных кнопок
         document.querySelectorAll(`button[${WRAPPED_ATTR}="true"]`).forEach(wrappedBtn => {
             wrappedBtn.style.display = wrappedBtn.dataset._origDisplay || '';
             delete wrappedBtn.dataset._origDisplay;
             wrappedBtn.removeAttribute(WRAPPED_ATTR);
-            
-            // Удаляем подменённую кнопку (она всегда идёт сразу после оригинала)
             const fakeBtn = wrappedBtn.nextElementSibling;
-            if (fakeBtn && fakeBtn.textContent.trim() === 'Рассчитать') {
-                fakeBtn.remove();
-            }
+            if (fakeBtn && fakeBtn.textContent.trim() === 'Рассчитать') fakeBtn.remove();
         });
     }
 
-    function toggle() {
-        active ? cleanup() : init();
-    }
-
-    function isActive() {
-        return active;
-    }
+    function toggle() { active ? cleanup() : init(); }
+    function isActive() { return active; }
 
     // 🔥 Авто-запуск
     if (config?.autoInit !== false) {
@@ -412,13 +396,8 @@
 
     // 🔥 Экспорт API
     return {
-        init,
-        cleanup,
-        toggle,
-        isActive,
-        validateAndCalculate,
-        loadRules,
-        checkCondition
+        init, cleanup, toggle, isActive,
+        validateAndCalculate, loadRules, checkCondition
     };
 
 })(config, GM, utils, api);
