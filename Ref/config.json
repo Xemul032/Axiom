@@ -48,6 +48,12 @@
       "runAt": "document-end",
       "config": {}
     },
+      "axiomCalculatorValidator.js": {
+      "enabled": true,
+      "url": "https://raw.githubusercontent.com/Xemul032/Axiom/refs/heads/main/Ref/features/axiomCalculatorValidator.js",
+      "runAt": "document-end",
+      "config": {}
+    },
     "lockManager": {
       "enabled": true,
       "url": "https://raw.githubusercontent.com/Xemul032/Axiom/refs/heads/main/Ref/features/lockManager.js",
