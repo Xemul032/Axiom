@@ -8,7 +8,10 @@
     // 🔥 Конфигурация из config.json
     const RULES_URL = config?.rulesUrl || 'https://raw.githubusercontent.com/ВАШ_НИК/ВАШ_РЕПО/main/calc_rules.json';
     const UNIQUE_PREFIX = config?.uniquePrefix || 'axiom-calc-val-';
-    const CACHE_DURATION = config?.cacheDurationSec || 300; // 5 минут по умолчанию
+    const CACHE_DURATION = config?.cacheDurationSec || 300;
+    
+    // 🔥 Ключ для атрибута-флага (без data-, он добавится автоматически)
+    const WRAPPED_ATTR = `data-${UNIQUE_PREFIX}wrapped`;
 
     // 🔥 Внутреннее состояние
     let cachedRules = null;
@@ -16,6 +19,7 @@
     let active = false;
     let observer = null;
     let debounceTimer = null;
+    let isCalcActive = false;
 
     // ─────────────────────────────────────────────
     // Утилиты
@@ -51,8 +55,7 @@
             const pt = document.querySelector("#ProductTirazh");
             if (pt) {
                 if (pt.classList.contains("superhead")) { type = "Листовая"; found = true; }
-                else if (pt.classList.contains("need")) { type = "Составное"; found = true;
-                }
+                else if (pt.classList.contains("need")) { type = "Составное"; found = true; }
             }
         }
         if (!found && document.querySelector("#size_max")) { type = "Перекидной календарь"; found = true; }
@@ -184,27 +187,38 @@
             originalBtn.click();
         } else {
             // 🔥 Вывод ошибок через глобальную функцию
-            api?.showCenterMessage?.({
-                message: `❌ Ошибки валидации:\n\n${errors.join('\n')}`,
-                buttonText: 'Понятно',
-                duration: 0
-            });
+            if (api?.showCenterMessage) {
+                api.showCenterMessage({
+                    message: `❌ Ошибки валидации:\n\n${errors.join('\n')}`,
+                    buttonText: 'Понятно',
+                    duration: 0
+                });
+            }
         }
     }
 
-    // 🔘 Замена кнопки расчёта
+    // 🔘 Замена кнопки расчёта — ИСПРАВЛЕННАЯ ВЕРСИЯ
     function setupCalculateButton() {
         const originalBtn = document.querySelector('button[onclick*="ProductSave"]');
-        if (!originalBtn || originalBtn.dataset?.[`${UNIQUE_PREFIX}wrapped`] === 'true') return;
+        if (!originalBtn) return;
+        
+        // 🔥 ПРОВЕРКА через getAttribute (не dataset!)
+        if (originalBtn.getAttribute(WRAPPED_ATTR) === 'true') return;
 
         originalBtn.style.display = 'none';
-        originalBtn.dataset[`${UNIQUE_PREFIX}wrapped`] = 'true';
+        // 🔥 УСТАНОВКА через setAttribute (не dataset!)
+        originalBtn.setAttribute(WRAPPED_ATTR, 'true');
 
         const newBtn = document.createElement('button');
         newBtn.type = 'button';
         newBtn.className = originalBtn.className;
         newBtn.textContent = 'Рассчитать';
-        originalBtn.parentNode.insertBefore(newBtn, originalBtn);
+        
+        // Копируем стили и атрибуты оригинальной кнопки
+        const origStyle = originalBtn.getAttribute('style');
+        if (origStyle) newBtn.setAttribute('style', origStyle);
+        
+        originalBtn.parentNode?.insertBefore(newBtn, originalBtn);
 
         newBtn.addEventListener('click', (e) => {
             e.preventDefault();
@@ -288,7 +302,6 @@
         // ... анализ без вывода в консоль ...
     }
 
-    let isCalcActive = false;
     const runAnalysis = debounce(analyzeCalculator, 500);
 
     function setupObserver() {
@@ -320,12 +333,12 @@
         }
         clearTimeout(debounceTimer);
         
-        // Восстанавливаем оригинальную кнопку
-        document.querySelectorAll(`button[data-${UNIQUE_PREFIX}wrapped="true"]`).forEach(wrappedBtn => {
+        // Восстанавливаем оригинальную кнопку — ИСПРАВЛЕНО
+        document.querySelectorAll(`button[${WRAPPED_ATTR}="true"]`).forEach(wrappedBtn => {
             const original = wrappedBtn.previousElementSibling;
             if (original && original.style.display === 'none') {
                 original.style.display = '';
-                delete original.dataset[`${UNIQUE_PREFIX}wrapped`];
+                original.removeAttribute(WRAPPED_ATTR);
             }
             wrappedBtn.remove();
         });
