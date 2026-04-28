@@ -1,5 +1,5 @@
 {
-  "version": "2.3",
+  "version": "2.4",
   "enabled": true,
   "checkIntervalSec": 1800,
 
@@ -9,35 +9,35 @@
     "finstop": {
       "enabled": true,
       "url": "https://raw.githubusercontent.com/Xemul032/Axiom/refs/heads/main/Ref/features/finstop.js",
-      "runAt": "document-end",
+      "runAt": "document-idle",
       "config": {}
     },
     "confidAgree": {
       "enabled": true,
       "url": "https://raw.githubusercontent.com/Xemul032/Axiom/refs/heads/main/Ref/features/confidAgree.js",
-      "runAt": "document-end",
+      "runAt": "document-idle",
       "config": {}
     },
         "bonusFinder": {
       "enabled": true,
       "url": "https://raw.githubusercontent.com/Xemul032/Axiom/refs/heads/main/Ref/features/bonusFinder.js",
-      "runAt": "document-end",
+      "runAt": "document-start",
       "config": {}
     },
         "spisanieBonus": {
       "enabled": true,
       "url": "https://raw.githubusercontent.com/Xemul032/Axiom/refs/heads/main/Ref/features/spisanieBonus.js",
-      "runAt": "document-end",
+      "runAt": "document-idle",
       "config": {}
     },
     "montages": {
       "enabled": true,
       "url": "https://raw.githubusercontent.com/Xemul032/Axiom/refs/heads/main/Ref/features/montages.js",
-      "runAt": "document-end",
+      "runAt": "document-idle",
       "config": {}
     },
     "test": {
-      "enabled": true,
+      "enabled": false,
       "url": "https://raw.githubusercontent.com/Xemul032/Axiom/refs/heads/main/Ref/features/test.js",
       "runAt": "document-end",
       "config": {}
@@ -51,49 +51,49 @@
       "axiomCalculatorValidator.js": {
       "enabled": true,
       "url": "https://raw.githubusercontent.com/Xemul032/Axiom/refs/heads/main/Ref/features/axiomCalculatorValidator.js",
-      "runAt": "document-end",
+      "runAt": "document-start",
       "config": {}
     },
     "lockManager": {
       "enabled": true,
       "url": "https://raw.githubusercontent.com/Xemul032/Axiom/refs/heads/main/Ref/features/lockManager.js",
-      "runAt": "document-end",
+      "runAt": "document-idle",
       "config": {}
    },
     "titleOrder": {
       "enabled": true,
       "url": "https://raw.githubusercontent.com/Xemul032/Axiom/refs/heads/main/Ref/features/titleOrder.js",
-      "runAt": "document-end",
+      "runAt": "document-start",
       "config": {}
     },
     "dynamicTooltip": {
       "enabled": true,
       "url": "https://raw.githubusercontent.com/Xemul032/Axiom/refs/heads/main/Ref/features/dynamicTooltip.js",
-      "runAt": "document-end",
+      "runAt": "document-idle",
       "config": {}
     },
     "easyPackMaker": {
       "enabled": true,
       "url": "https://raw.githubusercontent.com/Xemul032/Axiom/refs/heads/main/Ref/features/easyPackMaker.js",
-      "runAt": "document-end",
+      "runAt": "document-idle",
       "config": {}
     },
     "checkIzdelia": {
       "enabled": true,
       "url": "https://raw.githubusercontent.com/Xemul032/Axiom/refs/heads/main/Ref/features/checkIzdelia.js",
-      "runAt": "document-end",
+      "runAt": "document-idle",
       "config": {}
     },
     "smartSerch": {
       "enabled": true,
       "url": "https://raw.githubusercontent.com/Xemul032/Axiom/refs/heads/main/Ref/features/smartSerch.js",
-      "runAt": "document-end",
+      "runAt": "document-idle",
       "config": {}
     },
       "perezakazBtn":{
       "enabled": true,
       "url": "https://raw.githubusercontent.com/Xemul032/Axiom/refs/heads/main/Ref/features/perezakazBtn.js",
-      "runAt": "document-end",
+      "runAt": "document-start",
       "config": {}
       }
     },
