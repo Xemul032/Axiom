@@ -1,4 +1,4 @@
-// 2axiomCalculatorValidator.js — модуль валидации калькулятора перед расчётом
+// V.3 axiomCalculatorValidator.js — модуль валидации калькулятора перед расчётом
 // Загружается динамически из config.json через Axiom Status Indicator
 // Возвращает API управления: { init, cleanup, toggle, isActive }
 
@@ -149,7 +149,8 @@
         }
     }
 
-    // ✅ Валидация перед расчётом
+
+    // ✅ Валидация перед расчётом — 🔥 ИСПРАВЛЕННЫЙ ФОРМАТ СООБЩЕНИЙ
     async function validateAndCalculate(originalBtn) {
         const rules = await loadRules();
         const errors = [];
@@ -175,8 +176,13 @@
                 const orderOk = orderConds.length === 0 || orderConds.every(c => checkCondition(c, orderData));
 
                 if (orderOk) {
-                    const contextLabel = orderConds.length > 0 ? ` (Ордер №${num} - ${name})` : ' (Глобально)';
-                    errors.push(`${rule.message}${contextLabel}`);
+                    // 🔥 Сохраняем структурированную ошибку
+                    errors.push({
+                        message: rule.message,
+                        orderNum: num,
+                        orderName: name,
+                        isGlobal: orderConds.length === 0
+                    });
                 }
             });
         }
@@ -184,9 +190,17 @@
         if (errors.length === 0) {
             originalBtn.click();
         } else {
+            // 🔥 Форматируем ошибки: нумерованный список с новой строки
+            const formattedErrors = errors.map((err, idx) => {
+                if (err.isGlobal) {
+                    return `${idx + 1}. ${err.message}`;
+                }
+                return `${idx + 1}. Ордер №${err.orderNum} - ${err.orderName}. ${err.message}`;
+            });
+
             if (api?.showCenterMessage) {
                 api.showCenterMessage({
-                    message: `❌ Ошибки валидации:\n\n${errors.join('\n')}`,
+                    message: `❌ Ошибки валидации:\n\n${formattedErrors.join('\n')}`,
                     buttonText: 'Понятно',
                     duration: 0
                 });
