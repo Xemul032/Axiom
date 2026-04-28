@@ -52,5 +52,18 @@
         "value": "колод"
       }
     ]
+  },
+  {
+    "id": "vidov",
+    "message": "Чёт не сходится",
+    "conditions": [
+      {
+        "scope": "global",
+        "field": "postpress_qty",
+        "op": "lte",
+        "value": "1",
+        "target_op": "по видам"
+      }
+    ]
   }
 ]
