@@ -1,4 +1,4 @@
-// axiomCalculatorValidator.js — модуль валидации калькулятора перед расчётом
+// 1axiomCalculatorValidator.js — модуль валидации калькулятора перед расчётом
 // Загружается динамически из config.json через Axiom Status Indicator
 // Возвращает API управления: { init, cleanup, toggle, isActive }
 
@@ -9,9 +9,7 @@
     const RULES_URL = config?.rulesUrl || 'https://raw.githubusercontent.com/ВАШ_НИК/ВАШ_РЕПО/main/calc_rules.json';
     const UNIQUE_PREFIX = config?.uniquePrefix || 'axiom-calc-val-';
     const CACHE_DURATION = config?.cacheDurationSec || 300;
-    
-    // 🔥 Ключ для атрибута-флага (без data-, он добавится автоматически)
-    const WRAPPED_ATTR = `data-${UNIQUE_PREFIX}wrapped`;
+    const WRAPPED_ATTR = `data-${UNIQUE_PREFIX}wrapped`; // 🔥 Атрибут для пометки
 
     // 🔥 Внутреннее состояние
     let cachedRules = null;
@@ -186,7 +184,6 @@
         if (errors.length === 0) {
             originalBtn.click();
         } else {
-            // 🔥 Вывод ошибок через глобальную функцию
             if (api?.showCenterMessage) {
                 api.showCenterMessage({
                     message: `❌ Ошибки валидации:\n\n${errors.join('\n')}`,
@@ -197,29 +194,38 @@
         }
     }
 
-    // 🔘 Замена кнопки расчёта — ИСПРАВЛЕННАЯ ВЕРСИЯ
+    // 🔘 Замена кнопки расчёта — 🔥 ИСПРАВЛЕННАЯ ВЕРСИЯ
     function setupCalculateButton() {
         const originalBtn = document.querySelector('button[onclick*="ProductSave"]');
         if (!originalBtn) return;
         
-        // 🔥 ПРОВЕРКА через getAttribute (не dataset!)
+        // Уже обработана?
         if (originalBtn.getAttribute(WRAPPED_ATTR) === 'true') return;
 
+        // 1. Сохраняем оригинальный display и скрываем кнопку
+        const origDisplay = originalBtn.style.display || '';
         originalBtn.style.display = 'none';
-        // 🔥 УСТАНОВКА через setAttribute (не dataset!)
         originalBtn.setAttribute(WRAPPED_ATTR, 'true');
+        originalBtn.dataset._origDisplay = origDisplay; // Храним для восстановления
 
+        // 2. Создаём новую кнопку
         const newBtn = document.createElement('button');
         newBtn.type = 'button';
-        newBtn.className = originalBtn.className;
+        newBtn.className = originalBtn.className || '';
         newBtn.textContent = 'Рассчитать';
         
-        // Копируем стили и атрибуты оригинальной кнопки
-        const origStyle = originalBtn.getAttribute('style');
-        if (origStyle) newBtn.setAttribute('style', origStyle);
-        
-        originalBtn.parentNode?.insertBefore(newBtn, originalBtn);
+        // 🔥 Гарантируем видимость (не копируем inline-стили оригинала!)
+        newBtn.style.display = '';
+        newBtn.style.visibility = 'visible';
+        newBtn.style.opacity = '1';
+        newBtn.style.cursor = 'pointer';
 
+        // 3. Вставляем перед оригиналом
+        if (originalBtn.parentNode) {
+            originalBtn.parentNode.insertBefore(newBtn, originalBtn);
+        }
+
+        // 4. Обработчик
         newBtn.addEventListener('click', (e) => {
             e.preventDefault();
             e.stopPropagation();
@@ -227,7 +233,7 @@
         });
     }
 
-    // 📦 Сбор постпечати (для анализа — внутренняя логика)
+    // 📦 Внутренние функции анализа (без вывода в консоль)
     function extractPostpressOps(listElement) {
         if (!listElement) return [];
         const ops = [];
@@ -274,32 +280,25 @@
         return { tirazh: g('Tirazh'), sizeW: g('SizeWidth'), sizeH: g('SizeHeight'), trim: g('TrimSize'), binding: b ? b.options[b.selectedIndex]?.text?.trim() : 'Не выбрано' };
     }
 
-    // 📊 Анализ и настройка (внутренняя логика)
+    // 📊 Анализ и настройка
     function analyzeCalculator() {
         const calcRoot = document.querySelector('.calc_input');
         const postpressRoot = document.querySelector('#ProductPostpress');
         if (!calcRoot || !postpressRoot) {
-            if (active) { isCalcActive = false; }
+            if (active) isCalcActive = false;
             return;
         }
 
         const { type: calcType, found: typeFound } = detectCalculatorType();
         if (!typeFound || calcType.includes("Календарь")) {
-            if (active) { isCalcActive = false; }
+            if (active) isCalcActive = false;
             return;
         }
 
         isCalcActive = true;
         setupCalculateButton();
-
-        // Анализ для внутренней логики (без вывода в консоль)
-        const orders = Array.from(document.querySelectorAll('[id^="Order"]'))
-            .filter(el => /^Order\d+$/.test(el.id) && window.getComputedStyle(el).display !== 'none' && window.getComputedStyle(el).visibility !== 'hidden')
-            .sort((a, b) => parseInt(a.id.replace('Order', '')) - parseInt(b.id.replace('Order', '')));
-
-        // Внутренняя логика анализа (может использоваться для других целей)
-        const globalOps = getGlobalPostpressOps();
-        // ... анализ без вывода в консоль ...
+        // Внутренний анализ (без логов)
+        getGlobalPostpressOps();
     }
 
     const runAnalysis = debounce(analyzeCalculator, 500);
@@ -307,7 +306,9 @@
     function setupObserver() {
         if (observer) observer.disconnect();
         observer = new MutationObserver(m => {
-            if (m.some(x => x.type === 'childList' || (x.type === 'attributes' && ['checked','value','class','style'].includes(x.attributeName)))) runAnalysis();
+            if (m.some(x => x.type === 'childList' || (x.type === 'attributes' && ['checked','value','class','style'].includes(x.attributeName)))) {
+                runAnalysis();
+            }
         });
         observer.observe(document.body, { childList: true, subtree: true, attributes: true, attributeFilter: ['checked','value','class','style'] });
     }
@@ -318,7 +319,6 @@
     function init() {
         if (active) return;
         active = true;
-        
         setupObserver();
         runAnalysis();
     }
@@ -333,19 +333,22 @@
         }
         clearTimeout(debounceTimer);
         
-        // Восстанавливаем оригинальную кнопку — ИСПРАВЛЕНО
+        // 🔥 Восстановление оригинальных кнопок
         document.querySelectorAll(`button[${WRAPPED_ATTR}="true"]`).forEach(wrappedBtn => {
-            const original = wrappedBtn.previousElementSibling;
-            if (original && original.style.display === 'none') {
-                original.style.display = '';
-                original.removeAttribute(WRAPPED_ATTR);
+            wrappedBtn.style.display = wrappedBtn.dataset._origDisplay || '';
+            delete wrappedBtn.dataset._origDisplay;
+            wrappedBtn.removeAttribute(WRAPPED_ATTR);
+            
+            // Удаляем подменённую кнопку (она всегда идёт сразу после оригинала)
+            const fakeBtn = wrappedBtn.nextElementSibling;
+            if (fakeBtn && fakeBtn.textContent.trim() === 'Рассчитать') {
+                fakeBtn.remove();
             }
-            wrappedBtn.remove();
         });
     }
 
     function toggle() {
-        if (active) { cleanup(); } else { init(); }
+        active ? cleanup() : init();
     }
 
     function isActive() {
@@ -361,13 +364,12 @@
         }
     }
 
-    // 🔥 Экспорт API для внешнего управления
+    // 🔥 Экспорт API
     return {
         init,
         cleanup,
         toggle,
         isActive,
-        // Дополнительные методы для отладки/расширения
         validateAndCalculate,
         loadRules,
         checkCondition
