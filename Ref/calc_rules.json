@@ -34,5 +34,23 @@
         "value": "СКВОЗНАЯ"
       }
     ]
+  },
+  {
+    "id": "karty",
+    "message": "Ты куда с картами лезешь!?",
+    "conditions": [
+      {
+        "scope": "order",
+        "field": "cifra_layout",
+        "op": "not_contains",
+        "value": "Каждый"
+      },
+      {
+        "scope": "order",
+        "field": "postpress_text",
+        "op": "contains",
+        "value": "колод"
+      }
+    ]
   }
 ]
