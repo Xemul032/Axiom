@@ -1,4 +1,4 @@
-// V.4 axiomCalculatorValidator.js — модуль валидации калькулятора перед расчётом
+// V.5 axiomCalculatorValidator.js — модуль валидации калькулятора перед расчётом
 // Загружается динамически из config.json через Axiom Status Indicator
 // Возвращает API управления: { init, cleanup, toggle, isActive }
 
