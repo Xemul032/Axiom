@@ -1,4 +1,4 @@
-// 1axiomCalculatorValidator.js — модуль валидации калькулятора перед расчётом
+// 2axiomCalculatorValidator.js — модуль валидации калькулятора перед расчётом
 // Загружается динамически из config.json через Axiom Status Indicator
 // Возвращает API управления: { init, cleanup, toggle, isActive }
 
@@ -6,7 +6,7 @@
     'use strict';
 
     // 🔥 Конфигурация из config.json
-    const RULES_URL = config?.rulesUrl || 'https://raw.githubusercontent.com/ВАШ_НИК/ВАШ_РЕПО/main/calc_rules.json';
+    const RULES_URL = config?.rulesUrl || 'https://raw.githubusercontent.com/Xemul032/Axiom/refs/heads/main/Ref/calc_rules.json';
     const UNIQUE_PREFIX = config?.uniquePrefix || 'axiom-calc-val-';
     const CACHE_DURATION = config?.cacheDurationSec || 300;
     const WRAPPED_ATTR = `data-${UNIQUE_PREFIX}wrapped`; // 🔥 Атрибут для пометки
