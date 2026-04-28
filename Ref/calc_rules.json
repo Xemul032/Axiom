@@ -1,0 +1,38 @@
+[
+  {
+    "id": "mgi_soft",
+    "message": "МГИ без софттача не катит",
+    "conditions": [
+      {
+        "scope": "order",
+        "field": "postpress_text",
+        "op": "contains",
+        "value": "МГИ"
+      },
+      {
+        "scope": "order",
+        "field": "postpress_text",
+        "op": "not_contains",
+        "value": "Софттач"
+      }
+    ]
+  },
+  {
+    "id": "skvorzaya",
+    "message": "Вылет три миллиметра сделал, быстро блядь!",
+    "conditions": [
+      {
+        "scope": "order",
+        "field": "trim",
+        "op": "lt",
+        "value": "3"
+      },
+      {
+        "scope": "order",
+        "field": "postpress_text",
+        "op": "contains",
+        "value": "СКВОЗНАЯ"
+      }
+    ]
+  }
+]
