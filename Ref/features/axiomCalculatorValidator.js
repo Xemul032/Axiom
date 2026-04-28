@@ -150,7 +150,7 @@
     }
 
 
-    // ✅ Валидация перед расчётом — 🔥 ИСПРАВЛЕННЫЙ ФОРМАТ СООБЩЕНИЙ
+
     // ✅ ВАЛИДАЦИЯ ПЕРЕД РАСЧЕТОМ (v3 с поддержкой target_op)
     async function validateAndCalculate(originalBtn) {
         const rules = await loadRules();
@@ -197,14 +197,24 @@
                 }
             });
         }
-
         if (errors.length === 0) {
-            console.log('%c✅ Всё ок! Запуск расчета...', 'color: #198754; font-weight: bold;');
             originalBtn.click();
         } else {
-            console.group('%c❌ ОШИБКИ ВАЛИДАЦИИ', 'color: #dc3545; font-weight: bold; font-size: 14px;');
-            errors.forEach(err => console.log(`🔴 ${err}`));
-            console.groupEnd();
+            // 🔥 Форматируем ошибки с <br> для HTML
+            const formattedErrors = errors.map((err, idx) => {
+                if (err.isGlobal) {
+                    return `${idx + 1}. ${err.message}`;
+                }
+                return `${idx + 1}. Ордер №${err.orderNum} - ${err.orderName}. ${err.message}`;
+            });
+
+            if (api?.showCenterMessage) {
+                api.showCenterMessage({
+                    message: formattedErrors.join('<br><br>'), 
+                    buttonText: 'Понятно',
+                    duration: 0
+                });
+            }
         }
     }
 
