@@ -1,4 +1,4 @@
-// urgentOrderPrice.js — модуль отображения цены срочного заказа
+// 1urgentOrderPrice.js — модуль отображения цены срочного заказа
 // Загружается динамически из config.json через Axiom Status Indicator
 // Возвращает API управления: { init, cleanup, toggle, isActive }
 
@@ -46,8 +46,8 @@
 
     // 🔥 Внутреннее состояние
     let active = false;
-    let observer = null;
-    let domObserver = null;
+    let valueObserver = null;      // Для отслеживания изменений значений
+    let domObserver = null;         // Для отслеживания появления/исчезновения блока
     let originalSumValue = '';
     let priceBlock = null;
     let sumElement = null;
@@ -97,13 +97,19 @@
         const targetElement = document.querySelector(TARGET_SELECTOR);
         const inputEl = document.querySelector(INPUT_SELECTOR);
 
-        // 🔥 Проверяем наличие ВСЕХ необходимых элементов
+        // Проверяем наличие ВСЕХ необходимых элементов
         if (!itogEl || !targetElement || !inputEl) {
             return false;
         }
 
         // 🔥 Проверка: уже создан?
-        if (targetElement.querySelector(`.${UNIQUE_PREFIX}price`)) {
+        const existingBlock = targetElement.querySelector(`.${UNIQUE_PREFIX}price`);
+        if (existingBlock) {
+            // Блок уже есть — просто обновляем ссылки и пересчитываем
+            priceBlock = existingBlock;
+            sumElement = priceBlock.querySelector('div:nth-child(2)');
+            copyButton = priceBlock.querySelector('button');
+            calculateSum();
             return true;
         }
 
@@ -146,63 +152,69 @@
         // Инициализация суммы
         calculateSum();
 
-        // 🔥 Настройка Observer для отслеживания изменений
-        setupMutationObserver(itogEl, inputEl);
-
         return true;
     }
 
     // ─────────────────────────────────────────────
     // Observer для отслеживания изменений значений
     // ─────────────────────────────────────────────
-    function setupMutationObserver(itogEl, inputEl) {
-        if (observer) observer.disconnect();
+    function setupValueObserver() {
+        if (valueObserver) valueObserver.disconnect();
 
-        observer = new MutationObserver(function(mutations) {
-            let shouldUpdate = false;
-            mutations.forEach(function(mutation) {
-                if (mutation.type === 'characterData' || 
-                    mutation.type === 'childList' || 
-                    (mutation.type === 'attributes' && mutation.attributeName === 'value')) {
-                    shouldUpdate = true;
-                }
-            });
-            if (shouldUpdate) calculateSum();
+        const itogEl = document.querySelector(ITOG_SELECTOR);
+        const inputEl = document.querySelector(INPUT_SELECTOR);
+
+        if (!itogEl || !inputEl) return;
+
+        valueObserver = new MutationObserver(function(mutations) {
+            // 🔥 Проверяем, не исчез ли блок
+            const targetElement = document.querySelector(TARGET_SELECTOR);
+            if (targetElement && !targetElement.querySelector(`.${UNIQUE_PREFIX}price`)) {
+                // Блок исчез — пересоздаём
+                createPriceBlock();
+            } else {
+                // Блок на месте — пересчитываем значение
+                calculateSum();
+            }
         });
 
-        if (itogEl) {
-            observer.observe(itogEl, {
-                characterData: true,
-                childList: true,
-                subtree: true
-            });
-        }
-        if (inputEl) {
-            observer.observe(inputEl, {
-                attributes: true,
-                attributeFilter: ['value']
-            });
-        }
+        valueObserver.observe(itogEl, {
+            characterData: true,
+            childList: true,
+            subtree: true
+        });
+
+        valueObserver.observe(inputEl, {
+            attributes: true,
+            attributeFilter: ['value']
+        });
     }
 
     // ─────────────────────────────────────────────
-    // 🔥 Observer для ожидания появления элементов
+    // 🔥 Observer для отслеживания появления целевого элемента
     // ─────────────────────────────────────────────
     function setupDomObserver() {
         if (domObserver) domObserver.disconnect();
 
         domObserver = new MutationObserver(function() {
-            const itogEl = document.querySelector(ITOG_SELECTOR);
             const targetElement = document.querySelector(TARGET_SELECTOR);
+            const itogEl = document.querySelector(ITOG_SELECTOR);
             
-            if (itogEl && targetElement) {
-                // 🔥 Элементы появились — создаём блок
-                const success = createPriceBlock();
-                if (success) {
-                    // 🔥 Элементы созданы — отключаем этот observer
-                    if (domObserver) {
-                        domObserver.disconnect();
-                        domObserver = null;
+            if (targetElement && itogEl) {
+                // 🔥 Проверяем, есть ли наш блок
+                const existingBlock = targetElement.querySelector(`.${UNIQUE_PREFIX}price`);
+                
+                if (!existingBlock) {
+                    // Блока нет — создаём
+                    const success = createPriceBlock();
+                    if (success) {
+                        // 🔥 Настраиваем observer для значений
+                        setupValueObserver();
+                    }
+                } else {
+                    // Блок есть — убеждаемся, что observer для значений настроен
+                    if (!valueObserver) {
+                        setupValueObserver();
                     }
                 }
             }
@@ -221,13 +233,14 @@
         if (active) return;
         active = true;
 
-        // 🔥 Сначала пробуем создать сразу (если элементы уже есть)
-        const success = createPriceBlock();
+        // 🔥 Настраиваем observer для отслеживания появления элементов и блока
+        setupDomObserver();
         
-        if (!success) {
-            // 🔥 Элементов ещё нет — ждём их появления
-            setupDomObserver();
-        }
+        // 🔥 Пробуем создать сразу (если элементы уже есть)
+        setTimeout(() => {
+            createPriceBlock();
+            setupValueObserver();
+        }, 100);
     }
 
     function cleanup() {
@@ -235,9 +248,9 @@
         active = false;
 
         // Отключаем все observers
-        if (observer) {
-            observer.disconnect();
-            observer = null;
+        if (valueObserver) {
+            valueObserver.disconnect();
+            valueObserver = null;
         }
         if (domObserver) {
             domObserver.disconnect();
@@ -277,7 +290,6 @@
         if (document.readyState === 'loading') {
             document.addEventListener('DOMContentLoaded', init);
         } else {
-            // 🔥 Небольшая задержка для гарантии загрузки DOM
             setTimeout(init, 100);
         }
     }
