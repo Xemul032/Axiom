@@ -1,4 +1,4 @@
-// urgentOrderPrice.js — модуль отображения цены срочного заказа с гибкой наценкой
+// 2urgentOrderPrice.js — модуль отображения цены срочного заказа с гибкой наценкой
 // Загружается динамически из config.json через Axiom Status Indicator
 // Возвращает API управления: { init, cleanup, toggle, isActive }
 
@@ -79,7 +79,7 @@
     // ─────────────────────────────────────────────
     // Расчёт цены срочного заказа (ступенчатая наценка)
     // ─────────────────────────────────────────────
-    function calculateUrgentPrice(baseSum) {
+ function calculateUrgentPrice(baseSum) {
         if (baseSum <= 0) {
             return { value: '0.00', isText: false };
         }
@@ -92,14 +92,15 @@
         // 🔥 Поиск подходящего тарифа
         for (const tier of PRICING_RULES.tiers) {
             if (baseSum >= tier.min && baseSum <= tier.max) {
-                if (tier.minSurcharge) {
-                    // Наценка с минимальным порогом
-                    const surcharge = baseSum * (tier.markup - 1);
-                    const appliedSurcharge = Math.max(surcharge, tier.minSurcharge);
-                    return { value: (baseSum + appliedSurcharge).toFixed(2), isText: false };
+                // Рассчитываем цену с наценкой
+                let finalPrice = baseSum * tier.markup;
+                
+                // 🔥 Если есть минимальная цена — применяем её
+                if (tier.minPrice !== undefined) {
+                    finalPrice = Math.max(finalPrice, tier.minPrice);
                 }
-                // Обычная наценка
-                return { value: (baseSum * tier.markup).toFixed(2), isText: false };
+                
+                return { value: finalPrice.toFixed(2), isText: false };
             }
         }
 
