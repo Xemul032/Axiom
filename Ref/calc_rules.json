@@ -98,7 +98,7 @@
         "scope": "order",
         "field": "paper",
         "op": "contains",
-        "value": "с надсечкой"
+        "value": "с надсечками"
       },
       {
         "scope": "order",
