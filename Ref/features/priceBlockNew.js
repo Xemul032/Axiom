@@ -1,4 +1,4 @@
-// 2urgentOrderPrice.js — модуль отображения цены срочного заказа с гибкой наценкой
+// 3urgentOrderPrice.js — модуль отображения цены срочного заказа с гибкой наценкой
 // Загружается динамически из config.json через Axiom Status Indicator
 // Возвращает API управления: { init, cleanup, toggle, isActive }
 
@@ -14,7 +14,8 @@
     // 🔥 Правила наценки (можно переопределить в конфиге)
     const PRICING_RULES = config?.pricingRules || {
         tiers: [
-            { min: 1, max: 100000, markup: 1.4, minSurcharge: 1500 },
+            { min: 1, max: 50000, markup: 1.4, minPrice: 1500 },
+            { min: 50001, max: 100000, markup: 1.4 },
             { min: 100001, max: 150000, markup: 1.3 },
             { min: 150001, max: 300000, markup: 1.2 }
         ],
@@ -79,7 +80,7 @@
     // ─────────────────────────────────────────────
     // Расчёт цены срочного заказа (ступенчатая наценка)
     // ─────────────────────────────────────────────
- function calculateUrgentPrice(baseSum) {
+    function calculateUrgentPrice(baseSum) {
         if (baseSum <= 0) {
             return { value: '0.00', isText: false };
         }
