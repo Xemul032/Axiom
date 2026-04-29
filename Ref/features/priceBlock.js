@@ -1,286 +1,241 @@
-// V.1 urgentOrderPrice.js — модуль отображения цены срочного заказа
+// urgentOrderPrice.js — модуль отображения цены срочного заказа
 // Загружается динамически из config.json через Axiom Status Indicator
-// Возвращает API управления: { init, cleanup, toggle, isActive, recalculate }
+// Возвращает API управления: { init, cleanup, toggle, isActive }
 
 (function(config, GM, utils, api) {
     'use strict';
 
-    // 🔥 Конфигурация из config.json (с дефолтами)
-    const CONFIG = {
-        enabled: config?.urgentPrice?.enabled ?? true,
-        markup: parseFloat(config?.urgentPrice?.markup) ?? 1.4, // Наценка 40%
-        targetSelector: config?.urgentPrice?.targetSelector ?? '#result > div > div > table > tbody > tr:nth-child(2) > td:nth-child(2) > table > tbody > tr:nth-child(6) > td',
-        itogSelector: config?.urgentPrice?.itogSelector ?? '#itog',
-        inputSelector: config?.urgentPrice?.inputSelector ?? '#result > div > div > table > tbody > tr:nth-child(2) > td:nth-child(2) > table > tbody > tr:nth-child(5) > td.right > input',
-        uniquePrefix: config?.uniquePrefix ?? 'axiom-urgent-price-',
-        styles: config?.urgentPrice?.styles ?? {}
+    // 🔥 Конфигурация из config.json
+    const UNIQUE_PREFIX = config?.uniquePrefix || 'urgent-order-';
+    const TARGET_SELECTOR = config?.targetSelector || '#result > div > div > table > tbody > tr:nth-child(2) > td:nth-child(2) > table > tbody > tr:nth-child(6) > td';
+    const ITOG_SELECTOR = config?.itogSelector || '#itog';
+    const INPUT_SELECTOR = config?.inputSelector || '#result > div > div > table > tbody > tr:nth-child(2) > td:nth-child(2) > table > tbody > tr:nth-child(5) > td.right > input';
+    const PRICE_MULTIPLIER = config?.priceMultiplier || 1.4;
+    
+    // 🔥 Стили из конфига (с дефолтами)
+    const STYLES = {
+        block: {
+            backgroundColor: config?.styles?.block?.bg || '#007BFF',
+            padding: config?.styles?.block?.padding || '15px',
+            borderRadius: config?.styles?.block?.radius || '8px',
+            boxShadow: config?.styles?.block?.shadow || '0 4px 6px rgba(0, 0, 0, 0.1)',
+            color: config?.styles?.block?.color || 'white',
+            textAlign: config?.styles?.block?.align || 'center'
+        },
+        header: {
+            color: config?.styles?.header?.color || '#FFFFFF',
+            margin: config?.styles?.header?.margin || '0 0 10px 0',
+            fontSize: config?.styles?.header?.size || '18px'
+        },
+        sum: {
+            color: config?.styles?.sum?.color || '#FFD700',
+            fontSize: config?.styles?.sum?.size || '24px',
+            fontWeight: config?.styles?.sum?.weight || 'bold'
+        },
+        button: {
+            marginTop: config?.styles?.button?.marginTop || '10px',
+            padding: config?.styles?.button?.padding || '8px 16px',
+            backgroundColor: config?.styles?.button?.bg || '#28a745',
+            color: config?.styles?.button?.color || '#FFFFFF',
+            border: config?.styles?.button?.border || 'none',
+            borderRadius: config?.styles?.button?.radius || '4px',
+            cursor: config?.styles?.button?.cursor || 'pointer',
+            fontSize: config?.styles?.button?.size || '14px'
+        }
     };
 
     // 🔥 Внутреннее состояние
     let active = false;
     let observer = null;
-    let priceBlock = null;
     let originalSumValue = '';
+    let priceBlock = null;
+    let sumElement = null;
+    let copyButton = null;
 
     // ─────────────────────────────────────────────
     // Утилиты
     // ─────────────────────────────────────────────
-    
-    // Форматирование числа с пробелами (12345.67 → "12 345.67")
     function formatNumberWithSpaces(number) {
-        const [int, dec] = number.toString().split('.');
-        const formattedInt = int.replace(/\B(?=(\d{3})+(?!\d))/g, ' ');
-        return dec ? `${formattedInt}.${dec}` : formattedInt;
+        return number.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ' ');
     }
 
-    // Извлечение числового значения из текста (удаляет всё кроме цифр, точки, запятой)
     function parseNumericValue(text) {
-        if (!text) return 0;
-        return parseFloat(String(text).replace(/[^0-9.,]/g, '').replace(',', '.')) || 0;
+        return parseFloat(text.replace(/[^0-9.,]/g, '').replace(',', '.')) || 0;
     }
 
-    // Получение элементов с проверкой существования
-    function getElements() {
-        return {
-            itog: document.querySelector(CONFIG.itogSelector),
-            input: document.querySelector(CONFIG.inputSelector),
-            target: document.querySelector(CONFIG.targetSelector)
-        };
-    }
+    // ─────────────────────────────────────────────
+    // Расчёт суммы
+    // ─────────────────────────────────────────────
+    function calculateSum() {
+        const itogEl = document.querySelector(ITOG_SELECTOR);
+        const inputEl = document.querySelector(INPUT_SELECTOR);
+        
+        if (!itogEl || !inputEl) return;
 
-    // Расчёт суммы срочного заказа
-    function calculateUrgentSum() {
-        const { itog, input } = getElements();
-        if (!itog || !input) return null;
+        const itogValue = parseNumericValue(itogEl.textContent);
+        let inputValue = parseNumericValue(inputEl.value);
 
-        const itogValue = parseNumericValue(itog.textContent);
-        let inputValue = parseNumericValue(input.value);
+        if (inputValue < 0) {
+            inputValue = Math.abs(inputValue);
+            originalSumValue = ((itogValue + inputValue) * PRICE_MULTIPLIER).toFixed(2);
+        } else {
+            originalSumValue = ((itogValue - inputValue) * PRICE_MULTIPLIER).toFixed(2);
+        }
 
-        // Логика: если значение в инпуте отрицательное — прибавляем, иначе вычитаем
-        const baseSum = inputValue < 0 ? (itogValue + Math.abs(inputValue)) : (itogValue - inputValue);
-        return (baseSum * CONFIG.markup).toFixed(2);
-    }
-
-    // Обновление отображаемой суммы
-    function updateSumDisplay() {
-        const sumElement = priceBlock?.querySelector('.urgent-order-sum');
-        if (!sumElement) return;
-
-        const newSum = calculateUrgentSum();
-        if (newSum !== null) {
-            originalSumValue = newSum;
-            sumElement.textContent = formatNumberWithSpaces(newSum);
+        if (sumElement) {
+            sumElement.textContent = formatNumberWithSpaces(originalSumValue);
         }
     }
 
-    // Копирование суммы в буфер обмена
-    async function copySumToClipboard(button) {
-        if (!originalSumValue) return;
-        
-        try {
-            await navigator.clipboard.writeText(originalSumValue);
-            const originalText = button.textContent;
-            button.textContent = '✓ Скопировано!';
-            button.style.backgroundColor = '#20c997';
-            
-            setTimeout(() => {
-                button.textContent = originalText;
-                button.style.backgroundColor = '';
-            }, 2000);
-            
-            // 🔥 Уведомление через API, если доступно
-            if (api?.showToast) {
-                api.showToast({ message: 'Цена скопирована в буфер', type: 'success' });
-            }
-        } catch (err) {
-            console.warn('[UrgentPrice] Не удалось скопировать:', err);
-            if (api?.showToast) {
-                api.showToast({ message: 'Ошибка копирования', type: 'error' });
-            }
-        }
-    }
+    // ─────────────────────────────────────────────
+    // Создание блока цены
+    // ─────────────────────────────────────────────
+    function createPriceBlock() {
+        const itogEl = document.querySelector(ITOG_SELECTOR);
+        if (!itogEl) return;
 
-    // Создание DOM-элемента блока цены
-    function createPriceBlockElement() {
-        const block = document.createElement('div');
-        block.className = 'urgent-order-price';
-        block.dataset[CONFIG.uniquePrefix.replace('-', '') + 'created'] = 'true';
+        const targetElement = document.querySelector(TARGET_SELECTOR);
+        if (!targetElement) return;
 
-        // 🔥 Стили через CSS-переменные для гибкой кастомизации
-        const defaultStyles = {
-            backgroundColor: '#007BFF',
-            padding: '15px',
-            borderRadius: '8px',
-            boxShadow: '0 4px 6px rgba(0, 0, 0, 0.1)',
-            color: 'white',
-            textAlign: 'center',
-            fontFamily: 'inherit',
-            marginBottom: '10px'
-        };
-        
-        Object.assign(block.style, { ...defaultStyles, ...CONFIG.styles });
+        // 🔥 Проверка: уже создан?
+        if (targetElement.querySelector(`.${UNIQUE_PREFIX}price`)) return;
+
+        // Создаём блок
+        priceBlock = document.createElement('div');
+        priceBlock.className = `${UNIQUE_PREFIX}price`;
+        Object.assign(priceBlock.style, STYLES.block);
 
         // Заголовок
         const header = document.createElement('h4');
-        header.textContent = '💨 Цена срочного заказа';
-        Object.assign(header.style, {
-            color: '#FFFFFF',
-            margin: '0 0 10px 0',
-            fontSize: '18px',
-            fontWeight: '600'
-        });
-        block.appendChild(header);
+        header.textContent = 'Цена срочного заказа';
+        Object.assign(header.style, STYLES.header);
+        priceBlock.appendChild(header);
 
         // Сумма
-        const sumElement = document.createElement('div');
-        sumElement.className = 'urgent-order-sum';
-        Object.assign(sumElement.style, {
-            color: '#FFD700',
-            fontSize: '24px',
-            fontWeight: 'bold',
-            fontFamily: 'monospace',
-            letterSpacing: '0.5px'
-        });
-        block.appendChild(sumElement);
+        sumElement = document.createElement('div');
+        Object.assign(sumElement.style, STYLES.sum);
+        priceBlock.appendChild(sumElement);
 
         // Кнопка копирования
-        const copyButton = document.createElement('button');
-        copyButton.className = 'urgent-order-copy-btn';
-        copyButton.textContent = '📋 Скопировать цену';
-        Object.assign(copyButton.style, {
-            marginTop: '10px',
-            padding: '8px 16px',
-            backgroundColor: '#28a745',
-            color: '#FFFFFF',
-            border: 'none',
-            borderRadius: '4px',
-            cursor: 'pointer',
-            fontSize: '14px',
-            transition: 'background-color 0.2s',
-            fontWeight: '500'
-        });
-        
-        copyButton.addEventListener('mouseenter', (e) => {
-            e.target.style.backgroundColor = '#218838';
-        });
-        copyButton.addEventListener('mouseleave', (e) => {
-            e.target.style.backgroundColor = '#28a745';
-        });
-        copyButton.addEventListener('click', (e) => {
-            e.stopPropagation();
-            copySumToClipboard(e.target);
-        });
-        
-        block.appendChild(copyButton);
+        copyButton = document.createElement('button');
+        copyButton.textContent = 'Скопировать цену';
+        Object.assign(copyButton.style, STYLES.button);
 
-        return block;
+        copyButton.addEventListener('click', function() {
+            if (!originalSumValue) return;
+            
+            navigator.clipboard.writeText(originalSumValue)
+                .then(() => {
+                    const originalText = copyButton.textContent;
+                    copyButton.textContent = 'Скопировано!';
+                    setTimeout(() => { copyButton.textContent = originalText; }, 2000);
+                })
+                .catch(() => {});
+        });
+
+        priceBlock.appendChild(copyButton);
+        targetElement.appendChild(priceBlock);
+
+        // Инициализация
+        calculateSum();
+        setupObserver(itogEl, document.querySelector(INPUT_SELECTOR));
     }
 
-    // Настройка MutationObserver для отслеживания изменений
-    function setupObserver() {
+    // ─────────────────────────────────────────────
+    // Observer для отслеживания изменений
+    // ─────────────────────────────────────────────
+    function setupObserver(itogEl, inputEl) {
         if (observer) observer.disconnect();
-        
-        const { itog, input } = getElements();
-        if (!itog || !input) return;
 
-        observer = new MutationObserver((mutations) => {
-            // Обновляем сумму при изменении текста или атрибутов
-            const shouldUpdate = mutations.some(m => 
-                m.type === 'characterData' || 
-                m.type === 'childList' || 
-                (m.type === 'attributes' && m.attributeName === 'value')
-            );
-            if (shouldUpdate) {
-                utils?.debounce?.(updateSumDisplay, 100) || updateSumDisplay();
-            }
+        observer = new MutationObserver(function(mutations) {
+            let shouldUpdate = false;
+            mutations.forEach(function(mutation) {
+                if (mutation.type === 'characterData' || 
+                    mutation.type === 'childList' || 
+                    (mutation.type === 'attributes' && mutation.attributeName === 'value')) {
+                    shouldUpdate = true;
+                }
+            });
+            if (shouldUpdate) calculateSum();
         });
 
-        observer.observe(itog, { characterData: true, childList: true, subtree: true });
-        observer.observe(input, { attributes: true, attributeFilter: ['value'] });
+        if (itogEl) {
+            observer.observe(itogEl, {
+                characterData: true,
+                childList: true,
+                subtree: true
+            });
+        }
+        if (inputEl) {
+            observer.observe(inputEl, {
+                attributes: true,
+                attributeFilter: ['value']
+            });
+        }
     }
 
-    // Инициализация модуля
+    // ─────────────────────────────────────────────
+    // 🔥 API модуля
+    // ─────────────────────────────────────────────
     function init() {
-        if (!CONFIG.enabled || active) return;
-        
-        const { target, itog, input } = getElements();
-        if (!target || !itog || !input) {
-            console.warn('[UrgentPrice] Не найдены целевые элементы. Проверьте селекторы в config.');
-            return;
-        }
-
-        // Проверка: не создан ли уже блок
-        if (target.querySelector('.urgent-order-price')) {
-            active = true;
-            return;
-        }
-
-        // Создание и вставка блока
-        priceBlock = createPriceBlockElement();
-        target.prepend(priceBlock); // Вставляем в начало, чтобы не перекрывать другие элементы
-
-        // Инициализация суммы
-        updateSumDisplay();
-        
-        // Настройка наблюдателя
-        setupObserver();
-        
+        if (active) return;
         active = true;
-        console.log('[UrgentPrice] ✅ Модуль активен');
+        createPriceBlock();
     }
 
-    // Очистка: удаление блока и отключение наблюдателя
     function cleanup() {
         if (!active) return;
-        
+        active = false;
+
         if (observer) {
             observer.disconnect();
             observer = null;
         }
-        
-        if (priceBlock?.parentNode) {
+
+        if (priceBlock && priceBlock.parentNode) {
             priceBlock.parentNode.removeChild(priceBlock);
             priceBlock = null;
         }
         
+        sumElement = null;
+        copyButton = null;
         originalSumValue = '';
-        active = false;
-        console.log('[UrgentPrice] 🧹 Модуль деактивирован');
     }
 
-    // Переключение состояния
     function toggle() {
         active ? cleanup() : init();
     }
 
-    // Проверка активности
     function isActive() {
         return active;
     }
 
-    // Публичный метод для принудительного пересчёта (вызов извне)
-    function recalculate() {
-        if (active) updateSumDisplay();
+    // 🔥 Публичные методы для внешнего вызова
+    function forceRecalculate() {
+        calculateSum();
     }
 
-    // 🔥 Авто-запуск при загрузке (если не отключено в config)
-    if (CONFIG.enabled && config?.autoInit !== false) {
+    function getOriginalValue() {
+        return originalSumValue;
+    }
+
+    // 🔥 Авто-запуск
+    if (config?.autoInit !== false) {
         if (document.readyState === 'loading') {
             document.addEventListener('DOMContentLoaded', init);
         } else {
-            // Небольшая задержка для гарантии, что целевые элементы отрендерились
-            setTimeout(init, 100);
+            init();
         }
     }
 
-    // 🔥 Экспорт публичного API
+    // 🔥 Экспорт API
     return {
         init,
         cleanup,
         toggle,
         isActive,
-        recalculate,
-        getConfig: () => ({ ...CONFIG }) // Только для чтения
+        forceRecalculate,
+        getOriginalValue
     };
 
 })(config, GM, utils, api);
