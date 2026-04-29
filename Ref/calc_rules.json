@@ -89,5 +89,23 @@
         "value": "2"
       }
     ]
+  },
+  {
+    "id": "nadsechka",
+    "message": "КУДА, БЛЯДЬ, С НАДСЕЧКОЙ!?!?!",
+    "conditions": [
+      {
+        "scope": "order",
+        "field": "paper",
+        "op": "contains",
+        "value": "с надсечкой"
+      },
+      {
+        "scope": "order",
+        "field": "postpress_text",
+        "op": "contains",
+        "value": "МГИ"
+      }
+    ]
   }
 ]
