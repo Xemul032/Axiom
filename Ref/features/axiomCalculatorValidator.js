@@ -1,4 +1,4 @@
-// V.6 axiomCalculatorValidator.js — модуль валидации калькулятора перед расчётом
+// V.6.1 axiomCalculatorValidator.js — модуль валидации калькулятора перед расчётом
 // Загружается динамически из config.json через Axiom Status Indicator
 // Возвращает API управления: { init, cleanup, toggle, isActive }
 
@@ -137,9 +137,32 @@
         };
     }
 
-    // ⚙️ Движок проверки условия
+    // ⚙️ Движок проверки условия (ИСПРАВЛЕНО: поддержка target_op для postpress_qty)
     function checkCondition(cond, data) {
-        const { field, op, value } = cond;
+        const { field, op, value, target_op } = cond;
+        
+        // 🔥 Специальная обработка: количество конкретной операции
+        if (field === 'postpress_qty' && target_op && data.postpress) {
+            const target = data.postpress.find(p => 
+                p.name.toUpperCase().includes(target_op.toUpperCase())
+            );
+            if (!target) return false; // Операция не найдена
+            
+            const qty = Number(target.qty);
+            const val = Number(value);
+            
+            switch(op) {
+                case 'eq': return qty == val;
+                case 'neq': return qty != val;
+                case 'gt': return qty > val;
+                case 'gte': return qty >= val;
+                case 'lt': return qty < val;
+                case 'lte': return qty <= val;
+                default: return false;
+            }
+        }
+        
+        // Стандартная проверка
         let target = data[field];
         if (target === undefined) return false;
 
@@ -152,14 +175,11 @@
             case 'lte': return Number(target) <= Number(value);
             case 'contains': return String(target).toUpperCase().includes(String(value).toUpperCase());
             case 'not_contains': return !String(target).toUpperCase().includes(String(value).toUpperCase());
-            case 'has_qty': return data.postpress?.some(p => p.qty == Number(value)) || false;
-            case 'qty_gt': return data.postpress?.some(p => p.qty > Number(value)) || false;
-            case 'qty_lt': return data.postpress?.some(p => p.qty < Number(value)) || false;
             default: return false;
         }
     }
 
-    // ✅ ВАЛИДАЦИЯ ПЕРЕД РАСЧЕТОМ (v6 — глобальные ошибки без контекста ордера)
+    // ✅ ВАЛИДАЦИЯ ПЕРЕД РАСЧЕТОМ (v6.1 — исправлена работа глобальных правил)
     async function validateAndCalculate(originalBtn) {
         const rules = await loadRules();
         const errors = [];
@@ -178,12 +198,9 @@
             // 2. Локальные условия — проверка по ордерам
             const orderConds = rule.conditions.filter(c => c.scope === 'order');
             
-            // 🔥 Если правило чисто глобальное (нет order-условий) — проверяем один раз
+            // 🔥 Если правило чисто глобальное (нет order-условий)
             if (orderConds.length === 0) {
-                errors.push({
-                    message: rule.message,
-                    isGlobal: true
-                });
+                errors.push({ message: rule.message, isGlobal: true });
                 continue;
             }
             
@@ -193,24 +210,7 @@
                 const name = getOrderName(el, idx);
                 const orderData = getOrderData(el);
 
-                const orderOk = orderConds.every(c => {
-                    // Специальная проверка количества для конкретной операции (target_op)
-                    if (c.target_op && c.op.startsWith('qty_')) {
-                        const target = orderData.postpress?.find(p => 
-                            p.name.toUpperCase().includes(c.target_op.toUpperCase())
-                        );
-                        if (!target) return false;
-                        
-                        switch(c.op) {
-                            case 'qty_eq': return target.qty == Number(c.value);
-                            case 'qty_gt': return target.qty > Number(c.value);
-                            case 'qty_lt': return target.qty < Number(c.value);
-                            default: return false;
-                        }
-                    }
-                    // Стандартная проверка условия
-                    return checkCondition(c, orderData);
-                });
+                const orderOk = orderConds.every(c => checkCondition(c, orderData));
 
                 if (orderOk) {
                     errors.push({
@@ -225,10 +225,8 @@
 
         // 🎯 Результат валидации
         if (errors.length === 0) {
-            // Всё ок — запускаем оригинальный расчёт
             originalBtn.click();
         } else {
-            // 🔥 Форматируем ошибки: глобальные без контекста, локальные с номером ордера
             const formattedErrors = errors.map((err, idx) => {
                 if (err.isGlobal) {
                     return `<b>${idx + 1}.</b> ${err.message}`;
@@ -236,7 +234,6 @@
                 return `<b>${idx + 1}.</b> Ордер №${err.orderNum} (${err.orderName}):<br>${err.message}`;
             });
 
-            // 🔥 Показываем сообщение через глобальную функцию
             if (api?.showCenterMessage) {
                 api.showCenterMessage({
                     title: '⚠️ Ошибки валидации',
@@ -246,7 +243,6 @@
                     type: 'error'
                 });
             } else {
-                // Фолбэк: вывод в консоль
                 console.group('%c❌ ОШИБКИ ВАЛИДАЦИИ', 'color: #dc3545; font-weight: bold;');
                 errors.forEach((err, i) => {
                     const prefix = err.isGlobal ? '[Глобально]' : `Ордер №${err.orderNum} (${err.orderName})`;
