@@ -1,4 +1,4 @@
-// V.5.1 axiomCalculatorValidator.js — модуль валидации калькулятора перед расчётом
+// V.6 axiomCalculatorValidator.js — модуль валидации калькулятора перед расчётом
 // Загружается динамически из config.json через Axiom Status Indicator
 // Возвращает API управления: { init, cleanup, toggle, isActive }
 
@@ -67,6 +67,10 @@
         const layoutSel = el.querySelector('select#CifraLayoutType');
         const layoutVal = layoutSel ? (layoutSel.options[layoutSel.selectedIndex]?.text || layoutSel.value) : '';
 
+        // 🔥 Получаем бумагу из Chosen.js dropdown
+        const paperSpan = el.querySelector('.chosen-container .chosen-single span');
+        const paper = paperSpan ? paperSpan.textContent.trim() : '';
+
         const postpress = [];
         const list = el.querySelector('#PostpressList');
         if (list) {
@@ -90,19 +94,20 @@
             pages: parseFloat(getVal('Pages')) || 1,
             trim: parseFloat(getVal('TrimSize')) || 0,
             cifra_layout: layoutVal,
+            paper: paper,  // 🔥 Новое поле
             postpress_text: postpress.map(p => p.name).join(' | '),
             postpress: postpress
         };
     }
 
-    // 🌍 Сбор глобальных данных (включая prod_name)
+    // 🌍 Сбор глобальных данных
     function getGlobalData() {
         const container = document.querySelector("#Doc > div > div:nth-child(2)") || document.querySelector(".calc_input > div.block:first-child");
         const getVal = id => container?.querySelector(`input#${id}`)?.value?.trim() || '';
-        
+
         // 🔥 Получаем название заказа из #ProdName
         const prodNameInput = document.querySelector('#ProdName');
-        const prodName = prodNameInput ? prodNameInput.value.trim() : '';
+        const prod_name = prodNameInput ? prodNameInput.value.trim() : '';
 
         const postpress = [];
         const list = document.querySelector('#ProductPostpress > #PostpressList, #ProductPostpress tbody#PostpressList');
@@ -126,7 +131,7 @@
             tirazh: parseFloat(getVal('Tirazh')) || 0,
             size_w: parseFloat(getVal('SizeWidth')) || 0,
             size_h: parseFloat(getVal('SizeHeight')) || 0,
-            prod_name: prodName,  // 🔥 Новое поле
+            prod_name: prod_name,  // 🔥 Новое поле
             postpress_text: postpress.map(p => p.name).join(' | '),
             postpress: postpress
         };
@@ -154,7 +159,7 @@
         }
     }
 
-    // ✅ ВАЛИДАЦИЯ ПЕРЕД РАСЧЕТОМ (v5.1 — чистые глобальные ошибки)
+    // ✅ ВАЛИДАЦИЯ ПЕРЕД РАСЧЕТОМ (v6 — глобальные ошибки без контекста ордера)
     async function validateAndCalculate(originalBtn) {
         const rules = await loadRules();
         const errors = [];
@@ -168,13 +173,13 @@
         for (const rule of rules) {
             // 1. Глобальные условия — фильтр
             const globalConds = rule.conditions.filter(c => c.scope === 'global');
-            if (globalConds.length > 0 && !globalConds.every(c => checkCondition(c, globalData))) continue;
+            if (!globalConds.every(c => checkCondition(c, globalData))) continue;
 
-            // 2. Локальные условия
+            // 2. Локальные условия — проверка по ордерам
             const orderConds = rule.conditions.filter(c => c.scope === 'order');
             
-            // 🔥 Если правило ТОЛЬКО глобальное — проверяем один раз и выводим чистую ошибку
-            if (orderConds.length === 0 && globalConds.length > 0) {
+            // 🔥 Если правило чисто глобальное (нет order-условий) — проверяем один раз
+            if (orderConds.length === 0) {
                 errors.push({
                     message: rule.message,
                     isGlobal: true
@@ -182,14 +187,14 @@
                 continue;
             }
             
-            // Если есть order-условия — проверяем по каждому ордеру
+            // 🔥 Если есть order-условия — проверяем каждый ордер
             orderContainers.forEach((el, idx) => {
                 const num = idx + 1;
                 const name = getOrderName(el, idx);
                 const orderData = getOrderData(el);
 
                 const orderOk = orderConds.every(c => {
-                    // Специальная проверка количества для конкретной операции
+                    // Специальная проверка количества для конкретной операции (target_op)
                     if (c.target_op && c.op.startsWith('qty_')) {
                         const target = orderData.postpress?.find(p => 
                             p.name.toUpperCase().includes(c.target_op.toUpperCase())
@@ -203,6 +208,7 @@
                             default: return false;
                         }
                     }
+                    // Стандартная проверка условия
                     return checkCondition(c, orderData);
                 });
 
@@ -219,25 +225,28 @@
 
         // 🎯 Результат валидации
         if (errors.length === 0) {
+            // Всё ок — запускаем оригинальный расчёт
             originalBtn.click();
         } else {
-            // 🔥 Форматируем ошибки: глобальные — без номера ордера
+            // 🔥 Форматируем ошибки: глобальные без контекста, локальные с номером ордера
             const formattedErrors = errors.map((err, idx) => {
                 if (err.isGlobal) {
-                    return `<b>${idx + 1}.</b> ${err.message}`;  // 🔥 Чистый текст
+                    return `<b>${idx + 1}.</b> ${err.message}`;
                 }
                 return `<b>${idx + 1}.</b> Ордер №${err.orderNum} (${err.orderName}):<br>${err.message}`;
             });
 
+            // 🔥 Показываем сообщение через глобальную функцию
             if (api?.showCenterMessage) {
                 api.showCenterMessage({
-                    
+                    title: '⚠️ Ошибки валидации',
                     message: formattedErrors.join('<hr style="margin:8px 0;opacity:0.3">'), 
                     buttonText: 'Понятно, исправлю',
                     duration: 0,
                     type: 'error'
                 });
             } else {
+                // Фолбэк: вывод в консоль
                 console.group('%c❌ ОШИБКИ ВАЛИДАЦИИ', 'color: #dc3545; font-weight: bold;');
                 errors.forEach((err, i) => {
                     const prefix = err.isGlobal ? '[Глобально]' : `Ордер №${err.orderNum} (${err.orderName})`;
@@ -304,6 +313,7 @@
     }
     function getGlobalPostpressOps() { return extractPostpressOps(document.querySelector('#ProductPostpress > #PostpressList, #ProductPostpress tbody#PostpressList')); }
     function getOrderPostpressOps(c) { return extractPostpressOps(c.querySelector('#Postpress #PostpressList, #PostpressList')); }
+
     function getOrderName(container, idx) {
         const input = container.querySelector('input#name, input.head');
         if (input && input.value.trim()) return input.value.trim();
@@ -370,20 +380,32 @@
     function cleanup() {
         if (!active) return;
         active = false;
-        if (observer) { observer.disconnect(); observer = null; }
+        
+        if (observer) {
+            observer.disconnect();
+            observer = null;
+        }
         clearTimeout(debounceTimer);
         
         document.querySelectorAll(`button[${WRAPPED_ATTR}="true"]`).forEach(wrappedBtn => {
             wrappedBtn.style.display = wrappedBtn.dataset._origDisplay || '';
             delete wrappedBtn.dataset._origDisplay;
             wrappedBtn.removeAttribute(WRAPPED_ATTR);
+            
             const fakeBtn = wrappedBtn.nextElementSibling;
-            if (fakeBtn && fakeBtn.textContent.trim() === 'Рассчитать') fakeBtn.remove();
+            if (fakeBtn && fakeBtn.textContent.trim() === 'Рассчитать') {
+                fakeBtn.remove();
+            }
         });
     }
 
-    function toggle() { active ? cleanup() : init(); }
-    function isActive() { return active; }
+    function toggle() {
+        active ? cleanup() : init();
+    }
+
+    function isActive() {
+        return active;
+    }
 
     // 🔥 Авто-запуск
     if (config?.autoInit !== false) {
@@ -396,8 +418,13 @@
 
     // 🔥 Экспорт API
     return {
-        init, cleanup, toggle, isActive,
-        validateAndCalculate, loadRules, checkCondition
+        init,
+        cleanup,
+        toggle,
+        isActive,
+        validateAndCalculate,
+        loadRules,
+        checkCondition
     };
 
 })(config, GM, utils, api);
