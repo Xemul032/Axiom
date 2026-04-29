@@ -11,8 +11,8 @@
     const ITOG_SELECTOR = config?.itogSelector || '#itog';
     const INPUT_SELECTOR = config?.inputSelector || '#result > div > div > table > tbody > tr:nth-child(2) > td:nth-child(2) > table > tbody > tr:nth-child(5) > td.right > input';
     const PRICE_MULTIPLIER = config?.priceMultiplier || 1.4;
-    
-    // 🔥 Стили из конфига (с дефолтами)
+
+    // 🔥 Стили (можно переопределить в конфиге)
     const STYLES = {
         block: {
             backgroundColor: config?.styles?.block?.bg || '#007BFF',
@@ -47,6 +47,7 @@
     // 🔥 Внутреннее состояние
     let active = false;
     let observer = null;
+    let domObserver = null;
     let originalSumValue = '';
     let priceBlock = null;
     let sumElement = null;
@@ -60,6 +61,7 @@
     }
 
     function parseNumericValue(text) {
+        if (!text) return 0;
         return parseFloat(text.replace(/[^0-9.,]/g, '').replace(',', '.')) || 0;
     }
 
@@ -92,13 +94,18 @@
     // ─────────────────────────────────────────────
     function createPriceBlock() {
         const itogEl = document.querySelector(ITOG_SELECTOR);
-        if (!itogEl) return;
-
         const targetElement = document.querySelector(TARGET_SELECTOR);
-        if (!targetElement) return;
+        const inputEl = document.querySelector(INPUT_SELECTOR);
+
+        // 🔥 Проверяем наличие ВСЕХ необходимых элементов
+        if (!itogEl || !targetElement || !inputEl) {
+            return false;
+        }
 
         // 🔥 Проверка: уже создан?
-        if (targetElement.querySelector(`.${UNIQUE_PREFIX}price`)) return;
+        if (targetElement.querySelector(`.${UNIQUE_PREFIX}price`)) {
+            return true;
+        }
 
         // Создаём блок
         priceBlock = document.createElement('div');
@@ -136,15 +143,19 @@
         priceBlock.appendChild(copyButton);
         targetElement.appendChild(priceBlock);
 
-        // Инициализация
+        // Инициализация суммы
         calculateSum();
-        setupObserver(itogEl, document.querySelector(INPUT_SELECTOR));
+
+        // 🔥 Настройка Observer для отслеживания изменений
+        setupMutationObserver(itogEl, inputEl);
+
+        return true;
     }
 
     // ─────────────────────────────────────────────
-    // Observer для отслеживания изменений
+    // Observer для отслеживания изменений значений
     // ─────────────────────────────────────────────
-    function setupObserver(itogEl, inputEl) {
+    function setupMutationObserver(itogEl, inputEl) {
         if (observer) observer.disconnect();
 
         observer = new MutationObserver(function(mutations) {
@@ -175,23 +186,65 @@
     }
 
     // ─────────────────────────────────────────────
+    // 🔥 Observer для ожидания появления элементов
+    // ─────────────────────────────────────────────
+    function setupDomObserver() {
+        if (domObserver) domObserver.disconnect();
+
+        domObserver = new MutationObserver(function() {
+            const itogEl = document.querySelector(ITOG_SELECTOR);
+            const targetElement = document.querySelector(TARGET_SELECTOR);
+            
+            if (itogEl && targetElement) {
+                // 🔥 Элементы появились — создаём блок
+                const success = createPriceBlock();
+                if (success) {
+                    // 🔥 Элементы созданы — отключаем этот observer
+                    if (domObserver) {
+                        domObserver.disconnect();
+                        domObserver = null;
+                    }
+                }
+            }
+        });
+
+        domObserver.observe(document.body, {
+            childList: true,
+            subtree: true
+        });
+    }
+
+    // ─────────────────────────────────────────────
     // 🔥 API модуля
     // ─────────────────────────────────────────────
     function init() {
         if (active) return;
         active = true;
-        createPriceBlock();
+
+        // 🔥 Сначала пробуем создать сразу (если элементы уже есть)
+        const success = createPriceBlock();
+        
+        if (!success) {
+            // 🔥 Элементов ещё нет — ждём их появления
+            setupDomObserver();
+        }
     }
 
     function cleanup() {
         if (!active) return;
         active = false;
 
+        // Отключаем все observers
         if (observer) {
             observer.disconnect();
             observer = null;
         }
+        if (domObserver) {
+            domObserver.disconnect();
+            domObserver = null;
+        }
 
+        // Удаляем блок
         if (priceBlock && priceBlock.parentNode) {
             priceBlock.parentNode.removeChild(priceBlock);
             priceBlock = null;
@@ -210,7 +263,7 @@
         return active;
     }
 
-    // 🔥 Публичные методы для внешнего вызова
+    // 🔥 Публичные методы
     function forceRecalculate() {
         calculateSum();
     }
@@ -224,7 +277,8 @@
         if (document.readyState === 'loading') {
             document.addEventListener('DOMContentLoaded', init);
         } else {
-            init();
+            // 🔥 Небольшая задержка для гарантии загрузки DOM
+            setTimeout(init, 100);
         }
     }
 
