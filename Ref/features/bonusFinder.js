@@ -1,5 +1,5 @@
-// 14bonusFinder.js — модуль работы с бонусами клиента
-// Версия 8: ИСПРАВЛЕН БАГ с двойным вызовом callback
+// bonusFinder.js — модуль работы с бонусами клиента
+// Версия 9: Final Release (Clean & Fixed)
 
 (function(config, GM, utils, api) {
     'use strict';
@@ -30,7 +30,6 @@
     };
 
     const UNIQUE_PREFIX = CONFIG.uniquePrefix;
-    const LOG_TAG = '[bonusFinder]';
 
     let active = false;
     let finderData = [];
@@ -40,10 +39,6 @@
     let currentProductId = null;
     let domObserver = null;
     let productIdObserver = null;
-
-    function log(...args) { console.log(LOG_TAG, ...args); }
-    function warn(...args) { console.warn(LOG_TAG, ...args); }
-    function error(...args) { console.error(LOG_TAG, ...args); }
 
     function injectStyles() {
         if (document.getElementById(`${UNIQUE_PREFIX}styles`)) return;
@@ -83,31 +78,27 @@
 
     function getClientData() {
         const { summarySpan, summaryCell } = CONFIG.selectors;
-        log('getClientData: searching...');
-
         const td = document.querySelector(summaryCell);
+
         if (td) {
-            log('getClientData: found td element');
+            // Приоритет: сохраненное оригинальное имя (чтобы не искать в "Промэнерго (Было списано...)")
             if (td.dataset.originalClient) {
-                log(`getClientData: ✅ using saved originalClient: "${td.dataset.originalClient}"`);
                 return { text: td.dataset.originalClient, element: td };
             }
+            // Если внутри есть span от Chosen
             const span = td.querySelector('div > a > span');
             if (span) {
-                log(`getClientData: found Chosen span: "${span.textContent.trim()}"`);
                 return { text: span.textContent.trim(), element: td };
             }
-            log(`getClientData: using raw td text: "${td.textContent.trim()}"`);
+            // Фолбэк: сырой текст ячейки
             return { text: td.textContent.trim(), element: td };
         }
 
         const span = document.querySelector(summarySpan);
         if (span) {
-            log(`getClientData: found standalone span: "${span.textContent.trim()}"`);
             return { text: span.textContent.trim(), element: span };
         }
 
-        log('getClientData: ❌ NO ELEMENT FOUND');
         return null;
     }
 
@@ -119,13 +110,11 @@
             onload: (res) => {
                 if (res.status === 200) {
                     finderData = parseCSV(res.responseText);
-                    log(`Finder data loaded: ${finderData.length} rows`);
                     if (callback) callback();
                     if (currentProductId) processFinder(currentProductId);
                 }
             },
-            onerror: () => error('Finder fetch error'), 
-            ontimeout: () => error('Finder fetch timeout')
+            onerror: () => {}, ontimeout: () => {}
         });
     }
 
@@ -146,77 +135,40 @@
             const el = document.querySelector(CONFIG.selectors.productId);
             if (el && !el.textContent.includes('⚡️')) {
                 el.textContent = el.textContent + ' ⚡️';
-                log(`Finder: marked ProductId ${productId}`);
             }
             processedProductIds.add(productId);
         }
     }
 
-    // 🔥 ИСПРАВЛЕНО: убран двойной вызов callback
     function fetchBonusAmount(searchText, callback) {
         const { sheetId, sheetName, apiKey } = CONFIG.bonus;
         
-        log('=== fetchBonusAmount START ===');
-        log(`searchText to query: "${searchText}"`);
-        log(`apiKey present: ${!!apiKey}, sheet: ${sheetName}`);
-        
-        if (!apiKey) { 
-            log('fetchBonusAmount: ❌ NO API KEY');
-            callback(null); 
-            return; 
-        }
+        if (!apiKey) { callback(null); return; }
         
         const url = `https://sheets.googleapis.com/v4/spreadsheets/${sheetId}/values/${sheetName}!A:B?key=${apiKey}`;
         
         GM.xmlhttpRequest({
             method: 'GET', url, timeout: 15000,
             onload: (res) => {
-                log('API Response status:', res.status);
                 if (res.status === 200) {
                     try {
                         const data = JSON.parse(res.responseText);
-                        log('API Response data:', data);
-                        
                         if (data?.values?.length > 1) {
-                            let found = false;
                             for (let i = 1; i < data.values.length; i++) {
                                 const key = data.values[i][0];
                                 const val = data.values[i][1];
-                                log(`  Row ${i}: key="${key}", value="${val}", match=${key === searchText}`);
                                 if (key === searchText) {
-                                    log(`✅ MATCH FOUND at row ${i}: "${key}" -> "${val}"`);
-                                    log('=== fetchBonusAmount END (success) ===\n');
                                     callback(val); 
-                                    found = true;
-                                    return; // 🔥 ВАЖНО: выходим сразу после callback
+                                    return; // ВАЖНО: выходим сразу после успеха
                                 }
                             }
-                            if (!found) {
-                                log(`❌ NO MATCH for "${searchText}" in ${data.values.length - 1} rows`);
-                            }
-                        } else {
-                            log('API returned empty data');
                         }
-                    } catch (e) { 
-                        error('API parse error:', e); 
-                    }
-                } else {
-                    error('API error:', res.status, res.responseText);
+                    } catch (e) {}
                 }
-                // 🔥 Вызываем callback(null) ТОЛЬКО если не нашли match
-                log('=== fetchBonusAmount END (null) ===\n');
                 callback(null);
             },
-            onerror: (err) => { 
-                error('API request error:', err); 
-                log('=== fetchBonusAmount END (error) ===\n');
-                callback(null); 
-            }, 
-            ontimeout: () => { 
-                error('API timeout'); 
-                log('=== fetchBonusAmount END (timeout) ===\n');
-                callback(null); 
-            }
+            onerror: () => callback(null), 
+            ontimeout: () => callback(null)
         });
     }
 
@@ -233,7 +185,6 @@
         btn.textContent = 'Узнать';
         btn.className = `${UNIQUE_PREFIX}bonus-btn`;
         btn.addEventListener('click', () => {
-            log('\n🖱️ === BUTTON CLICKED ===');
             btn.disabled = true;
             btn.textContent = '';
             const loading = document.createElement('span');
@@ -243,22 +194,16 @@
 
             setTimeout(() => {
                 const summary = getClientData();
-                log(`Button: getClientData returned -> text: "${summary?.text}"`);
-                
                 if (summary?.text) {
                     fetchBonusAmount(summary.text, (amount) => {
-                        log(`Button: callback received amount:`, amount);
                         if (amount !== null && amount !== undefined) {
-                            log('Button: SUCCESS, updating cell with:', amount);
                             cell.textContent = `Доступно бонусов: ${amount}`;
                             cell.style.color = 'green';
                         } else {
-                            log('Button: FAILED (amount is null/undefined), showing error');
                             cell.innerHTML = `<span class="${UNIQUE_PREFIX}error-text">Бонусов нет</span>`;
                         }
                     });
                 } else {
-                    log('Button: FAILED (summary.text is null/undefined)');
                     cell.innerHTML = `<span class="${UNIQUE_PREFIX}error-text">Ошибка: нет данных</span>`;
                 }
             }, 800);
@@ -300,13 +245,11 @@
             onload: (res) => {
                 if (res.status === 200) {
                     spentData = parseCSV(res.responseText);
-                    log(`Spent data loaded: ${spentData.length} rows`);
                     if (callback) callback();
                     if (currentProductId) processSpent(currentProductId);
                 }
             },
-            onerror: () => error('Spent fetch error'), 
-            ontimeout: () => error('Spent fetch timeout')
+            onerror: () => {}, ontimeout: () => {}
         });
     }
 
@@ -320,9 +263,7 @@
     }
 
     function processSpent(productId) {
-        log(`\n=== processSpent called for "${productId}" ===`);
         if (!spentData.length) return;
-        
         const bonuses = getSpentBonuses(productId);
         if (!bonuses) return;
 
@@ -336,12 +277,11 @@
         const td = document.querySelector(CONFIG.selectors.summaryCell);
         if (td) td.dataset.originalClient = originalClientText;
 
+        // ВАРИАНТ 1: Chosen Dropdown
         const chosenLink = document.querySelector(CONFIG.selectors.chosenLink);
         if (chosenLink) {
-            log('processSpent: Chosen variant');
             processedSpentFlags.add(flagKey);
             chosenLink.style.display = 'none';
-
             const newEl = document.createElement('span');
             newEl.classList.add('myelem');
             newEl.style.pointerEvents = 'none';
@@ -352,12 +292,11 @@
             return;
         }
 
+        // ВАРИАНТ 2: Простой <td>
         if (td && !td.querySelector(`.${UNIQUE_PREFIX}myelem`)) {
-            log('processSpent: td variant');
             processedSpentFlags.add(flagKey);
             td.innerHTML = '';
             td.style.pointerEvents = 'none';
-
             const newEl = document.createElement('span');
             newEl.classList.add('myelem');
             newEl.style.pointerEvents = 'none';
@@ -368,13 +307,13 @@
             return;
         }
 
+        // ВАРИАНТ 3: <tr> с "Заказчик:"
         const summaryTable = document.querySelector('#Summary > table');
         if (summaryTable) {
             for (const row of summaryTable.querySelectorAll('tr')) {
                 const cells = row.querySelectorAll('td');
                 for (let i = 0; i < cells.length - 1; i++) {
                     if (cells[i].textContent.trim() === 'Заказчик:') {
-                        log('processSpent: tr variant');
                         const customerCell = cells[i + 1];
                         const customerText = customerCell.textContent.trim();
                         if (!customerText) continue;
@@ -441,7 +380,6 @@
 
     function init() {
         if (active) return;
-        log('INIT');
         active = true;
         injectStyles();
         fetchFinderData();
@@ -451,7 +389,6 @@
 
     function cleanup() {
         if (!active) return;
-        log('CLEANUP');
         active = false;
         if (productIdObserver) { productIdObserver.disconnect(); productIdObserver = null; }
         if (domObserver) { domObserver.disconnect(); domObserver = null; }
