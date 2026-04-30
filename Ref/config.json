@@ -18,6 +18,12 @@
       "runAt": "document-idle",
       "config": {}
     },
+      "discountBlocker": {
+      "enabled": true,
+      "url": "https://raw.githubusercontent.com/Xemul032/Axiom/refs/heads/main/Ref/features/discountBlocker.js",
+      "runAt": "document-idle",
+      "config": {}
+    },  
      "remoteDesignManager": {
       "enabled": true,
       "url": "https://raw.githubusercontent.com/Xemul032/Axiom/refs/heads/main/Ref/features/remoteDesignManager.js",
