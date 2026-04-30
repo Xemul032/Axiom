@@ -1,10 +1,9 @@
-// 10bonusFinder.js — модуль работы с бонусами клиента
-// Версия 4: Исправлено получение текста для <td>-структуры
+// 11bonusFinder.js — модуль работы с бонусами клиента
+// Версия 5: Исправлено получение имени клиента после модификации DOM
 
 (function(config, GM, utils, api) {
     'use strict';
 
-    // 🔧 Конфигурация
     const CONFIG = {
         finder: {
             sheetId: config?.finderSheetId || '1h4vwAC83sqAnf2ibalKW4qfTSHe0qToPs0-0aSdpdrU',
@@ -22,12 +21,9 @@
         selectors: {
             productId: '#ProductId',
             bonusTable: '#Fin > table > tbody:nth-child(4) > tr > td:nth-child(1) > table',
-            // 🔥 Селекторы для получения текста клиента (как в оригинале)
             summarySpan: '#Summary > table > tbody > tr > td:nth-child(1) > table > tbody:nth-child(1) > tr:nth-child(2) > td:nth-child(2) > div > a > span',
             summaryCell: '#Summary > table > tbody > tr > td:nth-child(1) > table > tbody:nth-child(1) > tr:nth-child(2) > td:nth-child(2)',
-            // Селектор для Chosen-ссылки
             chosenLink: '#Summary > table > tbody > tr > td:nth-child(1) > table.table.table-condensed.table-striped > tbody:nth-child(1) > tr:nth-child(2) > td:nth-child(2) > div > a',
-            // Контейнер для вставки
             clientContainer: '#Summary > table > tbody > tr > td:nth-child(1) > table > tbody:nth-child(1) > tr:nth-child(2) > td:nth-child(2) > div',
         },
         pageKeywords: ['Номенклатура', 'Номенклатура по умолчанию'],
@@ -36,20 +32,15 @@
 
     const UNIQUE_PREFIX = CONFIG.uniquePrefix;
 
-    // 🔐 Внутреннее состояние
     let active = false;
     let finderData = [];
     let spentData = [];
     let processedProductIds = new Set();
     let processedSpentFlags = new Set();
     let currentProductId = null;
-
     let domObserver = null;
     let productIdObserver = null;
 
-    // ─────────────────────────────────────────────
-    // 🎨 Стили
-    // ─────────────────────────────────────────────
     function injectStyles() {
         if (document.getElementById(`${UNIQUE_PREFIX}styles`)) return;
         const style = document.createElement('style');
@@ -67,9 +58,6 @@
         document.head.appendChild(style);
     }
 
-    // ─────────────────────────────────────────────
-    // 🔧 Утилиты
-    // ─────────────────────────────────────────────
     function parseCSV(csvText) {
         if (!csvText) return [];
         const lines = csvText.split('\n');
@@ -89,20 +77,30 @@
         return CONFIG.pageKeywords.some(kw => text.includes(kw));
     }
 
-    // 🔥 ИСПРАВЛЕНО: точная копия логики из оригинала
+    // 🔥 ИСПРАВЛЕНО: извлекаем оригинальное имя, даже если элемент уже модифицирован
     function getClientData() {
         const { summarySpan, summaryCell } = CONFIG.selectors;
         
-        // Сначала ищем span внутри ссылки
+        // 1. Ищем span внутри ссылки (Chosen)
         let element = document.querySelector(summarySpan);
         if (element) {
+            // Проверяем, не заменён ли элемент нашим .myelem
+            const parent = element.closest(`.${UNIQUE_PREFIX}myelem`);
+            if (parent && parent.dataset.originalClient) {
+                return { text: parent.dataset.originalClient, element: parent };
+            }
             return { text: element.textContent.trim(), element };
         }
         
-        // Если не нашли — ищем саму ячейку <td>
+        // 2. Ищем саму ячейку <td>
         element = document.querySelector(summaryCell);
         if (element) {
-            // 🔥 КЛЮЧЕВОЙ МОМЕНТ: ищем span внутри ячейки, если нет — берём текст самой ячейки
+            // 🔥 Если внутри есть наш .myelem с data-original-client — берём оригинальное имя
+            const myelem = element.querySelector(`.${UNIQUE_PREFIX}myelem`);
+            if (myelem && myelem.dataset.originalClient) {
+                return { text: myelem.dataset.originalClient, element: myelem };
+            }
+            // Иначе стандартная логика
             const spanElement = element.querySelector('div > a > span');
             return { 
                 text: spanElement ? spanElement.textContent.trim() : element.textContent.trim(), 
@@ -112,9 +110,6 @@
         return null;
     }
 
-    // ─────────────────────────────────────────────
-    // 📊 FINDER
-    // ─────────────────────────────────────────────
     function fetchFinderData(callback) {
         const { sheetId, sheetName } = CONFIG.finder;
         const url = `https://docs.google.com/spreadsheets/d/${sheetId}/gviz/tq?tqx=out:csv&sheet=${sheetName}`;
@@ -153,9 +148,6 @@
         }
     }
 
-    // ─────────────────────────────────────────────
-    // 💰 BONUS
-    // ─────────────────────────────────────────────
     function fetchBonusAmount(searchText, callback) {
         const { sheetId, sheetName, apiKey } = CONFIG.bonus;
         if (!apiKey) { callback(null); return; }
@@ -200,6 +192,7 @@
             btn.appendChild(loading);
 
             setTimeout(() => {
+                // 🔥 getClientData() теперь вернёт чистое имя клиента
                 const summary = getClientData();
                 if (summary?.text) {
                     fetchBonusAmount(summary.text, (amount) => {
@@ -244,9 +237,6 @@
         });
     }
 
-    // ─────────────────────────────────────────────
-    // 💸 SPENT: ИСПРАВЛЕНО получение текста
-    // ─────────────────────────────────────────────
     function fetchSpentData(callback) {
         const { sheetId, sheetName } = CONFIG.spent;
         const url = `https://docs.google.com/spreadsheets/d/${sheetId}/gviz/tq?tqx=out:csv&sheet=${sheetName}`;
@@ -277,18 +267,16 @@
         const bonuses = getSpentBonuses(productId);
         if (!bonuses) return;
 
-        // 🔥 Флаг защиты от повторной обработки
         const flagKey = `spent_processed_${productId}`;
         if (processedSpentFlags.has(flagKey)) return;
 
-        // 🔥 ИСПРАВЛЕНО: получаем данные клиента через правильную функцию
+        // Получаем данные клиента ДО модификации DOM
         const clientData = getClientData();
         if (!clientData) return;
-        const clientText = clientData.text;
+        const originalClientText = clientData.text;
 
         // ─── ВАРИАНТ 1: Chosen Dropdown (div > a) ───
         const chosenLink = document.querySelector(CONFIG.selectors.chosenLink);
-        
         if (chosenLink) {
             processedSpentFlags.add(flagKey);
             chosenLink.style.display = 'none';
@@ -298,8 +286,9 @@
             newEl.style.pointerEvents = 'none';
             newEl.style.userSelect = 'none';
             newEl.style.opacity = '0.5';
-            // 🔥 Используем clientText, полученный через правильную логику
-            newEl.innerHTML = `${clientText} (Было списано <span class="${UNIQUE_PREFIX}bonus-value">${bonuses}</span> бонусов)`;
+            // 🔥 Сохраняем оригинальное имя в data-attribute
+            newEl.dataset.originalClient = originalClientText;
+            newEl.innerHTML = `${originalClientText} (Было списано <span class="${UNIQUE_PREFIX}bonus-value">${bonuses}</span> бонусов)`;
 
             if (chosenLink.parentNode) {
                 chosenLink.parentNode.insertBefore(newEl, chosenLink);
@@ -320,14 +309,15 @@
             newEl.style.pointerEvents = 'none';
             newEl.style.userSelect = 'none';
             newEl.style.opacity = '0.5';
-            // 🔥 clientText уже содержит правильное значение из <td>
-            newEl.innerHTML = `${clientText} (Было списано <span class="${UNIQUE_PREFIX}bonus-value">${bonuses}</span> бонусов)`;
+            // 🔥 Сохраняем оригинальное имя в data-attribute
+            newEl.dataset.originalClient = originalClientText;
+            newEl.innerHTML = `${originalClientText} (Было списано <span class="${UNIQUE_PREFIX}bonus-value">${bonuses}</span> бонусов)`;
             
             targetCell.appendChild(newEl);
             return;
         }
 
-        // ─── ВАРИАНТ 3: <tr> с лейблом "Заказчик:" (Fallback) ───
+        // ─── ВАРИАНТ 3: <tr> с лейблом "Заказчик:" ───
         const summaryTable = document.querySelector('#Summary > table');
         if (summaryTable) {
             const rows = summaryTable.querySelectorAll('tr');
@@ -347,6 +337,8 @@
                         newEl.style.pointerEvents = 'none';
                         newEl.style.userSelect = 'none';
                         newEl.style.opacity = '0.5';
+                        // 🔥 Сохраняем оригинальное имя в data-attribute
+                        newEl.dataset.originalClient = customerText;
                         newEl.innerHTML = `${customerText} (Было списано <span class="${UNIQUE_PREFIX}bonus-value">${bonuses}</span> бонусов)`;
                         
                         customerCell.appendChild(newEl);
@@ -358,9 +350,6 @@
         }
     }
 
-    // ─────────────────────────────────────────────
-    // 🔄 Обработчик появления #ProductId
-    // ─────────────────────────────────────────────
     function onProductIdAppear() {
         const el = document.querySelector(CONFIG.selectors.productId);
         if (!el) return;
@@ -371,12 +360,10 @@
         processedSpentFlags.clear();
 
         processFinder(pid);
-
         if (hasPageKeyword()) {
             hideUnwantedRows();
             addBonusRowIfNeeded();
         }
-
         processSpent(pid);
     }
 
@@ -408,9 +395,6 @@
         onProductIdAppear();
     }
 
-    // ─────────────────────────────────────────────
-    // 🚀 API модуля
-    // ─────────────────────────────────────────────
     function init() {
         if (active) return;
         active = true;
@@ -443,7 +427,6 @@
 
     function toggle() { active ? cleanup() : init(); }
     function isActive() { return active; }
-
     function refresh() {
         fetchFinderData();
         fetchSpentData();
