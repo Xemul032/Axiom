@@ -1,11 +1,10 @@
-// 8bonusFinder.js — модуль работы с бонусами клиента
-// Загружается динамически из config.json через Axiom Status Indicator
-// Возвращает API: { init, cleanup, toggle, isActive, refresh }
+// 9bonusFinder.js — модуль работы с бонусами клиента
+// Версия 3: Исправлена проблема с отображением списка клиентов Chosen
 
 (function(config, GM, utils, api) {
     'use strict';
 
-    // 🔧 Конфигурация (переопределяется из config.json)
+    // 🔧 Конфигурация
     const CONFIG = {
         finder: {
             sheetId: config?.finderSheetId || '1h4vwAC83sqAnf2ibalKW4qfTSHe0qToPs0-0aSdpdrU',
@@ -25,7 +24,8 @@
             bonusTable: '#Fin > table > tbody:nth-child(4) > tr > td:nth-child(1) > table',
             summarySpan: '#Summary > table > tbody > tr > td:nth-child(1) > table > tbody:nth-child(1) > tr:nth-child(2) > td:nth-child(2) > div > a > span',
             summaryRow: '#Summary > table > tbody > tr > td:nth-child(1) > table > tbody:nth-child(1) > tr:nth-child(2)',
-            clientContainer: '#Summary > table > tbody > tr > td:nth-child(1) > table > tbody:nth-child(1) > tr:nth-child(2) > td:nth-child(2) > div',
+            // Важный селектор: контейнер клиента
+            clientCell: '#Summary > table > tbody > tr > td:nth-child(1) > table.table.table-condensed.table-striped > tbody:nth-child(1) > tr:nth-child(2) > td:nth-child(2)',
         },
         pageKeywords: ['Номенклатура', 'Номенклатура по умолчанию'],
         uniquePrefix: 'bonus-finder-',
@@ -38,10 +38,9 @@
     let finderData = [];
     let spentData = [];
     let processedProductIds = new Set();
-    let processedSpentFlags = new Set(); // Простые флаги вместо ссылок на DOM
+    let processedSpentFlags = new Set();
     let currentProductId = null;
 
-    // 🔐 Наблюдатели
     let domObserver = null;
     let productIdObserver = null;
 
@@ -54,48 +53,25 @@
         style.id = `${UNIQUE_PREFIX}styles`;
         style.textContent = `
             @keyframes ${UNIQUE_PREFIX}dots {
-                0% { content: "..."; }
-                33% { content: "."; }
-                66% { content: ".."; }
+                0% { content: "..."; } 33% { content: "."; } 66% { content: ".."; }
             }
             .${UNIQUE_PREFIX}loading::after {
-                content: "...";
-                animation: ${UNIQUE_PREFIX}dots 1s infinite;
+                content: "..."; animation: ${UNIQUE_PREFIX}dots 1s infinite;
             }
             .${UNIQUE_PREFIX}bonus-btn {
-                margin-left: 10px !important;
-                padding: 5px 10px !important;
-                border: none !important;
-                background-color: #4CAF50 !important;
-                color: white !important;
-                cursor: pointer !important;
-                border-radius: 5px !important;
+                margin-left: 10px !important; padding: 5px 10px !important;
+                border: none !important; background-color: #4CAF50 !important;
+                color: white !important; cursor: pointer !important; border-radius: 5px !important;
                 font-size: 12px !important;
             }
-            .${UNIQUE_PREFIX}bonus-btn:disabled {
-                background-color: #ccc !important;
-                cursor: not-allowed !important;
-            }
+            .${UNIQUE_PREFIX}bonus-btn:disabled { background-color: #ccc !important; cursor: not-allowed !important; }
             .${UNIQUE_PREFIX}myelem, .myelem {
-                pointer-events: none !important;
-                user-select: none !important;
-                opacity: 0.5 !important;
-                font-weight: 500 !important;
+                pointer-events: none !important; user-select: none !important;
+                opacity: 0.5 !important; font-weight: 500 !important;
             }
-            .${UNIQUE_PREFIX}bonus-value {
-                color: #28a745 !important;
-                font-weight: bold !important;
-            }
-            .${UNIQUE_PREFIX}error-text {
-                color: #dc3545 !important;
-                font-weight: 500 !important;
-            }
-            tr.${UNIQUE_PREFIX}bonus-row,
-            tr.bonus-row {
-                display: table-row !important;
-                visibility: visible !important;
-                opacity: 1 !important;
-            }
+            .${UNIQUE_PREFIX}bonus-value { color: #28a745 !important; font-weight: bold !important; }
+            .${UNIQUE_PREFIX}error-text { color: #dc3545 !important; font-weight: 500 !important; }
+            tr.${UNIQUE_PREFIX}bonus-row, tr.bonus-row { display: table-row !important; visibility: visible !important; opacity: 1 !important; }
         `;
         document.head.appendChild(style);
     }
@@ -111,9 +87,7 @@
             const line = lines[i].trim();
             if (!line) continue;
             const values = line.match(/(".*?"|[^",]+)(?=\s*,|\s*$)/g) || [];
-            for (let j = 0; j < values.length; j++) {
-                values[j] = values[j].replace(/^"|"$/g, '').trim();
-            }
+            for (let j = 0; j < values.length; j++) values[j] = values[j].replace(/^"|"$/g, '').trim();
             result.push(values);
         }
         return result;
@@ -137,7 +111,7 @@
     }
 
     // ─────────────────────────────────────────────
-    // 📊 FINDER: проверка ProductId в таблице
+    // 📊 FINDER
     // ─────────────────────────────────────────────
     function fetchFinderData(callback) {
         const { sheetId, sheetName } = CONFIG.finder;
@@ -170,15 +144,15 @@
         if (!productId || processedProductIds.has(productId)) return;
         if (checkProductIdInFinder(productId)) {
             const el = document.querySelector(CONFIG.selectors.productId);
-            if (el && !el.textContent.includes('️')) {
-                el.textContent = el.textContent + ' ⚡️';
+            if (el && !el.textContent.includes('⚡️')) {
+                el.textContent = el.textContent + ' ️';
             }
             processedProductIds.add(productId);
         }
     }
 
-    // ─────────────────────────────────────────────
-    // 💰 BONUS: кнопка "Узнать" с бонусами
+    // ────────────────────────────────────────────
+    //  BONUS
     // ─────────────────────────────────────────────
     function fetchBonusAmount(searchText, callback) {
         const { sheetId, sheetName, apiKey } = CONFIG.bonus;
@@ -192,10 +166,7 @@
                         const data = JSON.parse(res.responseText);
                         if (data?.values?.length > 1) {
                             for (let i = 1; i < data.values.length; i++) {
-                                if (data.values[i][0] === searchText) {
-                                    callback(data.values[i][1]);
-                                    return;
-                                }
+                                if (data.values[i][0] === searchText) { callback(data.values[i][1]); return; }
                             }
                         }
                     } catch (e) {}
@@ -272,7 +243,7 @@
     }
 
     // ─────────────────────────────────────────────
-    // 💸 SPENT: отображение списанных бонусов (3 СТРУКТУРЫ, БЕЗ .chosen-single)
+    // 💸 SPENT: ИСПРАВЛЕННАЯ ЛОГИКА
     // ─────────────────────────────────────────────
     function fetchSpentData(callback) {
         const { sheetId, sheetName } = CONFIG.spent;
@@ -305,18 +276,45 @@
         if (!bonuses) return;
 
         const summary = getSummaryData();
-        const displayText = summary?.text || 'Клиент';
+        const fallbackText = summary?.text || 'Клиент';
 
-        // 🔍 ВАРИАНТ 1: Точный <td> (текст лежит прямо в ячейке)
-        const tdSelector = '#Summary > table > tbody > tr > td:nth-child(1) > table.table.table-condensed.table-striped > tbody:nth-child(1) > tr:nth-child(2) > td:nth-child(2)';
-        const targetTd = document.querySelector(tdSelector);
-        if (targetTd && !targetTd.querySelector(`.${UNIQUE_PREFIX}myelem`)) {
-            if (processedSpentFlags.has('spent_done_td')) return;
-            processedSpentFlags.add('spent_done_td');
+        // 🔒 Флаг защиты от повторной обработки
+        const flagKey = `spent_processed_${productId}`;
+        if (processedSpentFlags.has(flagKey)) return;
 
-            const originalText = targetTd.textContent.trim() || displayText;
-            targetTd.innerHTML = '';
-            targetTd.style.pointerEvents = 'none';
+        // ─── ВАРИАНТ 1: Chosen Dropdown (div > a) ───
+        // Ищем строго ссылку внутри div. Это предотвращает захват списка <ul>
+        const chosenLink = document.querySelector('#Summary > table > tbody > tr > td:nth-child(1) > table.table.table-condensed.table-striped > tbody:nth-child(1) > tr:nth-child(2) > td:nth-child(2) > div > a');
+        
+        if (chosenLink) {
+            processedSpentFlags.add(flagKey);
+            chosenLink.style.display = 'none'; // Скрываем только ссылку, список <ul> не трогаем
+
+            const newEl = document.createElement('span');
+            newEl.classList.add('myelem');
+            newEl.style.pointerEvents = 'none';
+            newEl.style.userSelect = 'none';
+            newEl.style.opacity = '0.5';
+            newEl.innerHTML = `${fallbackText} (Было списано <span class="${UNIQUE_PREFIX}bonus-value">${bonuses}</span> бонусов)`;
+
+            // Вставляем ПЕРЕД скрытой ссылкой внутри того же div
+            if (chosenLink.parentNode) {
+                chosenLink.parentNode.insertBefore(newEl, chosenLink);
+            }
+            return;
+        }
+
+        // ─── ВАРИАНТ 2: Простой <td> с текстом ───
+        // Если ссылки нет, ищем саму ячейку
+        const targetCellSelector = '#Summary > table > tbody > tr > td:nth-child(1) > table.table.table-condensed.table-striped > tbody:nth-child(1) > tr:nth-child(2) > td:nth-child(2)';
+        const targetCell = document.querySelector(targetCellSelector);
+
+        if (targetCell && !targetCell.querySelector(`.${UNIQUE_PREFIX}myelem`)) {
+            processedSpentFlags.add(flagKey);
+            const originalText = targetCell.textContent.trim() || fallbackText;
+            
+            targetCell.innerHTML = ''; // Очищаем ячейку полностью
+            targetCell.style.pointerEvents = 'none';
 
             const newEl = document.createElement('span');
             newEl.classList.add('myelem');
@@ -324,55 +322,38 @@
             newEl.style.userSelect = 'none';
             newEl.style.opacity = '0.5';
             newEl.innerHTML = `${originalText} (Было списано <span class="${UNIQUE_PREFIX}bonus-value">${bonuses}</span> бонусов)`;
-            targetTd.appendChild(newEl);
+            
+            targetCell.appendChild(newEl);
             return;
         }
 
-        // 🔍 ВАРИАНТ 2: Оригинальная ссылка div > a (строгий путь, без .chosen-single)
-        const linkSelector = '#Summary > table > tbody > tr > td:nth-child(1) > table.table.table-condensed.table-striped > tbody:nth-child(1) > tr:nth-child(2) > td:nth-child(2) > div > a';
-        const linkEl = document.querySelector(linkSelector);
-        if (linkEl && !processedSpentFlags.has('spent_done_link')) {
-            processedSpentFlags.add('spent_done_link');
-            linkEl.style.display = 'none';
+        // ─── ВАРИАНТ 3: <tr> с лейблом "Заказчик:" (Fallback) ───
+        // Ограничиваем поиск только таблицей Summary
+        const summaryTable = document.querySelector('#Summary > table');
+        if (summaryTable) {
+            const rows = summaryTable.querySelectorAll('tr');
+            for (const row of rows) {
+                const cells = row.querySelectorAll('td');
+                for (let i = 0; i < cells.length - 1; i++) {
+                    if (cells[i].textContent.trim() === 'Заказчик:') {
+                        const customerCell = cells[i + 1];
+                        const customerText = customerCell.textContent.trim();
+                        if (!customerText) continue;
 
-            const newEl = document.createElement('span');
-            newEl.classList.add('myelem');
-            newEl.style.pointerEvents = 'none';
-            newEl.style.userSelect = 'none';
-            newEl.style.opacity = '0.5';
-            newEl.innerHTML = `${displayText} (Было списано <span class="${UNIQUE_PREFIX}bonus-value">${bonuses}</span> бонусов)`;
-
-            const container = document.querySelector(CONFIG.selectors.clientContainer);
-            if (container && linkEl.parentNode) {
-                container.style.pointerEvents = 'none';
-                linkEl.parentNode.insertBefore(newEl, linkEl);
-            }
-            return;
-        }
-
-        // 🔍 ВАРИАНТ 3: <tr> с лейблом "Заказчик:" (ограниченный поиск)
-        const rows = document.querySelectorAll('#Summary tr, #Fin tr');
-        for (const row of rows) {
-            const cells = row.querySelectorAll('td');
-            for (let i = 0; i < cells.length - 1; i++) {
-                if (cells[i].textContent.trim() === 'Заказчик:') {
-                    const customerCell = cells[i + 1];
-                    const customerText = customerCell.textContent.trim();
-                    if (!customerText) continue;
-
-                    if (processedSpentFlags.has('spent_done_tr')) return;
-                    processedSpentFlags.add('spent_done_tr');
-
-                    customerCell.innerHTML = '';
-                    const newEl = document.createElement('span');
-                    newEl.classList.add('myelem');
-                    newEl.style.pointerEvents = 'none';
-                    newEl.style.userSelect = 'none';
-                    newEl.style.opacity = '0.5';
-                    newEl.innerHTML = `${customerText} (Было списано <span class="${UNIQUE_PREFIX}bonus-value">${bonuses}</span> бонусов)`;
-                    customerCell.appendChild(newEl);
-                    row.style.pointerEvents = 'none';
-                    return;
+                        processedSpentFlags.add(flagKey);
+                        customerCell.innerHTML = '';
+                        
+                        const newEl = document.createElement('span');
+                        newEl.classList.add('myelem');
+                        newEl.style.pointerEvents = 'none';
+                        newEl.style.userSelect = 'none';
+                        newEl.style.opacity = '0.5';
+                        newEl.innerHTML = `${customerText} (Было списано <span class="${UNIQUE_PREFIX}bonus-value">${bonuses}</span> бонусов)`;
+                        
+                        customerCell.appendChild(newEl);
+                        row.style.pointerEvents = 'none';
+                        return;
+                    }
                 }
             }
         }
@@ -393,7 +374,7 @@
         // 1. Finder
         processFinder(pid);
 
-        // 2. Bonus row (только на нужных страницах)
+        // 2. Bonus row
         if (hasPageKeyword()) {
             hideUnwantedRows();
             addBonusRowIfNeeded();
@@ -404,7 +385,6 @@
     }
 
     function setupObservers() {
-        // Наблюдатель за #ProductId
         productIdObserver = new MutationObserver((mutations) => {
             for (const m of mutations) {
                 if (m.addedNodes.length || m.type === 'characterData') {
@@ -418,7 +398,6 @@
             productIdObserver.observe(pidEl, { childList: true, subtree: true, characterData: true });
         }
 
-        // Общий наблюдатель за DOM
         domObserver = new MutationObserver(() => {
             if (document.querySelector(CONFIG.selectors.productId)) {
                 onProductIdAppear();
@@ -430,7 +409,6 @@
         });
         domObserver.observe(document.body, { childList: true, subtree: true });
 
-        // Первичная проверка
         onProductIdAppear();
     }
 
@@ -459,13 +437,12 @@
         finderData = [];
         spentData = [];
 
-        // Удаляем добавленные элементы
         document.querySelectorAll(`.${UNIQUE_PREFIX}bonus-row, .bonus-row`).forEach(el => el.remove());
         document.querySelectorAll(`.${UNIQUE_PREFIX}myelem, .myelem`).forEach(el => el.remove());
-        // Восстанавливаем скрытые элементы при выключении
-        document.querySelectorAll('#Summary td:nth-child(2), .chosen-single').forEach(el => {
+        
+        // Восстановление Chosen
+        document.querySelectorAll('#Summary > table > tbody > tr > td:nth-child(1) > table.table.table-condensed.table-striped > tbody:nth-child(1) > tr:nth-child(2) > td:nth-child(2) > div > a').forEach(el => {
             if (el.style.display === 'none') el.style.display = '';
-            if (el.style.pointerEvents === 'none') el.style.pointerEvents = '';
         });
     }
 
@@ -478,7 +455,6 @@
         if (currentProductId) onProductIdAppear();
     }
 
-    //  Авто-запуск
     if (CONFIG.autoInit !== false) {
         if (document.readyState === 'loading') {
             document.addEventListener('DOMContentLoaded', init);
@@ -487,7 +463,6 @@
         }
     }
 
-    // 🔥 Экспорт публичного API
     return {
         init, cleanup, toggle, isActive, refresh,
         getFinderData: () => [...finderData],
