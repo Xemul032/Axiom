@@ -19,13 +19,13 @@
       "config": {}
     },
       "priceBlock": {
-      "enabled": false,
+      "enabled": true,
       "url": "https://raw.githubusercontent.com/Xemul032/Axiom/refs/heads/main/Ref/features/priceBlock.js",
       "runAt": "document-idle",
       "config": {}
     },
           "priceBlockNew": {
-      "enabled": true,
+      "enabled": false,
       "url": "https://raw.githubusercontent.com/Xemul032/Axiom/refs/heads/main/Ref/features/priceBlockNew.js",
       "runAt": "document-idle",
       "config": {}
