@@ -1,28 +1,17 @@
-// 3bonusFinder.js — модуль работы с бонусами клиента
-// Загружается динамически из config.json через Axiom Status Indicator
-// Возвращает API управления: { init, cleanup, toggle, isActive, refresh }
-
+// 4bonusFinder.js — модуль работы с бонусами клиента
 (function(config, GM, utils, api) {
     'use strict';
 
-    // 🔥 Конфигурация из config.json
     const CONFIG = {
-        // Таблица 1: проверка ProductId (finder)
         finderSheetId: config?.finderSheetId || '1h4vwAC83sqAnf2ibalKW4qfTSHe0qToPs0-0aSdpdrU',
         finderSheetName: config?.finderSheetName || 'finder',
         finderRefreshMs: config?.finderRefreshMs || 900000,
-
-        // Таблица 2: остатки бонусов (ОСТАТОК)
         bonusSheetId: config?.bonusSheetId || '1J-AqPpr5y9HEl0Q0WhSvafZFTjw5DpLi_jWYy0g7KqQ',
         bonusSheetName: config?.bonusSheetName || 'ОСТАТОК',
         bonusApiKey: config?.bonusApiKey || 'AIzaSyCiGZzZ85qCs-xJmlCbM-bz9IdAQxEq5z0',
-
-        // Таблица 3: списанные бонусы (idCheck)
         spentSheetId: config?.spentSheetId || '1VNlFOnfbc_pyCGsRjiV6WD1e6WUrT3UJBDgBkCFl970',
         spentSheetName: config?.spentSheetName || 'idCheck',
         spentRefreshMs: config?.spentRefreshMs || 900000,
-
-        // Селекторы
         selectors: {
             productId: config?.selectors?.productId || '#ProductId',
             bonusTable: config?.selectors?.bonusTable || '#Fin > table > tbody:nth-child(4) > tr > td:nth-child(1) > table',
@@ -31,59 +20,31 @@
             chosenSingle: config?.selectors?.chosenSingle || '#Summary > table > tbody > tr > td:nth-child(1) > table.table.table-condensed.table-striped > tbody:nth-child(1) > tr:nth-child(2) > td:nth-child(2) > div > a',
             clientSelectContainer: config?.selectors?.clientSelectContainer || '#Summary > table > tbody > tr > td:nth-child(1) > table > tbody:nth-child(1) > tr:nth-child(2) > td:nth-child(2) > div'
         },
-
         pageKeywords: config?.pageKeywords || ['Номенклатура', 'Номенклатура по умолчанию'],
         uniquePrefix: config?.uniquePrefix || 'bonus-finder-'
     };
 
     const UNIQUE_PREFIX = CONFIG.uniquePrefix;
 
-    // 🔥 Внутреннее состояние
     let active = false;
     let finderData = [];
     let spentData = [];
     let processedProductIds = new Set();
     let currentProductId = null;
-    let processedChosenElements = new Set();
-
-    // 🔥 Наблюдатели и таймеры
+    
     let productIdObserver = null;
     let domObserver = null;
+    let chosenObserver = null;
     let finderInterval = null;
     let spentInterval = null;
     let processDebounceTimer = null;
+    let chosenRetryTimer = null;
 
-    // ─────────────────────────────────────────────
-    // 🔥 СТИЛИ
-    // ─────────────────────────────────────────────
     function injectStyles() {
         if (document.getElementById(`${UNIQUE_PREFIX}styles`)) return;
         const style = document.createElement('style');
         style.id = `${UNIQUE_PREFIX}styles`;
         style.textContent = `
-            @keyframes ${UNIQUE_PREFIX}dots {
-                0% { content: "..."; }
-                33% { content: "."; }
-                66% { content: ".."; }
-            }
-            .${UNIQUE_PREFIX}loading::after {
-                content: "...";
-                animation: ${UNIQUE_PREFIX}dots 1s infinite;
-            }
-            .${UNIQUE_PREFIX}bonus-btn {
-                margin-left: 10px !important;
-                padding: 5px 10px !important;
-                border: none !important;
-                background-color: #4CAF50 !important;
-                color: white !important;
-                cursor: pointer !important;
-                border-radius: 5px !important;
-                font-size: 12px !important;
-            }
-            .${UNIQUE_PREFIX}bonus-btn:disabled {
-                background-color: #ccc !important;
-                cursor: not-allowed !important;
-            }
             .${UNIQUE_PREFIX}myelem, .myelem {
                 pointer-events: none !important;
                 user-select: none !important;
@@ -94,23 +55,10 @@
                 color: #28a745 !important;
                 font-weight: bold !important;
             }
-            .${UNIQUE_PREFIX}error-text {
-                color: #dc3545 !important;
-                font-weight: 500 !important;
-            }
-            tr.${UNIQUE_PREFIX}bonus-row,
-            tr.bonus-row {
-                display: table-row !important;
-                visibility: visible !important;
-                opacity: 1 !important;
-            }
         `;
         document.head.appendChild(style);
     }
 
-    // ─────────────────────────────────────────────
-    // Утилиты
-    // ─────────────────────────────────────────────
     function parseCSV(csvText) {
         if (!csvText) return [];
         const lines = csvText.split('\n');
@@ -132,15 +80,9 @@
         return CONFIG.pageKeywords.some(kw => text.includes(kw));
     }
 
-    function getText(selector) {
-        const el = document.querySelector(selector);
-        return el ? (el.textContent || el.innerText || '').trim() : null;
-    }
-
     function getSummaryData() {
         const selector1 = CONFIG.selectors.summarySpan;
         const selector2 = CONFIG.selectors.summaryRow;
-
         let element = document.querySelector(selector1);
         if (element) {
             return { text: element.textContent.trim(), element };
@@ -156,7 +98,7 @@
     }
 
     // ─────────────────────────────────────────────
-    // 🔥 ТАБЛИЦА 1: finder
+    // ТАБЛИЦА 1: finder
     // ─────────────────────────────────────────────
     function fetchFinderData(callback) {
         const url = `https://docs.google.com/spreadsheets/d/${CONFIG.finderSheetId}/gviz/tq?tqx=out:csv&sheet=${CONFIG.finderSheetName}`;
@@ -165,13 +107,11 @@
             onload: (res) => {
                 if (res.status === 200) {
                     finderData = parseCSV(res.responseText);
-                    console.log(`[bonusFinder] Finder data loaded: ${finderData.length} rows`);
                     if (callback) callback();
                     if (currentProductId) processProductIdElement(document.querySelector(CONFIG.selectors.productId));
                 }
             },
-            onerror: () => console.error('[bonusFinder] Finder fetch error'), 
-            ontimeout: () => console.error('[bonusFinder] Finder fetch timeout')
+            onerror: () => {}, ontimeout: () => {}
         });
     }
 
@@ -190,18 +130,16 @@
         if (!element) return;
         const productId = element.textContent.trim();
         if (!productId || processedProductIds.has(productId)) return;
-
         if (checkProductIdInFinder(productId)) {
             if (!element.textContent.includes('⚡️')) {
                 element.textContent = element.textContent + ' ⚡️';
             }
             processedProductIds.add(productId);
-            console.log(`[bonusFinder] ProductId ${productId} marked with ⚡️`);
         }
     }
 
     // ─────────────────────────────────────────────
-    // 🔥 ТАБЛИЦА 2: бонусы
+    // ТАБЛИЦА 2: бонусы
     // ─────────────────────────────────────────────
     function fetchBonusAmount(searchText, callback) {
         if (!CONFIG.bonusApiKey) { callback(null); return; }
@@ -229,25 +167,17 @@
     function createBonusRow() {
         const row = document.createElement('tr');
         row.classList.add(`${UNIQUE_PREFIX}bonus-row`, 'bonus-row');
-        
         const cell = document.createElement('td');
         cell.colSpan = 2;
         cell.style.textAlign = 'center';
         cell.style.fontWeight = 'bold';
         cell.textContent = 'Доступно бонусов: ';
-
         const button = document.createElement('button');
         button.textContent = 'Узнать';
         button.className = `${UNIQUE_PREFIX}bonus-btn`;
-
         button.addEventListener('click', () => {
             button.disabled = true;
-            button.textContent = '';
-            const loading = document.createElement('span');
-            loading.textContent = 'Загрузка';
-            loading.className = `${UNIQUE_PREFIX}loading`;
-            button.appendChild(loading);
-
+            button.textContent = 'Загрузка...';
             setTimeout(() => {
                 const summaryData = getSummaryData();
                 const searchText = summaryData?.text;
@@ -257,20 +187,15 @@
                             cell.textContent = `Доступно бонусов: ${amount}`;
                             cell.style.color = 'green';
                         } else {
-                            cell.innerHTML = `<span class="${UNIQUE_PREFIX}error-text">Бонусов нет</span>`;
+                            cell.textContent = 'Бонусов нет';
+                            cell.style.color = 'red';
                         }
                     });
-                } else {
-                    cell.innerHTML = `<span class="${UNIQUE_PREFIX}error-text">Ошибка: нет данных</span>`;
                 }
-            }, 800);
+            }, 500);
         });
-
         cell.appendChild(button);
         row.appendChild(cell);
-        row.style.setProperty('display', 'table-row', 'important');
-        row.style.setProperty('visibility', 'visible', 'important');
-        
         return row;
     }
 
@@ -281,7 +206,6 @@
         if (!tbody) return;
         if (tbody.querySelector(`.${UNIQUE_PREFIX}bonus-row`) || tbody.querySelector('.bonus-row')) return;
         tbody.appendChild(createBonusRow());
-        console.log('[bonusFinder] Bonus row added');
     }
 
     function hideUnwantedRows() {
@@ -293,18 +217,14 @@
         rows.forEach(row => {
             if (row.classList.contains(`${UNIQUE_PREFIX}bonus-row`) || row.classList.contains('bonus-row')) return;
             const text = row.textContent || row.innerText || '';
-            if (
-                !text.includes('Корректировка суммы') &&
-                !text.includes('Юр. лицо') &&
-                !text.includes('Доступно бонусов')
-            ) {
+            if (!text.includes('Корректировка суммы') && !text.includes('Юр. лицо') && !text.includes('Доступно бонусов')) {
                 row.style.display = 'none';
             }
         });
     }
 
     // ─────────────────────────────────────────────
-    // 🔥 ТАБЛИЦА 3: spent — ИСПРАВЛЕННАЯ ЛОГИКА
+    // ТАБЛИЦА 3: spent — ИСПРАВЛЕНО
     // ─────────────────────────────────────────────
     function fetchSpentData(callback) {
         const url = `https://docs.google.com/spreadsheets/d/${CONFIG.spentSheetId}/gviz/tq?tqx=out:csv&sheet=${CONFIG.spentSheetName}`;
@@ -313,17 +233,14 @@
             onload: (res) => {
                 if (res.status === 200) {
                     spentData = parseCSV(res.responseText);
-                    console.log(`[bonusFinder] Spent data loaded: ${spentData.length} rows`);
                     if (callback) callback();
-                    // 🔥 КЛЮЧЕВОЕ: перезапускаем обработку после загрузки данных
+                    // Повторная обработка после загрузки данных
                     if (currentProductId) {
-                        console.log(`[bonusFinder] Re-processing spent bonuses for ProductId: ${currentProductId}`);
                         processSpentBonuses(currentProductId);
                     }
                 }
             },
-            onerror: () => console.error('[bonusFinder] Spent data fetch error'), 
-            ontimeout: () => console.error('[bonusFinder] Spent data fetch timeout')
+            onerror: () => {}, ontimeout: () => {}
         });
     }
 
@@ -331,97 +248,60 @@
         if (!productId || !spentData.length) return null;
         const pidStr = productId.toString().trim();
         for (let i = 0; i < spentData.length; i++) {
-            const productCell = spentData[i][0]; // Столбец A
-            const bonusCell = spentData[i][4];   // Столбец E
+            const productCell = spentData[i][0];
+            const bonusCell = spentData[i][4];
             if (productCell?.toString().trim() === pidStr) {
-                console.log(`[bonusFinder] Found spent bonuses for ${productId}: ${bonusCell}`);
                 return bonusCell;
             }
         }
-        console.log(`[bonusFinder] No spent bonuses found for ${productId}`);
         return null;
     }
 
-    // 🔥 ИСПРАВЛЕНО: поддержка И div>a, И tr
-    function findChosenElement() {
-        // 🔥 Вариант 1: div > a (как в оригинале)
-        let element = document.querySelector('#Summary > table > tbody > tr > td:nth-child(1) > table.table.table-condensed.table-striped > tbody:nth-child(1) > tr:nth-child(2) > td:nth-child(2) > div > a');
-        if (element) {
-            console.log('[bonusFinder] Found chosen element (div > a variant)');
-            return { element, type: 'link' };
+    // 🔥 ГЛАВНОЕ ИСПРАВЛЕНИЕ: наблюдаем за появлением элемента
+    function tryProcessSpentBonuses(productId) {
+        // Ищем элемент несколькими способами
+        const selectors = [
+            '#Summary > table > tbody > tr > td:nth-child(1) > table.table.table-condensed.table-striped > tbody:nth-child(1) > tr:nth-child(2) > td:nth-child(2) > div > a',
+            '#Summary > table > tbody > tr > td:nth-child(1) > table.table.table-condensed.table-striped > tbody:nth-child(1) > tr:nth-child(2)',
+            '.chosen-single',
+            CONFIG.selectors.chosenSingle
+        ];
+
+        let chosenElement = null;
+        for (const selector of selectors) {
+            chosenElement = document.querySelector(selector);
+            if (chosenElement) break;
         }
 
-        // 🔥 Вариант 2: tr (альтернативный)
-        element = document.querySelector('#Summary > table > tbody > tr > td:nth-child(1) > table.table.table-condensed.table-striped > tbody:nth-child(1) > tr:nth-child(2)');
-        if (element) {
-            console.log('[bonusFinder] Found chosen element (tr variant)');
-            return { element, type: 'row' };
-        }
-
-        // 🔥 Вариант 3: ищем по классу chosen-single
-        element = document.querySelector('.chosen-single');
-        if (element) {
-            console.log('[bonusFinder] Found chosen element (.chosen-single class)');
-            return { element, type: 'class' };
-        }
-
-        console.log('[bonusFinder] Chosen element NOT found');
-        return null;
-    }
-
-    function findContainerElement() {
-        // 🔥 Ищем контейнер для вставки
-        let container = document.querySelector("#Summary > table > tbody > tr > td:nth-child(1) > table > tbody:nth-child(1) > tr:nth-child(2) > td:nth-child(2) > div");
-        if (container) return container;
-
-        // Альтернативный селектор
-        container = document.querySelector(CONFIG.selectors.clientSelectContainer);
-        if (container) return container;
-
-        console.log('[bonusFinder] Container element NOT found');
-        return null;
-    }
-
-    function processSpentBonuses(productId) {
-        console.log(`[bonusFinder] processSpentBonuses called for ProductId: ${productId}`);
-        
-        // 🔥 Защита от вызова до загрузки данных
-        if (!spentData.length) {
-            console.log('[bonusFinder] Spent data not loaded yet, skipping');
+        if (!chosenElement) {
+            // Элемент ещё не появился — пробуем позже
+            if (chosenRetryTimer) clearTimeout(chosenRetryTimer);
+            chosenRetryTimer = setTimeout(() => {
+                tryProcessSpentBonuses(productId);
+            }, 300);
             return;
         }
-        
+
+        // Очищаем предыдущий таймер
+        if (chosenRetryTimer) {
+            clearTimeout(chosenRetryTimer);
+            chosenRetryTimer = null;
+        }
+
         const bonuses = getSpentBonuses(productId);
-        if (!bonuses) {
-            console.log('[bonusFinder] No bonuses to display');
-            return;
-        }
+        if (!bonuses) return;
 
-        // 🔥 Ищем элемент (поддержка разных вариантов)
-        const chosenData = findChosenElement();
-        if (!chosenData) {
-            console.error('[bonusFinder] Cannot find chosen element');
-            return;
-        }
-
-        const chosenSingle = chosenData.element;
-
-        // 🔥 Проверка по ссылке на DOM-элемент
-        if (processedChosenElements.has(chosenSingle)) {
-            console.log('[bonusFinder] Element already processed');
-            return;
-        }
-        processedChosenElements.add(chosenSingle);
-
+        // Проверяем, не обрабатывали ли уже этот ProductId
+        const processedKey = `${productId}_${chosenElement.getAttribute('data-processed') || ''}`;
+        if (chosenElement.classList.contains(`${UNIQUE_PREFIX}processed`)) return;
+        
+        // Получаем данные клиента
         const selectorData = getSummaryData();
-        if (!selectorData) {
-            console.error('[bonusFinder] Cannot get summary data');
-            return;
-        }
+        if (!selectorData) return;
 
         // Скрываем оригинальный элемент
-        chosenSingle.style.display = 'none';
-        console.log('[bonusFinder] Hidden original element');
+        chosenElement.style.display = 'none';
+        chosenElement.classList.add(`${UNIQUE_PREFIX}processed`);
 
         // Создаём новый элемент
         const newEl = document.createElement('span');
@@ -429,27 +309,29 @@
         newEl.style.pointerEvents = 'none';
         newEl.style.userSelect = 'none';
         newEl.style.opacity = '0.5';
+        newEl.innerHTML = `${selectorData.text} (Было списано <span class="${UNIQUE_PREFIX}bonus-value">${bonuses}</span> бонусов)`;
 
-        // Формируем текст
-        newEl.innerHTML = `${selectorData.text} (Было списано <span style="color: green;">${bonuses}</span> бонусов)`;
-
-        // 🔥 Вставляем в контейнер
-        const container = findContainerElement();
+        // Вставляем
+        const container = document.querySelector(CONFIG.selectors.clientSelectContainer) || 
+                         document.querySelector("#Summary > table > tbody > tr > td:nth-child(1) > table > tbody:nth-child(1) > tr:nth-child(2) > td:nth-child(2) > div");
+        
         if (container) {
             container.style.pointerEvents = 'none';
-            if (chosenSingle.parentNode) {
-                chosenSingle.parentNode.insertBefore(newEl, chosenSingle);
-                console.log('[bonusFinder] Inserted new element with spent bonuses');
+            if (chosenElement.parentNode) {
+                chosenElement.parentNode.insertBefore(newEl, chosenElement);
             } else {
-                console.error('[bonusFinder] chosenSingle has no parent');
+                container.appendChild(newEl);
             }
-        } else {
-            console.error('[bonusFinder] Cannot find container for insertion');
         }
     }
 
+    function processSpentBonuses(productId) {
+        if (!spentData.length) return;
+        tryProcessSpentBonuses(productId);
+    }
+
     // ─────────────────────────────────────────────
-    // 🔥 ОБРАБОТКА #ProductId
+    // ОБРАБОТКА ProductId
     // ─────────────────────────────────────────────
     function processCurrentProductId() {
         const pidEl = document.querySelector(CONFIG.selectors.productId);
@@ -460,8 +342,12 @@
 
         if (processDebounceTimer) clearTimeout(processDebounceTimer);
         processDebounceTimer = setTimeout(() => {
-            console.log(`[bonusFinder] Processing ProductId change: ${newPid}`);
             currentProductId = newPid;
+
+            // Сбрасываем флаг обработки для нового ProductId
+            document.querySelectorAll(`.${UNIQUE_PREFIX}processed`).forEach(el => {
+                el.classList.remove(`${UNIQUE_PREFIX}processed`);
+            });
 
             // 1. Finder
             processProductIdElement(pidEl);
@@ -472,7 +358,7 @@
                 addBonusRowIfNeeded();
             }
 
-            // 3. Spent
+            // 3. Spent — пробуем обработать
             processSpentBonuses(newPid);
         }, 300);
     }
@@ -495,6 +381,14 @@
             processCurrentProductId();
         }
 
+        // Наблюдаем за появлением chosen элемента
+        chosenObserver = new MutationObserver(() => {
+            if (currentProductId && spentData.length) {
+                tryProcessSpentBonuses(currentProductId);
+            }
+        });
+        chosenObserver.observe(document.body, { childList: true, subtree: true });
+
         domObserver = new MutationObserver(() => {
             const pidEl = document.querySelector(CONFIG.selectors.productId);
             if (pidEl && !productIdObserver) {
@@ -515,25 +409,21 @@
     }
 
     // ─────────────────────────────────────────────
-    // 🔥 ПЕРИОДИЧЕСКОЕ ОБНОВЛЕНИЕ
+    // ПЕРИОДИЧЕСКОЕ ОБНОВЛЕНИЕ
     // ─────────────────────────────────────────────
     function startPeriodicUpdates() {
-        console.log('[bonusFinder] Starting periodic updates');
         fetchFinderData();
         finderInterval = setInterval(fetchFinderData, CONFIG.finderRefreshMs);
-
         fetchSpentData();
         spentInterval = setInterval(fetchSpentData, CONFIG.spentRefreshMs);
     }
 
     // ─────────────────────────────────────────────
-    // 🔥 API МОДУЛЯ
+    // API МОДУЛЯ
     // ─────────────────────────────────────────────
     function init() {
         if (active) return;
-        console.log('[bonusFinder] INIT called');
         active = true;
-
         injectStyles();
         startPeriodicUpdates();
         setupProductIdObserver();
@@ -541,43 +431,40 @@
 
     function cleanup() {
         if (!active) return;
-        console.log('[bonusFinder] CLEANUP called');
         active = false;
 
         if (finderInterval) { clearInterval(finderInterval); finderInterval = null; }
         if (spentInterval) { clearInterval(spentInterval); spentInterval = null; }
         if (processDebounceTimer) { clearTimeout(processDebounceTimer); processDebounceTimer = null; }
+        if (chosenRetryTimer) { clearTimeout(chosenRetryTimer); chosenRetryTimer = null; }
 
         if (productIdObserver) { productIdObserver.disconnect(); productIdObserver = null; }
         if (domObserver) { domObserver.disconnect(); domObserver = null; }
+        if (chosenObserver) { chosenObserver.disconnect(); chosenObserver = null; }
 
         processedProductIds.clear();
-        processedChosenElements.clear();
         currentProductId = null;
         finderData = [];
         spentData = [];
 
         document.querySelectorAll(`.${UNIQUE_PREFIX}bonus-row, .bonus-row`).forEach(el => el.remove());
-        document.querySelectorAll(`.${UNIQUE_PREFIX}myelem, .myelem`).forEach(el => {
-            const original = el.previousSibling;
-            if (original?.classList?.contains('chosen-single')) {
-                original.style.display = '';
+        document.querySelectorAll(`.${UNIQUE_PREFIX}myelem, .myelem`).forEach(el => el.remove());
+        document.querySelectorAll('.chosen-single').forEach(el => {
+            if (el.style.display === 'none') {
+                el.style.display = '';
             }
-            el.remove();
         });
     }
 
-    function toggle() { if (active) { cleanup(); } else { init(); } }
+    function toggle() { if (active) cleanup(); else init(); }
     function isActive() { return active; }
 
     function refresh() {
-        console.log('[bonusFinder] REFRESH called');
         fetchFinderData();
         fetchSpentData();
         processCurrentProductId();
     }
 
-    // 🔥 Авто-запуск
     if (CONFIG.autoInit !== false) {
         if (document.readyState === 'loading') {
             document.addEventListener('DOMContentLoaded', init);
@@ -586,13 +473,11 @@
         }
     }
 
-    // 🔥 Экспорт API
     return {
         init, cleanup, toggle, isActive, refresh,
         getFinderData: () => [...finderData],
         getSpentData: () => [...spentData],
-        getCurrentProductId: () => currentProductId,
-        processProductId: processCurrentProductId
+        getCurrentProductId: () => currentProductId
     };
 
 })(config, GM, utils, api);
