@@ -1,5 +1,5 @@
-// 9bonusFinder.js — модуль работы с бонусами клиента
-// Версия 3: Исправлена проблема с отображением списка клиентов Chosen
+// 10bonusFinder.js — модуль работы с бонусами клиента
+// Версия 4: Исправлено получение текста для <td>-структуры
 
 (function(config, GM, utils, api) {
     'use strict';
@@ -22,10 +22,13 @@
         selectors: {
             productId: '#ProductId',
             bonusTable: '#Fin > table > tbody:nth-child(4) > tr > td:nth-child(1) > table',
+            // 🔥 Селекторы для получения текста клиента (как в оригинале)
             summarySpan: '#Summary > table > tbody > tr > td:nth-child(1) > table > tbody:nth-child(1) > tr:nth-child(2) > td:nth-child(2) > div > a > span',
-            summaryRow: '#Summary > table > tbody > tr > td:nth-child(1) > table > tbody:nth-child(1) > tr:nth-child(2)',
-            // Важный селектор: контейнер клиента
-            clientCell: '#Summary > table > tbody > tr > td:nth-child(1) > table.table.table-condensed.table-striped > tbody:nth-child(1) > tr:nth-child(2) > td:nth-child(2)',
+            summaryCell: '#Summary > table > tbody > tr > td:nth-child(1) > table > tbody:nth-child(1) > tr:nth-child(2) > td:nth-child(2)',
+            // Селектор для Chosen-ссылки
+            chosenLink: '#Summary > table > tbody > tr > td:nth-child(1) > table.table.table-condensed.table-striped > tbody:nth-child(1) > tr:nth-child(2) > td:nth-child(2) > div > a',
+            // Контейнер для вставки
+            clientContainer: '#Summary > table > tbody > tr > td:nth-child(1) > table > tbody:nth-child(1) > tr:nth-child(2) > td:nth-child(2) > div',
         },
         pageKeywords: ['Номенклатура', 'Номенклатура по умолчанию'],
         uniquePrefix: 'bonus-finder-',
@@ -52,23 +55,11 @@
         const style = document.createElement('style');
         style.id = `${UNIQUE_PREFIX}styles`;
         style.textContent = `
-            @keyframes ${UNIQUE_PREFIX}dots {
-                0% { content: "..."; } 33% { content: "."; } 66% { content: ".."; }
-            }
-            .${UNIQUE_PREFIX}loading::after {
-                content: "..."; animation: ${UNIQUE_PREFIX}dots 1s infinite;
-            }
-            .${UNIQUE_PREFIX}bonus-btn {
-                margin-left: 10px !important; padding: 5px 10px !important;
-                border: none !important; background-color: #4CAF50 !important;
-                color: white !important; cursor: pointer !important; border-radius: 5px !important;
-                font-size: 12px !important;
-            }
+            @keyframes ${UNIQUE_PREFIX}dots { 0% { content: "..."; } 33% { content: "."; } 66% { content: ".."; } }
+            .${UNIQUE_PREFIX}loading::after { content: "..."; animation: ${UNIQUE_PREFIX}dots 1s infinite; }
+            .${UNIQUE_PREFIX}bonus-btn { margin-left: 10px !important; padding: 5px 10px !important; border: none !important; background-color: #4CAF50 !important; color: white !important; cursor: pointer !important; border-radius: 5px !important; font-size: 12px !important; }
             .${UNIQUE_PREFIX}bonus-btn:disabled { background-color: #ccc !important; cursor: not-allowed !important; }
-            .${UNIQUE_PREFIX}myelem, .myelem {
-                pointer-events: none !important; user-select: none !important;
-                opacity: 0.5 !important; font-weight: 500 !important;
-            }
+            .${UNIQUE_PREFIX}myelem, .myelem { pointer-events: none !important; user-select: none !important; opacity: 0.5 !important; font-weight: 500 !important; }
             .${UNIQUE_PREFIX}bonus-value { color: #28a745 !important; font-weight: bold !important; }
             .${UNIQUE_PREFIX}error-text { color: #dc3545 !important; font-weight: 500 !important; }
             tr.${UNIQUE_PREFIX}bonus-row, tr.bonus-row { display: table-row !important; visibility: visible !important; opacity: 1 !important; }
@@ -98,14 +89,25 @@
         return CONFIG.pageKeywords.some(kw => text.includes(kw));
     }
 
-    function getSummaryData() {
-        const { summarySpan, summaryRow } = CONFIG.selectors;
-        let el = document.querySelector(summarySpan);
-        if (el) return { text: el.textContent.trim(), element: el };
-        el = document.querySelector(summaryRow);
-        if (el) {
-            const span = el.querySelector('div > a > span');
-            return { text: span ? span.textContent.trim() : el.textContent.trim(), element: el };
+    // 🔥 ИСПРАВЛЕНО: точная копия логики из оригинала
+    function getClientData() {
+        const { summarySpan, summaryCell } = CONFIG.selectors;
+        
+        // Сначала ищем span внутри ссылки
+        let element = document.querySelector(summarySpan);
+        if (element) {
+            return { text: element.textContent.trim(), element };
+        }
+        
+        // Если не нашли — ищем саму ячейку <td>
+        element = document.querySelector(summaryCell);
+        if (element) {
+            // 🔥 КЛЮЧЕВОЙ МОМЕНТ: ищем span внутри ячейки, если нет — берём текст самой ячейки
+            const spanElement = element.querySelector('div > a > span');
+            return { 
+                text: spanElement ? spanElement.textContent.trim() : element.textContent.trim(), 
+                element 
+            };
         }
         return null;
     }
@@ -145,14 +147,14 @@
         if (checkProductIdInFinder(productId)) {
             const el = document.querySelector(CONFIG.selectors.productId);
             if (el && !el.textContent.includes('⚡️')) {
-                el.textContent = el.textContent + ' ️';
+                el.textContent = el.textContent + ' ⚡️';
             }
             processedProductIds.add(productId);
         }
     }
 
-    // ────────────────────────────────────────────
-    //  BONUS
+    // ─────────────────────────────────────────────
+    // 💰 BONUS
     // ─────────────────────────────────────────────
     function fetchBonusAmount(searchText, callback) {
         const { sheetId, sheetName, apiKey } = CONFIG.bonus;
@@ -198,7 +200,7 @@
             btn.appendChild(loading);
 
             setTimeout(() => {
-                const summary = getSummaryData();
+                const summary = getClientData();
                 if (summary?.text) {
                     fetchBonusAmount(summary.text, (amount) => {
                         if (amount !== null && amount !== undefined) {
@@ -243,7 +245,7 @@
     }
 
     // ─────────────────────────────────────────────
-    // 💸 SPENT: ИСПРАВЛЕННАЯ ЛОГИКА
+    // 💸 SPENT: ИСПРАВЛЕНО получение текста
     // ─────────────────────────────────────────────
     function fetchSpentData(callback) {
         const { sheetId, sheetName } = CONFIG.spent;
@@ -275,29 +277,30 @@
         const bonuses = getSpentBonuses(productId);
         if (!bonuses) return;
 
-        const summary = getSummaryData();
-        const fallbackText = summary?.text || 'Клиент';
-
-        // 🔒 Флаг защиты от повторной обработки
+        // 🔥 Флаг защиты от повторной обработки
         const flagKey = `spent_processed_${productId}`;
         if (processedSpentFlags.has(flagKey)) return;
 
+        // 🔥 ИСПРАВЛЕНО: получаем данные клиента через правильную функцию
+        const clientData = getClientData();
+        if (!clientData) return;
+        const clientText = clientData.text;
+
         // ─── ВАРИАНТ 1: Chosen Dropdown (div > a) ───
-        // Ищем строго ссылку внутри div. Это предотвращает захват списка <ul>
-        const chosenLink = document.querySelector('#Summary > table > tbody > tr > td:nth-child(1) > table.table.table-condensed.table-striped > tbody:nth-child(1) > tr:nth-child(2) > td:nth-child(2) > div > a');
+        const chosenLink = document.querySelector(CONFIG.selectors.chosenLink);
         
         if (chosenLink) {
             processedSpentFlags.add(flagKey);
-            chosenLink.style.display = 'none'; // Скрываем только ссылку, список <ul> не трогаем
+            chosenLink.style.display = 'none';
 
             const newEl = document.createElement('span');
             newEl.classList.add('myelem');
             newEl.style.pointerEvents = 'none';
             newEl.style.userSelect = 'none';
             newEl.style.opacity = '0.5';
-            newEl.innerHTML = `${fallbackText} (Было списано <span class="${UNIQUE_PREFIX}bonus-value">${bonuses}</span> бонусов)`;
+            // 🔥 Используем clientText, полученный через правильную логику
+            newEl.innerHTML = `${clientText} (Было списано <span class="${UNIQUE_PREFIX}bonus-value">${bonuses}</span> бонусов)`;
 
-            // Вставляем ПЕРЕД скрытой ссылкой внутри того же div
             if (chosenLink.parentNode) {
                 chosenLink.parentNode.insertBefore(newEl, chosenLink);
             }
@@ -305,15 +308,11 @@
         }
 
         // ─── ВАРИАНТ 2: Простой <td> с текстом ───
-        // Если ссылки нет, ищем саму ячейку
-        const targetCellSelector = '#Summary > table > tbody > tr > td:nth-child(1) > table.table.table-condensed.table-striped > tbody:nth-child(1) > tr:nth-child(2) > td:nth-child(2)';
-        const targetCell = document.querySelector(targetCellSelector);
-
+        const targetCell = document.querySelector(CONFIG.selectors.summaryCell);
         if (targetCell && !targetCell.querySelector(`.${UNIQUE_PREFIX}myelem`)) {
             processedSpentFlags.add(flagKey);
-            const originalText = targetCell.textContent.trim() || fallbackText;
             
-            targetCell.innerHTML = ''; // Очищаем ячейку полностью
+            targetCell.innerHTML = '';
             targetCell.style.pointerEvents = 'none';
 
             const newEl = document.createElement('span');
@@ -321,14 +320,14 @@
             newEl.style.pointerEvents = 'none';
             newEl.style.userSelect = 'none';
             newEl.style.opacity = '0.5';
-            newEl.innerHTML = `${originalText} (Было списано <span class="${UNIQUE_PREFIX}bonus-value">${bonuses}</span> бонусов)`;
+            // 🔥 clientText уже содержит правильное значение из <td>
+            newEl.innerHTML = `${clientText} (Было списано <span class="${UNIQUE_PREFIX}bonus-value">${bonuses}</span> бонусов)`;
             
             targetCell.appendChild(newEl);
             return;
         }
 
         // ─── ВАРИАНТ 3: <tr> с лейблом "Заказчик:" (Fallback) ───
-        // Ограничиваем поиск только таблицей Summary
         const summaryTable = document.querySelector('#Summary > table');
         if (summaryTable) {
             const rows = summaryTable.querySelectorAll('tr');
@@ -369,18 +368,15 @@
         if (!pid || pid === currentProductId) return;
 
         currentProductId = pid;
-        processedSpentFlags.clear(); // Сброс флагов для нового заказа
+        processedSpentFlags.clear();
 
-        // 1. Finder
         processFinder(pid);
 
-        // 2. Bonus row
         if (hasPageKeyword()) {
             hideUnwantedRows();
             addBonusRowIfNeeded();
         }
 
-        // 3. Spent bonuses
         processSpent(pid);
     }
 
@@ -440,8 +436,7 @@
         document.querySelectorAll(`.${UNIQUE_PREFIX}bonus-row, .bonus-row`).forEach(el => el.remove());
         document.querySelectorAll(`.${UNIQUE_PREFIX}myelem, .myelem`).forEach(el => el.remove());
         
-        // Восстановление Chosen
-        document.querySelectorAll('#Summary > table > tbody > tr > td:nth-child(1) > table.table.table-condensed.table-striped > tbody:nth-child(1) > tr:nth-child(2) > td:nth-child(2) > div > a').forEach(el => {
+        document.querySelectorAll(CONFIG.selectors.chosenLink).forEach(el => {
             if (el.style.display === 'none') el.style.display = '';
         });
     }
