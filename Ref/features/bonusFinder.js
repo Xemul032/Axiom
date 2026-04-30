@@ -1,4 +1,4 @@
-// 1bonusFinder.js — модуль работы с бонусами клиента
+// 3bonusFinder.js — модуль работы с бонусами клиента
 // Загружается динамически из config.json через Axiom Status Indicator
 // Возвращает API управления: { init, cleanup, toggle, isActive, refresh }
 
@@ -22,7 +22,7 @@
         spentSheetName: config?.spentSheetName || 'idCheck',
         spentRefreshMs: config?.spentRefreshMs || 900000,
 
-        // Селекторы — ИСПРАВЛЕНО: класс bonus-row без префикса в селекторе
+        // Селекторы
         selectors: {
             productId: config?.selectors?.productId || '#ProductId',
             bonusTable: config?.selectors?.bonusTable || '#Fin > table > tbody:nth-child(4) > tr > td:nth-child(1) > table',
@@ -44,8 +44,6 @@
     let spentData = [];
     let processedProductIds = new Set();
     let currentProductId = null;
-    
-    // 🔥 Set для отслеживания обработанных chosen-single элементов (как в оригинале)
     let processedChosenElements = new Set();
 
     // 🔥 Наблюдатели и таймеры
@@ -86,10 +84,10 @@
                 background-color: #ccc !important;
                 cursor: not-allowed !important;
             }
-            .${UNIQUE_PREFIX}myelem {
+            .${UNIQUE_PREFIX}myelem, .myelem {
                 pointer-events: none !important;
                 user-select: none !important;
-                opacity: 0.9 !important;
+                opacity: 0.5 !important;
                 font-weight: 500 !important;
             }
             .${UNIQUE_PREFIX}bonus-value {
@@ -100,7 +98,6 @@
                 color: #dc3545 !important;
                 font-weight: 500 !important;
             }
-            /* 🔥 Защита строки с кнопкой */
             tr.${UNIQUE_PREFIX}bonus-row,
             tr.bonus-row {
                 display: table-row !important;
@@ -140,7 +137,6 @@
         return el ? (el.textContent || el.innerText || '').trim() : null;
     }
 
-    // 🔥 ИСПРАВЛЕНО: возвращаем объект {text, element} как в оригинале
     function getSummaryData() {
         const selector1 = CONFIG.selectors.summarySpan;
         const selector2 = CONFIG.selectors.summaryRow;
@@ -169,10 +165,13 @@
             onload: (res) => {
                 if (res.status === 200) {
                     finderData = parseCSV(res.responseText);
+                    console.log(`[bonusFinder] Finder data loaded: ${finderData.length} rows`);
                     if (callback) callback();
+                    if (currentProductId) processProductIdElement(document.querySelector(CONFIG.selectors.productId));
                 }
             },
-            onerror: () => {}, ontimeout: () => {}
+            onerror: () => console.error('[bonusFinder] Finder fetch error'), 
+            ontimeout: () => console.error('[bonusFinder] Finder fetch timeout')
         });
     }
 
@@ -197,6 +196,7 @@
                 element.textContent = element.textContent + ' ⚡️';
             }
             processedProductIds.add(productId);
+            console.log(`[bonusFinder] ProductId ${productId} marked with ⚡️`);
         }
     }
 
@@ -228,7 +228,6 @@
 
     function createBonusRow() {
         const row = document.createElement('tr');
-        // 🔥 Добавляем оба класса для совместимости
         row.classList.add(`${UNIQUE_PREFIX}bonus-row`, 'bonus-row');
         
         const cell = document.createElement('td');
@@ -269,8 +268,6 @@
 
         cell.appendChild(button);
         row.appendChild(cell);
-        
-        // 🔥 Гарантия отображения
         row.style.setProperty('display', 'table-row', 'important');
         row.style.setProperty('visibility', 'visible', 'important');
         
@@ -282,9 +279,9 @@
         if (!targetTable) return;
         const tbody = targetTable.querySelector('tbody');
         if (!tbody) return;
-        // 🔥 Проверяем оба класса
         if (tbody.querySelector(`.${UNIQUE_PREFIX}bonus-row`) || tbody.querySelector('.bonus-row')) return;
         tbody.appendChild(createBonusRow());
+        console.log('[bonusFinder] Bonus row added');
     }
 
     function hideUnwantedRows() {
@@ -294,7 +291,6 @@
         if (!tbody) return;
         const rows = tbody.querySelectorAll('tr');
         rows.forEach(row => {
-            // 🔥 Пропускаем строки с любым из классов
             if (row.classList.contains(`${UNIQUE_PREFIX}bonus-row`) || row.classList.contains('bonus-row')) return;
             const text = row.textContent || row.innerText || '';
             if (
@@ -317,10 +313,17 @@
             onload: (res) => {
                 if (res.status === 200) {
                     spentData = parseCSV(res.responseText);
+                    console.log(`[bonusFinder] Spent data loaded: ${spentData.length} rows`);
                     if (callback) callback();
+                    // 🔥 КЛЮЧЕВОЕ: перезапускаем обработку после загрузки данных
+                    if (currentProductId) {
+                        console.log(`[bonusFinder] Re-processing spent bonuses for ProductId: ${currentProductId}`);
+                        processSpentBonuses(currentProductId);
+                    }
                 }
             },
-            onerror: () => {}, ontimeout: () => {}
+            onerror: () => console.error('[bonusFinder] Spent data fetch error'), 
+            ontimeout: () => console.error('[bonusFinder] Spent data fetch timeout')
         });
     }
 
@@ -328,57 +331,120 @@
         if (!productId || !spentData.length) return null;
         const pidStr = productId.toString().trim();
         for (let i = 0; i < spentData.length; i++) {
-            const productCell = spentData[i][0];
-            const bonusCell = spentData[i][4]; // Столбец E
+            const productCell = spentData[i][0]; // Столбец A
+            const bonusCell = spentData[i][4];   // Столбец E
             if (productCell?.toString().trim() === pidStr) {
+                console.log(`[bonusFinder] Found spent bonuses for ${productId}: ${bonusCell}`);
                 return bonusCell;
             }
         }
+        console.log(`[bonusFinder] No spent bonuses found for ${productId}`);
         return null;
     }
 
-    // 🔥 ПОЛНОСТЬЮ ПЕРЕПИСАНО как в оригинале
+    // 🔥 ИСПРАВЛЕНО: поддержка И div>a, И tr
+    function findChosenElement() {
+        // 🔥 Вариант 1: div > a (как в оригинале)
+        let element = document.querySelector('#Summary > table > tbody > tr > td:nth-child(1) > table.table.table-condensed.table-striped > tbody:nth-child(1) > tr:nth-child(2) > td:nth-child(2) > div > a');
+        if (element) {
+            console.log('[bonusFinder] Found chosen element (div > a variant)');
+            return { element, type: 'link' };
+        }
+
+        // 🔥 Вариант 2: tr (альтернативный)
+        element = document.querySelector('#Summary > table > tbody > tr > td:nth-child(1) > table.table.table-condensed.table-striped > tbody:nth-child(1) > tr:nth-child(2)');
+        if (element) {
+            console.log('[bonusFinder] Found chosen element (tr variant)');
+            return { element, type: 'row' };
+        }
+
+        // 🔥 Вариант 3: ищем по классу chosen-single
+        element = document.querySelector('.chosen-single');
+        if (element) {
+            console.log('[bonusFinder] Found chosen element (.chosen-single class)');
+            return { element, type: 'class' };
+        }
+
+        console.log('[bonusFinder] Chosen element NOT found');
+        return null;
+    }
+
+    function findContainerElement() {
+        // 🔥 Ищем контейнер для вставки
+        let container = document.querySelector("#Summary > table > tbody > tr > td:nth-child(1) > table > tbody:nth-child(1) > tr:nth-child(2) > td:nth-child(2) > div");
+        if (container) return container;
+
+        // Альтернативный селектор
+        container = document.querySelector(CONFIG.selectors.clientSelectContainer);
+        if (container) return container;
+
+        console.log('[bonusFinder] Container element NOT found');
+        return null;
+    }
+
     function processSpentBonuses(productId) {
+        console.log(`[bonusFinder] processSpentBonuses called for ProductId: ${productId}`);
+        
+        // 🔥 Защита от вызова до загрузки данных
+        if (!spentData.length) {
+            console.log('[bonusFinder] Spent data not loaded yet, skipping');
+            return;
+        }
+        
         const bonuses = getSpentBonuses(productId);
-        // 🔥 В оригинале: если бонусов нет — просто выходим, не создаём элемент
-        if (!bonuses) return;
+        if (!bonuses) {
+            console.log('[bonusFinder] No bonuses to display');
+            return;
+        }
 
-        const chosenSingle = document.querySelector(CONFIG.selectors.chosenSingle);
-        if (!chosenSingle) return;
+        // 🔥 Ищем элемент (поддержка разных вариантов)
+        const chosenData = findChosenElement();
+        if (!chosenData) {
+            console.error('[bonusFinder] Cannot find chosen element');
+            return;
+        }
 
-        // 🔥 ИСПРАВЛЕНО: используем Set с ссылкой на DOM-элемент (как в оригинале)
-        if (processedChosenElements.has(chosenSingle)) return;
+        const chosenSingle = chosenData.element;
+
+        // 🔥 Проверка по ссылке на DOM-элемент
+        if (processedChosenElements.has(chosenSingle)) {
+            console.log('[bonusFinder] Element already processed');
+            return;
+        }
         processedChosenElements.add(chosenSingle);
 
-        // 🔥 Получаем данные как объект {text, element}
         const selectorData = getSummaryData();
-        // 🔥 В оригинале: проверяем существование объекта, а не текста
-        if (!selectorData) return;
+        if (!selectorData) {
+            console.error('[bonusFinder] Cannot get summary data');
+            return;
+        }
 
         // Скрываем оригинальный элемент
         chosenSingle.style.display = 'none';
+        console.log('[bonusFinder] Hidden original element');
 
         // Создаём новый элемент
         const newEl = document.createElement('span');
-        newEl.classList.add(`${UNIQUE_PREFIX}myelem`, 'myelem'); // 🔥 Добавляем оба класса
-        
-        // 🔥 ИСПРАВЛЕНО: инлайновые стили как в оригинале
+        newEl.classList.add('myelem');
         newEl.style.pointerEvents = 'none';
         newEl.style.userSelect = 'none';
         newEl.style.opacity = '0.5';
 
         // Формируем текст
-        if (bonuses) {
-            newEl.innerHTML = `${selectorData.text} (Было списано <span class="${UNIQUE_PREFIX}bonus-value" style="color: green;">${bonuses}</span> бонусов)`;
-        } else {
-            newEl.textContent = selectorData.text;
-        }
+        newEl.innerHTML = `${selectorData.text} (Было списано <span style="color: green;">${bonuses}</span> бонусов)`;
 
-        // Вставляем в контейнер
-        const container = document.querySelector(CONFIG.selectors.clientSelectContainer);
-        if (container && chosenSingle.parentNode) {
+        // 🔥 Вставляем в контейнер
+        const container = findContainerElement();
+        if (container) {
             container.style.pointerEvents = 'none';
-            chosenSingle.parentNode.insertBefore(newEl, chosenSingle);
+            if (chosenSingle.parentNode) {
+                chosenSingle.parentNode.insertBefore(newEl, chosenSingle);
+                console.log('[bonusFinder] Inserted new element with spent bonuses');
+            } else {
+                console.error('[bonusFinder] chosenSingle has no parent');
+            }
+        } else {
+            console.error('[bonusFinder] Cannot find container for insertion');
         }
     }
 
@@ -394,6 +460,7 @@
 
         if (processDebounceTimer) clearTimeout(processDebounceTimer);
         processDebounceTimer = setTimeout(() => {
+            console.log(`[bonusFinder] Processing ProductId change: ${newPid}`);
             currentProductId = newPid;
 
             // 1. Finder
@@ -405,7 +472,7 @@
                 addBonusRowIfNeeded();
             }
 
-            // 3. Spent — 🔥 вызываем с числовым productId
+            // 3. Spent
             processSpentBonuses(newPid);
         }, 300);
     }
@@ -451,6 +518,7 @@
     // 🔥 ПЕРИОДИЧЕСКОЕ ОБНОВЛЕНИЕ
     // ─────────────────────────────────────────────
     function startPeriodicUpdates() {
+        console.log('[bonusFinder] Starting periodic updates');
         fetchFinderData();
         finderInterval = setInterval(fetchFinderData, CONFIG.finderRefreshMs);
 
@@ -463,6 +531,7 @@
     // ─────────────────────────────────────────────
     function init() {
         if (active) return;
+        console.log('[bonusFinder] INIT called');
         active = true;
 
         injectStyles();
@@ -472,6 +541,7 @@
 
     function cleanup() {
         if (!active) return;
+        console.log('[bonusFinder] CLEANUP called');
         active = false;
 
         if (finderInterval) { clearInterval(finderInterval); finderInterval = null; }
@@ -482,7 +552,7 @@
         if (domObserver) { domObserver.disconnect(); domObserver = null; }
 
         processedProductIds.clear();
-        processedChosenElements.clear(); // 🔥 Очищаем и этот Set
+        processedChosenElements.clear();
         currentProductId = null;
         finderData = [];
         spentData = [];
@@ -501,6 +571,7 @@
     function isActive() { return active; }
 
     function refresh() {
+        console.log('[bonusFinder] REFRESH called');
         fetchFinderData();
         fetchSpentData();
         processCurrentProductId();
