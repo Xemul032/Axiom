@@ -1,4 +1,4 @@
-// 5bonusFinder.js — модуль работы с бонусами клиента
+// 6bonusFinder.js — модуль работы с бонусами клиента
 // Загружается динамически из config.json через Axiom Status Indicator
 // Возвращает API: { init, cleanup, toggle, isActive, refresh }
 
@@ -7,23 +7,19 @@
 
     // 🔧 Конфигурация (переопределяется из config.json)
     const CONFIG = {
-        // Finder: проверка ProductId
         finder: {
             sheetId: config?.finderSheetId || '1h4vwAC83sqAnf2ibalKW4qfTSHe0qToPs0-0aSdpdrU',
             sheetName: config?.finderSheetName || 'finder',
         },
-        // Bonus: доступные бонусы
         bonus: {
             sheetId: config?.bonusSheetId || '1J-AqPpr5y9HEl0Q0WhSvafZFTjw5DpLi_jWYy0g7KqQ',
             sheetName: config?.bonusSheetName || 'ОСТАТОК',
             apiKey: config?.bonusApiKey || 'AIzaSyCiGZzZ85qCs-xJmlCbM-bz9IdAQxEq5z0',
         },
-        // Spent: списанные бонусы
         spent: {
             sheetId: config?.spentSheetId || '1VNlFOnfbc_pyCGsRjiV6WD1e6WUrT3UJBDgBkCFl970',
             sheetName: config?.spentSheetName || 'idCheck',
         },
-        // Селекторы
         selectors: {
             productId: '#ProductId',
             bonusTable: '#Fin > table > tbody:nth-child(4) > tr > td:nth-child(1) > table',
@@ -32,9 +28,7 @@
             chosenSingle: '#Summary > table > tbody > tr > td:nth-child(1) > table.table.table-condensed.table-striped > tbody:nth-child(1) > tr:nth-child(2) > td:nth-child(2) > div > a',
             clientContainer: '#Summary > table > tbody > tr > td:nth-child(1) > table > tbody:nth-child(1) > tr:nth-child(2) > td:nth-child(2) > div',
         },
-        // Ключевые слова страницы
         pageKeywords: ['Номенклатура', 'Номенклатура по умолчанию'],
-        // Префикс для уникальных классов
         uniquePrefix: 'bonus-finder-',
     };
 
@@ -45,7 +39,7 @@
     let finderData = [];
     let spentData = [];
     let processedProductIds = new Set();
-    let processedChosenElements = new Set();
+    let processedSpentKeys = new Set();
     let currentProductId = null;
 
     // 🔐 Наблюдатели
@@ -279,7 +273,7 @@
     }
 
     // ─────────────────────────────────────────────
-    // 💸 SPENT: отображение списанных бонусов
+    // 💸 SPENT: отображение списанных бонусов (ПОДДЕРЖКА ДВУХ СТРУКТУР)
     // ─────────────────────────────────────────────
     function fetchSpentData(callback) {
         const { sheetId, sheetName } = CONFIG.spent;
@@ -311,32 +305,74 @@
         const bonuses = getSpentBonuses(productId);
         if (!bonuses) return;
 
-        // Ищем элемент chosen-single (поддержка нескольких селекторов)
-        const selectors = [
+        const summary = getSummaryData();
+        if (!summary) return;
+
+        // 🔍 ВАРИАНТ 1: .chosen-single / div > a (оригинальная структура)
+        const chosenSelectors = [
             CONFIG.selectors.chosenSingle,
             '#Summary > table > tbody > tr > td:nth-child(1) > table.table.table-condensed.table-striped > tbody:nth-child(1) > tr:nth-child(2) > td:nth-child(2) > div > a',
             '.chosen-single',
         ];
-        const chosen = selectors.map(s => document.querySelector(s)).find(el => el);
-        if (!chosen || processedChosenElements.has(chosen)) return;
+        
+        let chosenElement = null;
+        for (const selector of chosenSelectors) {
+            chosenElement = document.querySelector(selector);
+            if (chosenElement) break;
+        }
 
-        const summary = getSummaryData();
-        if (!summary) return;
+        if (chosenElement && !processedSpentKeys.has(chosenElement)) {
+            processedSpentKeys.add(chosenElement);
+            chosenElement.style.display = 'none';
 
-        processedChosenElements.add(chosen);
-        chosen.style.display = 'none';
+            const newEl = document.createElement('span');
+            newEl.classList.add('myelem');
+            newEl.style.pointerEvents = 'none';
+            newEl.style.userSelect = 'none';
+            newEl.style.opacity = '0.5';
+            newEl.innerHTML = `${summary.text} (Было списано <span class="${UNIQUE_PREFIX}bonus-value">${bonuses}</span> бонусов)`;
 
-        const newEl = document.createElement('span');
-        newEl.classList.add('myelem');
-        newEl.style.pointerEvents = 'none';
-        newEl.style.userSelect = 'none';
-        newEl.style.opacity = '0.5';
-        newEl.innerHTML = `${summary.text} (Было списано <span class="${UNIQUE_PREFIX}bonus-value">${bonuses}</span> бонусов)`;
+            const container = document.querySelector(CONFIG.selectors.clientContainer);
+            if (container && chosenElement.parentNode) {
+                container.style.pointerEvents = 'none';
+                chosenElement.parentNode.insertBefore(newEl, chosenElement);
+            }
+            return;
+        }
 
-        const container = document.querySelector(CONFIG.selectors.clientContainer);
-        if (container && chosen.parentNode) {
-            container.style.pointerEvents = 'none';
-            chosen.parentNode.insertBefore(newEl, chosen);
+        // 🔍 ВАРИАНТ 2: <tr> с "Заказчик:" (альтернативная структура)
+        const rows = document.querySelectorAll('tr');
+        for (const row of rows) {
+            const cells = row.querySelectorAll('td');
+            for (let i = 0; i < cells.length - 1; i++) {
+                const cellText = cells[i].textContent.trim();
+                if (cellText === 'Заказчик:') {
+                    const customerCell = cells[i + 1];
+                    const customerText = customerCell.textContent.trim();
+                    if (!customerText) continue;
+
+                    // Уникальный ключ: строка таблицы + текст заказчика + productId
+                    const uniqueKey = `tr_${row.rowIndex}_${customerText}_${productId}`;
+                    if (processedSpentKeys.has(uniqueKey)) return;
+                    processedSpentKeys.add(uniqueKey);
+
+                    // Сохраняем оригинальный текст
+                    const originalText = customerText;
+
+                    // Очищаем ячейку и вставляем новый элемент
+                    customerCell.innerHTML = '';
+                    const newEl = document.createElement('span');
+                    newEl.classList.add('myelem');
+                    newEl.style.pointerEvents = 'none';
+                    newEl.style.userSelect = 'none';
+                    newEl.style.opacity = '0.5';
+                    newEl.innerHTML = `${originalText} (Было списано <span class="${UNIQUE_PREFIX}bonus-value">${bonuses}</span> бонусов)`;
+                    
+                    customerCell.appendChild(newEl);
+                    row.style.pointerEvents = 'none';
+                    return;
+                }
+            }
         }
     }
 
@@ -350,7 +386,7 @@
         if (!pid || pid === currentProductId) return;
 
         currentProductId = pid;
-        processedChosenElements.clear(); // Сброс для нового заказа
+        processedSpentKeys.clear(); // Сброс для нового заказа
 
         // 1. Finder
         processFinder(pid);
@@ -380,7 +416,7 @@
             productIdObserver.observe(pidEl, { childList: true, subtree: true, characterData: true });
         }
 
-        // Общий наблюдатель за DOM (на случай, если #ProductId добавляется динамически)
+        // Общий наблюдатель за DOM
         domObserver = new MutationObserver(() => {
             if (document.querySelector(CONFIG.selectors.productId)) {
                 onProductIdAppear();
@@ -416,7 +452,7 @@
         if (domObserver) { domObserver.disconnect(); domObserver = null; }
 
         processedProductIds.clear();
-        processedChosenElements.clear();
+        processedSpentKeys.clear();
         currentProductId = null;
         finderData = [];
         spentData = [];
@@ -438,7 +474,7 @@
         if (currentProductId) onProductIdAppear();
     }
 
-    // 🔥 Авто-запуск при загрузке
+    // 🔥 Авто-запуск
     if (CONFIG.autoInit !== false) {
         if (document.readyState === 'loading') {
             document.addEventListener('DOMContentLoaded', init);
