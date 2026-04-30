@@ -1,4 +1,4 @@
-// 6bonusFinder.js — модуль работы с бонусами клиента
+// 7bonusFinder.js — модуль работы с бонусами клиента
 // Загружается динамически из config.json через Axiom Status Indicator
 // Возвращает API: { init, cleanup, toggle, isActive, refresh }
 
@@ -273,7 +273,7 @@
     }
 
     // ─────────────────────────────────────────────
-    // 💸 SPENT: отображение списанных бонусов (ПОДДЕРЖКА ДВУХ СТРУКТУР)
+    // 💸 SPENT: отображение списанных бонусов (3 ВАРИАНТА СТРУКТУР)
     // ─────────────────────────────────────────────
     function fetchSpentData(callback) {
         const { sheetId, sheetName } = CONFIG.spent;
@@ -306,15 +306,41 @@
         if (!bonuses) return;
 
         const summary = getSummaryData();
-        if (!summary) return;
+        const fallbackText = summary?.text || 'Клиент';
 
-        // 🔍 ВАРИАНТ 1: .chosen-single / div > a (оригинальная структура)
+        // 🔍 ВАРИАНТ 1: Точный <td> с именем заказчика (приоритетный)
+        const exactTdSelector = '#Summary > table > tbody > tr > td:nth-child(1) > table.table.table-condensed.table-striped > tbody:nth-child(1) > tr:nth-child(2) > td:nth-child(2)';
+        const targetTd = document.querySelector(exactTdSelector);
+
+        if (targetTd) {
+            const processKey = `td_exact_${productId}`;
+            if (processedSpentKeys.has(processKey)) return;
+            processedSpentKeys.add(processKey);
+
+            // Если внутри уже есть наш span, пропускаем
+            if (targetTd.querySelector(`.${UNIQUE_PREFIX}myelem`)) return;
+
+            const originalText = targetTd.textContent.trim() || fallbackText;
+            targetTd.innerHTML = '';
+            targetTd.style.pointerEvents = 'none';
+
+            const newEl = document.createElement('span');
+            newEl.classList.add('myelem');
+            newEl.style.pointerEvents = 'none';
+            newEl.style.userSelect = 'none';
+            newEl.style.opacity = '0.5';
+            newEl.innerHTML = `${originalText} (Было списано <span class="${UNIQUE_PREFIX}bonus-value">${bonuses}</span> бонусов)`;
+
+            targetTd.appendChild(newEl);
+            return;
+        }
+
+        // 🔍 ВАРИАНТ 2: Структура .chosen-single / div > a
         const chosenSelectors = [
             CONFIG.selectors.chosenSingle,
             '#Summary > table > tbody > tr > td:nth-child(1) > table.table.table-condensed.table-striped > tbody:nth-child(1) > tr:nth-child(2) > td:nth-child(2) > div > a',
             '.chosen-single',
         ];
-        
         let chosenElement = null;
         for (const selector of chosenSelectors) {
             chosenElement = document.querySelector(selector);
@@ -330,7 +356,7 @@
             newEl.style.pointerEvents = 'none';
             newEl.style.userSelect = 'none';
             newEl.style.opacity = '0.5';
-            newEl.innerHTML = `${summary.text} (Было списано <span class="${UNIQUE_PREFIX}bonus-value">${bonuses}</span> бонусов)`;
+            newEl.innerHTML = `${fallbackText} (Было списано <span class="${UNIQUE_PREFIX}bonus-value">${bonuses}</span> бонусов)`;
 
             const container = document.querySelector(CONFIG.selectors.clientContainer);
             if (container && chosenElement.parentNode) {
@@ -340,34 +366,28 @@
             return;
         }
 
-        // 🔍 ВАРИАНТ 2: <tr> с "Заказчик:" (альтернативная структура)
+        // 🔍 ВАРИАНТ 3: <tr> с лейблом "Заказчик:"
         const rows = document.querySelectorAll('tr');
         for (const row of rows) {
             const cells = row.querySelectorAll('td');
             for (let i = 0; i < cells.length - 1; i++) {
-                const cellText = cells[i].textContent.trim();
-                if (cellText === 'Заказчик:') {
+                if (cells[i].textContent.trim() === 'Заказчик:') {
                     const customerCell = cells[i + 1];
                     const customerText = customerCell.textContent.trim();
                     if (!customerText) continue;
 
-                    // Уникальный ключ: строка таблицы + текст заказчика + productId
-                    const uniqueKey = `tr_${row.rowIndex}_${customerText}_${productId}`;
+                    const uniqueKey = `tr_label_${customerText}_${productId}`;
                     if (processedSpentKeys.has(uniqueKey)) return;
                     processedSpentKeys.add(uniqueKey);
 
-                    // Сохраняем оригинальный текст
-                    const originalText = customerText;
-
-                    // Очищаем ячейку и вставляем новый элемент
                     customerCell.innerHTML = '';
                     const newEl = document.createElement('span');
                     newEl.classList.add('myelem');
                     newEl.style.pointerEvents = 'none';
                     newEl.style.userSelect = 'none';
                     newEl.style.opacity = '0.5';
-                    newEl.innerHTML = `${originalText} (Было списано <span class="${UNIQUE_PREFIX}bonus-value">${bonuses}</span> бонусов)`;
-                    
+                    newEl.innerHTML = `${customerText} (Было списано <span class="${UNIQUE_PREFIX}bonus-value">${bonuses}</span> бонусов)`;
+
                     customerCell.appendChild(newEl);
                     row.style.pointerEvents = 'none';
                     return;
