@@ -1,5 +1,5 @@
-// 11bonusFinder.js — модуль работы с бонусами клиента
-// Версия 5: Исправлено получение имени клиента после модификации DOM
+// 12bonusFinder.js — модуль работы с бонусами клиента
+// Версия 6: ПОЛНОЕ ЛОГИРОВАНИЕ для отладки
 
 (function(config, GM, utils, api) {
     'use strict';
@@ -31,6 +31,7 @@
     };
 
     const UNIQUE_PREFIX = CONFIG.uniquePrefix;
+    const LOG_TAG = '[bonusFinder]';
 
     let active = false;
     let finderData = [];
@@ -40,6 +41,13 @@
     let currentProductId = null;
     let domObserver = null;
     let productIdObserver = null;
+
+    // ─────────────────────────────────────────────
+    // 🔊 Логирование
+    // ─────────────────────────────────────────────
+    function log(...args) { console.log(LOG_TAG, ...args); }
+    function warn(...args) { console.warn(LOG_TAG, ...args); }
+    function error(...args) { console.error(LOG_TAG, ...args); }
 
     function injectStyles() {
         if (document.getElementById(`${UNIQUE_PREFIX}styles`)) return;
@@ -77,36 +85,42 @@
         return CONFIG.pageKeywords.some(kw => text.includes(kw));
     }
 
-    // 🔥 ИСПРАВЛЕНО: извлекаем оригинальное имя, даже если элемент уже модифицирован
+    // 🔥 ИСПРАВЛЕНО + ЛОГИРОВАНИЕ
     function getClientData() {
         const { summarySpan, summaryCell } = CONFIG.selectors;
+        
+        log('getClientData: searching for client element...');
         
         // 1. Ищем span внутри ссылки (Chosen)
         let element = document.querySelector(summarySpan);
         if (element) {
-            // Проверяем, не заменён ли элемент нашим .myelem
+            log('getClientData: found span element', element);
             const parent = element.closest(`.${UNIQUE_PREFIX}myelem`);
             if (parent && parent.dataset.originalClient) {
+                log('getClientData: using saved originalClient from data-attr:', parent.dataset.originalClient);
                 return { text: parent.dataset.originalClient, element: parent };
             }
-            return { text: element.textContent.trim(), element };
+            const text = element.textContent.trim();
+            log('getClientData: extracted text from span:', text);
+            return { text, element };
         }
         
         // 2. Ищем саму ячейку <td>
         element = document.querySelector(summaryCell);
         if (element) {
-            // 🔥 Если внутри есть наш .myelem с data-original-client — берём оригинальное имя
+            log('getClientData: found td element', element);
             const myelem = element.querySelector(`.${UNIQUE_PREFIX}myelem`);
             if (myelem && myelem.dataset.originalClient) {
+                log('getClientData: using saved originalClient from myelem:', myelem.dataset.originalClient);
                 return { text: myelem.dataset.originalClient, element: myelem };
             }
-            // Иначе стандартная логика
             const spanElement = element.querySelector('div > a > span');
-            return { 
-                text: spanElement ? spanElement.textContent.trim() : element.textContent.trim(), 
-                element 
-            };
+            const text = spanElement ? spanElement.textContent.trim() : element.textContent.trim();
+            log('getClientData: extracted text from td:', text, '(source:', (spanElement ? 'span' : 'td'), ')');
+            return { text, element };
         }
+        
+        log('getClientData: NO ELEMENT FOUND');
         return null;
     }
 
@@ -118,11 +132,13 @@
             onload: (res) => {
                 if (res.status === 200) {
                     finderData = parseCSV(res.responseText);
+                    log(`Finder data loaded: ${finderData.length} rows`);
                     if (callback) callback();
                     if (currentProductId) processFinder(currentProductId);
                 }
             },
-            onerror: () => {}, ontimeout: () => {}
+            onerror: () => error('Finder fetch error'), 
+            ontimeout: () => error('Finder fetch timeout')
         });
     }
 
@@ -143,31 +159,76 @@
             const el = document.querySelector(CONFIG.selectors.productId);
             if (el && !el.textContent.includes('⚡️')) {
                 el.textContent = el.textContent + ' ⚡️';
+                log(`Finder: marked ProductId ${productId} with ⚡️`);
             }
             processedProductIds.add(productId);
         }
     }
 
+    // 🔥 ЛОГИРОВАНИЕ ЗАПРОСА К БОНУСАМ
     function fetchBonusAmount(searchText, callback) {
         const { sheetId, sheetName, apiKey } = CONFIG.bonus;
-        if (!apiKey) { callback(null); return; }
+        
+        log('=== fetchBonusAmount START ===');
+        log('searchText received:', JSON.stringify(searchText));
+        log('apiKey present:', !!apiKey);
+        log('sheetId:', sheetId);
+        log('sheetName:', sheetName);
+        
+        if (!apiKey) { 
+            log('fetchBonusAmount: NO API KEY, returning null');
+            callback(null); 
+            return; 
+        }
+        
         const url = `https://sheets.googleapis.com/v4/spreadsheets/${sheetId}/values/${sheetName}!A:B?key=${apiKey}`;
+        log('Request URL:', url);
+        
         GM.xmlhttpRequest({
             method: 'GET', url, timeout: 15000,
             onload: (res) => {
+                log('API Response status:', res.status);
                 if (res.status === 200) {
                     try {
                         const data = JSON.parse(res.responseText);
+                        log('API Response data:', data);
+                        
                         if (data?.values?.length > 1) {
+                            log(`Checking ${data.values.length - 1} rows for match...`);
                             for (let i = 1; i < data.values.length; i++) {
-                                if (data.values[i][0] === searchText) { callback(data.values[i][1]); return; }
+                                const rowKey = data.values[i][0];
+                                const rowValue = data.values[i][1];
+                                log(`  Row ${i}: key="${rowKey}", value="${rowValue}", match=${rowKey === searchText}`);
+                                if (rowKey === searchText) {
+                                    log(`✅ MATCH FOUND: returning "${rowValue}"`);
+                                    log('=== fetchBonusAmount END (success) ===\n');
+                                    callback(rowValue); 
+                                    return; 
+                                }
                             }
+                            log('❌ NO MATCH: searchText not found in any row');
+                        } else {
+                            log('❌ API returned empty or invalid data');
                         }
-                    } catch (e) {}
+                    } catch (e) {
+                        error('API parse error:', e);
+                    }
+                } else {
+                    error('API error response:', res.responseText);
                 }
+                log('=== fetchBonusAmount END (null) ===\n');
                 callback(null);
             },
-            onerror: () => callback(null), ontimeout: () => callback(null)
+            onerror: (err) => { 
+                error('API request error:', err); 
+                log('=== fetchBonusAmount END (error) ===\n');
+                callback(null); 
+            }, 
+            ontimeout: () => { 
+                error('API timeout'); 
+                log('=== fetchBonusAmount END (timeout) ===\n');
+                callback(null); 
+            }
         });
     }
 
@@ -184,6 +245,7 @@
         btn.textContent = 'Узнать';
         btn.className = `${UNIQUE_PREFIX}bonus-btn`;
         btn.addEventListener('click', () => {
+            log('\n=== BUTTON CLICKED ===');
             btn.disabled = true;
             btn.textContent = '';
             const loading = document.createElement('span');
@@ -192,18 +254,25 @@
             btn.appendChild(loading);
 
             setTimeout(() => {
-                // 🔥 getClientData() теперь вернёт чистое имя клиента
+                log('Button: calling getClientData()...');
                 const summary = getClientData();
+                log('Button: getClientData returned:', summary);
+                
                 if (summary?.text) {
+                    log(`Button: fetching bonuses for searchText="${summary.text}"`);
                     fetchBonusAmount(summary.text, (amount) => {
+                        log(`Button: callback received amount:`, amount);
                         if (amount !== null && amount !== undefined) {
+                            log('Button: SUCCESS, updating cell');
                             cell.textContent = `Доступно бонусов: ${amount}`;
                             cell.style.color = 'green';
                         } else {
+                            log('Button: FAILED (amount is null/undefined), showing error');
                             cell.innerHTML = `<span class="${UNIQUE_PREFIX}error-text">Бонусов нет</span>`;
                         }
                     });
                 } else {
+                    log('Button: FAILED (summary.text is null/undefined)');
                     cell.innerHTML = `<span class="${UNIQUE_PREFIX}error-text">Ошибка: нет данных</span>`;
                 }
             }, 800);
@@ -221,6 +290,7 @@
         if (!tbody) return;
         if (tbody.querySelector(`.${UNIQUE_PREFIX}bonus-row`) || tbody.querySelector('.bonus-row')) return;
         tbody.appendChild(createBonusRow());
+        log('Bonus row added to table');
     }
 
     function hideUnwantedRows() {
@@ -245,39 +315,52 @@
             onload: (res) => {
                 if (res.status === 200) {
                     spentData = parseCSV(res.responseText);
+                    log(`Spent data loaded: ${spentData.length} rows`);
                     if (callback) callback();
                     if (currentProductId) processSpent(currentProductId);
                 }
             },
-            onerror: () => {}, ontimeout: () => {}
+            onerror: () => error('Spent fetch error'), 
+            ontimeout: () => error('Spent fetch timeout')
         });
     }
 
     function getSpentBonuses(productId) {
         if (!productId || !spentData.length) return null;
         const pid = productId.toString().trim();
-        for (const row of spentData) {
-            if (row[0]?.toString().trim() === pid) return row[4];
+        log(`getSpentBonuses: searching for productId="${pid}" in ${spentData.length} rows`);
+        for (let i = 0; i < spentData.length; i++) {
+            const productCell = spentData[i][0];
+            const bonusCell = spentData[i][4];
+            if (productCell?.toString().trim() === pid) {
+                log(`getSpentBonuses: ✅ FOUND, returning "${bonusCell}"`);
+                return bonusCell;
+            }
         }
+        log('getSpentBonuses: ❌ NOT FOUND');
         return null;
     }
 
     function processSpent(productId) {
-        if (!spentData.length) return;
+        log(`\n=== processSpent called for productId="${productId}" ===`);
+        if (!spentData.length) { log('processSpent: spentData not loaded yet'); return; }
+        
         const bonuses = getSpentBonuses(productId);
-        if (!bonuses) return;
+        if (!bonuses) { log('processSpent: no bonuses found, exiting'); return; }
+        log(`processSpent: bonuses value="${bonuses}"`);
 
         const flagKey = `spent_processed_${productId}`;
-        if (processedSpentFlags.has(flagKey)) return;
+        if (processedSpentFlags.has(flagKey)) { log('processSpent: already processed, skipping'); return; }
 
-        // Получаем данные клиента ДО модификации DOM
         const clientData = getClientData();
-        if (!clientData) return;
+        if (!clientData) { log('processSpent: clientData is null, exiting'); return; }
         const originalClientText = clientData.text;
+        log(`processSpent: originalClientText="${originalClientText}"`);
 
-        // ─── ВАРИАНТ 1: Chosen Dropdown (div > a) ───
+        // ─── ВАРИАНТ 1: Chosen Dropdown ───
         const chosenLink = document.querySelector(CONFIG.selectors.chosenLink);
         if (chosenLink) {
+            log('processSpent: using Chosen variant');
             processedSpentFlags.add(flagKey);
             chosenLink.style.display = 'none';
 
@@ -286,19 +369,20 @@
             newEl.style.pointerEvents = 'none';
             newEl.style.userSelect = 'none';
             newEl.style.opacity = '0.5';
-            // 🔥 Сохраняем оригинальное имя в data-attribute
             newEl.dataset.originalClient = originalClientText;
             newEl.innerHTML = `${originalClientText} (Было списано <span class="${UNIQUE_PREFIX}bonus-value">${bonuses}</span> бонусов)`;
 
             if (chosenLink.parentNode) {
                 chosenLink.parentNode.insertBefore(newEl, chosenLink);
+                log('processSpent: element inserted');
             }
             return;
         }
 
-        // ─── ВАРИАНТ 2: Простой <td> с текстом ───
+        // ─── ВАРИАНТ 2: Простой <td> ───
         const targetCell = document.querySelector(CONFIG.selectors.summaryCell);
         if (targetCell && !targetCell.querySelector(`.${UNIQUE_PREFIX}myelem`)) {
+            log('processSpent: using td variant');
             processedSpentFlags.add(flagKey);
             
             targetCell.innerHTML = '';
@@ -309,15 +393,15 @@
             newEl.style.pointerEvents = 'none';
             newEl.style.userSelect = 'none';
             newEl.style.opacity = '0.5';
-            // 🔥 Сохраняем оригинальное имя в data-attribute
             newEl.dataset.originalClient = originalClientText;
             newEl.innerHTML = `${originalClientText} (Было списано <span class="${UNIQUE_PREFIX}bonus-value">${bonuses}</span> бонусов)`;
             
             targetCell.appendChild(newEl);
+            log('processSpent: element inserted into td');
             return;
         }
 
-        // ─── ВАРИАНТ 3: <tr> с лейблом "Заказчик:" ───
+        // ─── ВАРИАНТ 3: <tr> с "Заказчик:" ───
         const summaryTable = document.querySelector('#Summary > table');
         if (summaryTable) {
             const rows = summaryTable.querySelectorAll('tr');
@@ -325,6 +409,7 @@
                 const cells = row.querySelectorAll('td');
                 for (let i = 0; i < cells.length - 1; i++) {
                     if (cells[i].textContent.trim() === 'Заказчик:') {
+                        log('processSpent: using tr variant');
                         const customerCell = cells[i + 1];
                         const customerText = customerCell.textContent.trim();
                         if (!customerText) continue;
@@ -337,17 +422,18 @@
                         newEl.style.pointerEvents = 'none';
                         newEl.style.userSelect = 'none';
                         newEl.style.opacity = '0.5';
-                        // 🔥 Сохраняем оригинальное имя в data-attribute
                         newEl.dataset.originalClient = customerText;
                         newEl.innerHTML = `${customerText} (Было списано <span class="${UNIQUE_PREFIX}bonus-value">${bonuses}</span> бонусов)`;
                         
                         customerCell.appendChild(newEl);
                         row.style.pointerEvents = 'none';
+                        log('processSpent: element inserted into tr');
                         return;
                     }
                 }
             }
         }
+        log('processSpent: no matching structure found');
     }
 
     function onProductIdAppear() {
@@ -356,6 +442,7 @@
         const pid = el.textContent.trim();
         if (!pid || pid === currentProductId) return;
 
+        log(`\n=== onProductIdAppear: new pid="${pid}" ===`);
         currentProductId = pid;
         processedSpentFlags.clear();
 
@@ -397,6 +484,7 @@
 
     function init() {
         if (active) return;
+        log('INIT called');
         active = true;
         injectStyles();
         fetchFinderData();
@@ -406,6 +494,7 @@
 
     function cleanup() {
         if (!active) return;
+        log('CLEANUP called');
         active = false;
 
         if (productIdObserver) { productIdObserver.disconnect(); productIdObserver = null; }
@@ -428,6 +517,7 @@
     function toggle() { active ? cleanup() : init(); }
     function isActive() { return active; }
     function refresh() {
+        log('REFRESH called');
         fetchFinderData();
         fetchSpentData();
         if (currentProductId) onProductIdAppear();
