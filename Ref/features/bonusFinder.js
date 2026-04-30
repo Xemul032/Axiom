@@ -1,5 +1,5 @@
-// 12bonusFinder.js — модуль работы с бонусами клиента
-// Версия 6: ПОЛНОЕ ЛОГИРОВАНИЕ для отладки
+// 13 bonusFinder.js — модуль работы с бонусами клиента
+// Версия 7: Исправлена утечка модифицированного текста в поиск бонусов
 
 (function(config, GM, utils, api) {
     'use strict';
@@ -24,7 +24,6 @@
             summarySpan: '#Summary > table > tbody > tr > td:nth-child(1) > table > tbody:nth-child(1) > tr:nth-child(2) > td:nth-child(2) > div > a > span',
             summaryCell: '#Summary > table > tbody > tr > td:nth-child(1) > table > tbody:nth-child(1) > tr:nth-child(2) > td:nth-child(2)',
             chosenLink: '#Summary > table > tbody > tr > td:nth-child(1) > table.table.table-condensed.table-striped > tbody:nth-child(1) > tr:nth-child(2) > td:nth-child(2) > div > a',
-            clientContainer: '#Summary > table > tbody > tr > td:nth-child(1) > table > tbody:nth-child(1) > tr:nth-child(2) > td:nth-child(2) > div',
         },
         pageKeywords: ['Номенклатура', 'Номенклатура по умолчанию'],
         uniquePrefix: 'bonus-finder-',
@@ -42,9 +41,7 @@
     let domObserver = null;
     let productIdObserver = null;
 
-    // ─────────────────────────────────────────────
     // 🔊 Логирование
-    // ─────────────────────────────────────────────
     function log(...args) { console.log(LOG_TAG, ...args); }
     function warn(...args) { console.warn(LOG_TAG, ...args); }
     function error(...args) { console.error(LOG_TAG, ...args); }
@@ -85,42 +82,40 @@
         return CONFIG.pageKeywords.some(kw => text.includes(kw));
     }
 
-    // 🔥 ИСПРАВЛЕНО + ЛОГИРОВАНИЕ
+    // 🔥 ИСПРАВЛЕНО: строгий приоритет data-original-client
     function getClientData() {
         const { summarySpan, summaryCell } = CONFIG.selectors;
-        
-        log('getClientData: searching for client element...');
-        
-        // 1. Ищем span внутри ссылки (Chosen)
-        let element = document.querySelector(summarySpan);
-        if (element) {
-            log('getClientData: found span element', element);
-            const parent = element.closest(`.${UNIQUE_PREFIX}myelem`);
-            if (parent && parent.dataset.originalClient) {
-                log('getClientData: using saved originalClient from data-attr:', parent.dataset.originalClient);
-                return { text: parent.dataset.originalClient, element: parent };
+        log('getClientData: searching...');
+
+        const td = document.querySelector(summaryCell);
+        if (td) {
+            log('getClientData: found td element');
+            
+            // 🔥 1. ПРИОРИТЕТ: сохранённое чистое имя (игнорирует модифицированный innerHTML)
+            if (td.dataset.originalClient) {
+                log(`getClientData: ✅ using saved originalClient: "${td.dataset.originalClient}"`);
+                return { text: td.dataset.originalClient, element: td };
             }
-            const text = element.textContent.trim();
-            log('getClientData: extracted text from span:', text);
-            return { text, element };
-        }
-        
-        // 2. Ищем саму ячейку <td>
-        element = document.querySelector(summaryCell);
-        if (element) {
-            log('getClientData: found td element', element);
-            const myelem = element.querySelector(`.${UNIQUE_PREFIX}myelem`);
-            if (myelem && myelem.dataset.originalClient) {
-                log('getClientData: using saved originalClient from myelem:', myelem.dataset.originalClient);
-                return { text: myelem.dataset.originalClient, element: myelem };
+
+            // 🔥 2. Chosen dropdown внутри td
+            const span = td.querySelector('div > a > span');
+            if (span) {
+                log(`getClientData: found Chosen span: "${span.textContent.trim()}"`);
+                return { text: span.textContent.trim(), element: td };
             }
-            const spanElement = element.querySelector('div > a > span');
-            const text = spanElement ? spanElement.textContent.trim() : element.textContent.trim();
-            log('getClientData: extracted text from td:', text, '(source:', (spanElement ? 'span' : 'td'), ')');
-            return { text, element };
+
+            // 🔥 3. Fallback (только до первой модификации)
+            log(`getClientData: using raw td text: "${td.textContent.trim()}"`);
+            return { text: td.textContent.trim(), element: td };
         }
-        
-        log('getClientData: NO ELEMENT FOUND');
+
+        const span = document.querySelector(summarySpan);
+        if (span) {
+            log(`getClientData: found standalone span: "${span.textContent.trim()}"`);
+            return { text: span.textContent.trim(), element: span };
+        }
+
+        log('getClientData: ❌ NO ELEMENT FOUND');
         return null;
     }
 
@@ -157,9 +152,9 @@
         if (!productId || processedProductIds.has(productId)) return;
         if (checkProductIdInFinder(productId)) {
             const el = document.querySelector(CONFIG.selectors.productId);
-            if (el && !el.textContent.includes('⚡️')) {
+            if (el && !el.textContent.includes('️')) {
                 el.textContent = el.textContent + ' ⚡️';
-                log(`Finder: marked ProductId ${productId} with ⚡️`);
+                log(`Finder: marked ProductId ${productId}`);
             }
             processedProductIds.add(productId);
         }
@@ -170,65 +165,47 @@
         const { sheetId, sheetName, apiKey } = CONFIG.bonus;
         
         log('=== fetchBonusAmount START ===');
-        log('searchText received:', JSON.stringify(searchText));
-        log('apiKey present:', !!apiKey);
-        log('sheetId:', sheetId);
-        log('sheetName:', sheetName);
+        log(`searchText to query: "${searchText}"`);
+        log(`apiKey present: ${!!apiKey}, sheet: ${sheetName}`);
         
         if (!apiKey) { 
-            log('fetchBonusAmount: NO API KEY, returning null');
-            callback(null); 
-            return; 
+            log('fetchBonusAmount: ❌ NO API KEY');
+            callback(null); return; 
         }
         
         const url = `https://sheets.googleapis.com/v4/spreadsheets/${sheetId}/values/${sheetName}!A:B?key=${apiKey}`;
-        log('Request URL:', url);
         
         GM.xmlhttpRequest({
             method: 'GET', url, timeout: 15000,
             onload: (res) => {
-                log('API Response status:', res.status);
                 if (res.status === 200) {
                     try {
                         const data = JSON.parse(res.responseText);
-                        log('API Response data:', data);
-                        
                         if (data?.values?.length > 1) {
-                            log(`Checking ${data.values.length - 1} rows for match...`);
+                            let found = false;
                             for (let i = 1; i < data.values.length; i++) {
-                                const rowKey = data.values[i][0];
-                                const rowValue = data.values[i][1];
-                                log(`  Row ${i}: key="${rowKey}", value="${rowValue}", match=${rowKey === searchText}`);
-                                if (rowKey === searchText) {
-                                    log(`✅ MATCH FOUND: returning "${rowValue}"`);
-                                    log('=== fetchBonusAmount END (success) ===\n');
-                                    callback(rowValue); 
-                                    return; 
+                                const key = data.values[i][0];
+                                const val = data.values[i][1];
+                                if (key === searchText) {
+                                    log(`✅ MATCH FOUND at row ${i}: "${key}" -> "${val}"`);
+                                    callback(val); 
+                                    found = true;
+                                    break; 
                                 }
                             }
-                            log('❌ NO MATCH: searchText not found in any row');
+                            if (!found) log(`❌ NO MATCH for "${searchText}" in ${data.values.length - 1} rows`);
                         } else {
-                            log('❌ API returned empty or invalid data');
+                            log(' API returned empty data');
                         }
-                    } catch (e) {
-                        error('API parse error:', e);
-                    }
+                    } catch (e) { error('API parse error:', e); }
                 } else {
-                    error('API error response:', res.responseText);
+                    error('API error:', res.status, res.responseText);
                 }
-                log('=== fetchBonusAmount END (null) ===\n');
+                log('=== fetchBonusAmount END ===\n');
                 callback(null);
             },
-            onerror: (err) => { 
-                error('API request error:', err); 
-                log('=== fetchBonusAmount END (error) ===\n');
-                callback(null); 
-            }, 
-            ontimeout: () => { 
-                error('API timeout'); 
-                log('=== fetchBonusAmount END (timeout) ===\n');
-                callback(null); 
-            }
+            onerror: (err) => { error('API request error:', err); callback(null); }, 
+            ontimeout: () => { error('API timeout'); callback(null); }
         });
     }
 
@@ -245,7 +222,7 @@
         btn.textContent = 'Узнать';
         btn.className = `${UNIQUE_PREFIX}bonus-btn`;
         btn.addEventListener('click', () => {
-            log('\n=== BUTTON CLICKED ===');
+            log('\n🖱️ === BUTTON CLICKED ===');
             btn.disabled = true;
             btn.textContent = '';
             const loading = document.createElement('span');
@@ -254,25 +231,19 @@
             btn.appendChild(loading);
 
             setTimeout(() => {
-                log('Button: calling getClientData()...');
                 const summary = getClientData();
-                log('Button: getClientData returned:', summary);
+                log(`Button: getClientData returned -> text: "${summary?.text}"`);
                 
                 if (summary?.text) {
-                    log(`Button: fetching bonuses for searchText="${summary.text}"`);
                     fetchBonusAmount(summary.text, (amount) => {
-                        log(`Button: callback received amount:`, amount);
                         if (amount !== null && amount !== undefined) {
-                            log('Button: SUCCESS, updating cell');
                             cell.textContent = `Доступно бонусов: ${amount}`;
                             cell.style.color = 'green';
                         } else {
-                            log('Button: FAILED (amount is null/undefined), showing error');
                             cell.innerHTML = `<span class="${UNIQUE_PREFIX}error-text">Бонусов нет</span>`;
                         }
                     });
                 } else {
-                    log('Button: FAILED (summary.text is null/undefined)');
                     cell.innerHTML = `<span class="${UNIQUE_PREFIX}error-text">Ошибка: нет данных</span>`;
                 }
             }, 800);
@@ -290,7 +261,6 @@
         if (!tbody) return;
         if (tbody.querySelector(`.${UNIQUE_PREFIX}bonus-row`) || tbody.querySelector('.bonus-row')) return;
         tbody.appendChild(createBonusRow());
-        log('Bonus row added to table');
     }
 
     function hideUnwantedRows() {
@@ -328,39 +298,34 @@
     function getSpentBonuses(productId) {
         if (!productId || !spentData.length) return null;
         const pid = productId.toString().trim();
-        log(`getSpentBonuses: searching for productId="${pid}" in ${spentData.length} rows`);
         for (let i = 0; i < spentData.length; i++) {
-            const productCell = spentData[i][0];
-            const bonusCell = spentData[i][4];
-            if (productCell?.toString().trim() === pid) {
-                log(`getSpentBonuses: ✅ FOUND, returning "${bonusCell}"`);
-                return bonusCell;
-            }
+            if (spentData[i][0]?.toString().trim() === pid) return spentData[i][4];
         }
-        log('getSpentBonuses: ❌ NOT FOUND');
         return null;
     }
 
     function processSpent(productId) {
-        log(`\n=== processSpent called for productId="${productId}" ===`);
-        if (!spentData.length) { log('processSpent: spentData not loaded yet'); return; }
+        log(`\n=== processSpent called for "${productId}" ===`);
+        if (!spentData.length) return;
         
         const bonuses = getSpentBonuses(productId);
-        if (!bonuses) { log('processSpent: no bonuses found, exiting'); return; }
-        log(`processSpent: bonuses value="${bonuses}"`);
+        if (!bonuses) return;
 
         const flagKey = `spent_processed_${productId}`;
-        if (processedSpentFlags.has(flagKey)) { log('processSpent: already processed, skipping'); return; }
+        if (processedSpentFlags.has(flagKey)) return;
 
         const clientData = getClientData();
-        if (!clientData) { log('processSpent: clientData is null, exiting'); return; }
+        if (!clientData) return;
         const originalClientText = clientData.text;
-        log(`processSpent: originalClientText="${originalClientText}"`);
+
+        // 🔥 Сохраняем чистое имя ДО любой модификации DOM
+        const td = document.querySelector(CONFIG.selectors.summaryCell);
+        if (td) td.dataset.originalClient = originalClientText;
 
         // ─── ВАРИАНТ 1: Chosen Dropdown ───
         const chosenLink = document.querySelector(CONFIG.selectors.chosenLink);
         if (chosenLink) {
-            log('processSpent: using Chosen variant');
+            log('processSpent: Chosen variant');
             processedSpentFlags.add(flagKey);
             chosenLink.style.display = 'none';
 
@@ -369,71 +334,58 @@
             newEl.style.pointerEvents = 'none';
             newEl.style.userSelect = 'none';
             newEl.style.opacity = '0.5';
-            newEl.dataset.originalClient = originalClientText;
             newEl.innerHTML = `${originalClientText} (Было списано <span class="${UNIQUE_PREFIX}bonus-value">${bonuses}</span> бонусов)`;
-
-            if (chosenLink.parentNode) {
-                chosenLink.parentNode.insertBefore(newEl, chosenLink);
-                log('processSpent: element inserted');
-            }
+            if (chosenLink.parentNode) chosenLink.parentNode.insertBefore(newEl, chosenLink);
             return;
         }
 
-        // ─── ВАРИАНТ 2: Простой <td> ───
-        const targetCell = document.querySelector(CONFIG.selectors.summaryCell);
-        if (targetCell && !targetCell.querySelector(`.${UNIQUE_PREFIX}myelem`)) {
-            log('processSpent: using td variant');
+        // ─── ВАРИАНТ 2: Простой <td> ──
+        if (td && !td.querySelector(`.${UNIQUE_PREFIX}myelem`)) {
+            log('processSpent: td variant');
             processedSpentFlags.add(flagKey);
-            
-            targetCell.innerHTML = '';
-            targetCell.style.pointerEvents = 'none';
+            td.innerHTML = '';
+            td.style.pointerEvents = 'none';
 
             const newEl = document.createElement('span');
             newEl.classList.add('myelem');
             newEl.style.pointerEvents = 'none';
             newEl.style.userSelect = 'none';
             newEl.style.opacity = '0.5';
-            newEl.dataset.originalClient = originalClientText;
             newEl.innerHTML = `${originalClientText} (Было списано <span class="${UNIQUE_PREFIX}bonus-value">${bonuses}</span> бонусов)`;
-            
-            targetCell.appendChild(newEl);
-            log('processSpent: element inserted into td');
+            td.appendChild(newEl);
             return;
         }
 
         // ─── ВАРИАНТ 3: <tr> с "Заказчик:" ───
         const summaryTable = document.querySelector('#Summary > table');
         if (summaryTable) {
-            const rows = summaryTable.querySelectorAll('tr');
-            for (const row of rows) {
+            for (const row of summaryTable.querySelectorAll('tr')) {
                 const cells = row.querySelectorAll('td');
                 for (let i = 0; i < cells.length - 1; i++) {
                     if (cells[i].textContent.trim() === 'Заказчик:') {
-                        log('processSpent: using tr variant');
+                        log('processSpent: tr variant');
                         const customerCell = cells[i + 1];
                         const customerText = customerCell.textContent.trim();
                         if (!customerText) continue;
 
                         processedSpentFlags.add(flagKey);
                         customerCell.innerHTML = '';
+                        // Сохраняем и сюда на всякий случай
+                        if (td) td.dataset.originalClient = customerText;
                         
                         const newEl = document.createElement('span');
                         newEl.classList.add('myelem');
                         newEl.style.pointerEvents = 'none';
                         newEl.style.userSelect = 'none';
                         newEl.style.opacity = '0.5';
-                        newEl.dataset.originalClient = customerText;
                         newEl.innerHTML = `${customerText} (Было списано <span class="${UNIQUE_PREFIX}bonus-value">${bonuses}</span> бонусов)`;
-                        
                         customerCell.appendChild(newEl);
                         row.style.pointerEvents = 'none';
-                        log('processSpent: element inserted into tr');
                         return;
                     }
                 }
             }
         }
-        log('processSpent: no matching structure found');
     }
 
     function onProductIdAppear() {
@@ -442,9 +394,11 @@
         const pid = el.textContent.trim();
         if (!pid || pid === currentProductId) return;
 
-        log(`\n=== onProductIdAppear: new pid="${pid}" ===`);
         currentProductId = pid;
         processedSpentFlags.clear();
+        // Сбрасываем сохранённое имя при смене заказа
+        const td = document.querySelector(CONFIG.selectors.summaryCell);
+        if (td) delete td.dataset.originalClient;
 
         processFinder(pid);
         if (hasPageKeyword()) {
@@ -469,22 +423,16 @@
         }
 
         domObserver = new MutationObserver(() => {
-            if (document.querySelector(CONFIG.selectors.productId)) {
-                onProductIdAppear();
-            }
-            if (hasPageKeyword()) {
-                hideUnwantedRows();
-                addBonusRowIfNeeded();
-            }
+            if (document.querySelector(CONFIG.selectors.productId)) onProductIdAppear();
+            if (hasPageKeyword()) { hideUnwantedRows(); addBonusRowIfNeeded(); }
         });
         domObserver.observe(document.body, { childList: true, subtree: true });
-
         onProductIdAppear();
     }
 
     function init() {
         if (active) return;
-        log('INIT called');
+        log('INIT');
         active = true;
         injectStyles();
         fetchFinderData();
@@ -494,41 +442,27 @@
 
     function cleanup() {
         if (!active) return;
-        log('CLEANUP called');
+        log('CLEANUP');
         active = false;
-
         if (productIdObserver) { productIdObserver.disconnect(); productIdObserver = null; }
         if (domObserver) { domObserver.disconnect(); domObserver = null; }
-
         processedProductIds.clear();
         processedSpentFlags.clear();
         currentProductId = null;
         finderData = [];
         spentData = [];
-
         document.querySelectorAll(`.${UNIQUE_PREFIX}bonus-row, .bonus-row`).forEach(el => el.remove());
         document.querySelectorAll(`.${UNIQUE_PREFIX}myelem, .myelem`).forEach(el => el.remove());
-        
-        document.querySelectorAll(CONFIG.selectors.chosenLink).forEach(el => {
-            if (el.style.display === 'none') el.style.display = '';
-        });
+        document.querySelectorAll(CONFIG.selectors.chosenLink).forEach(el => { if (el.style.display === 'none') el.style.display = ''; });
     }
 
     function toggle() { active ? cleanup() : init(); }
     function isActive() { return active; }
-    function refresh() {
-        log('REFRESH called');
-        fetchFinderData();
-        fetchSpentData();
-        if (currentProductId) onProductIdAppear();
-    }
+    function refresh() { fetchFinderData(); fetchSpentData(); if (currentProductId) onProductIdAppear(); }
 
     if (CONFIG.autoInit !== false) {
-        if (document.readyState === 'loading') {
-            document.addEventListener('DOMContentLoaded', init);
-        } else {
-            init();
-        }
+        if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init);
+        else init();
     }
 
     return {
