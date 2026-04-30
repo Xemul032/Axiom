@@ -18,6 +18,12 @@
       "runAt": "document-idle",
       "config": {}
     },
+     "remoteDesignManager": {
+      "enabled": true,
+      "url": "https://raw.githubusercontent.com/Xemul032/Axiom/refs/heads/main/Ref/features/remoteDesignManager.js",
+      "runAt": "document-idle",
+      "config": {}
+    },   
       "priceBlock": {
       "enabled": true,
       "url": "https://raw.githubusercontent.com/Xemul032/Axiom/refs/heads/main/Ref/features/priceBlock.js",
