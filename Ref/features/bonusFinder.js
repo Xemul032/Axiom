@@ -22,7 +22,7 @@
         spentSheetName: config?.spentSheetName || 'idCheck',
         spentRefreshMs: config?.spentRefreshMs || 900000,
 
-        // Селекторы — ИСПРАВЛЕНО: класс bonus-row без префикса в селекторе
+        // Селекторы
         selectors: {
             productId: config?.selectors?.productId || '#ProductId',
             bonusTable: config?.selectors?.bonusTable || '#Fin > table > tbody:nth-child(4) > tr > td:nth-child(1) > table',
@@ -44,8 +44,6 @@
     let spentData = [];
     let processedProductIds = new Set();
     let currentProductId = null;
-    
-    // 🔥 Set для отслеживания обработанных chosen-single элементов (как в оригинале)
     let processedChosenElements = new Set();
 
     // 🔥 Наблюдатели и таймеры
@@ -86,10 +84,10 @@
                 background-color: #ccc !important;
                 cursor: not-allowed !important;
             }
-            .${UNIQUE_PREFIX}myelem {
+            .${UNIQUE_PREFIX}myelem, .myelem {
                 pointer-events: none !important;
                 user-select: none !important;
-                opacity: 0.9 !important;
+                opacity: 0.5 !important;
                 font-weight: 500 !important;
             }
             .${UNIQUE_PREFIX}bonus-value {
@@ -100,7 +98,6 @@
                 color: #dc3545 !important;
                 font-weight: 500 !important;
             }
-            /* 🔥 Защита строки с кнопкой */
             tr.${UNIQUE_PREFIX}bonus-row,
             tr.bonus-row {
                 display: table-row !important;
@@ -140,7 +137,6 @@
         return el ? (el.textContent || el.innerText || '').trim() : null;
     }
 
-    // 🔥 ИСПРАВЛЕНО: возвращаем объект {text, element} как в оригинале
     function getSummaryData() {
         const selector1 = CONFIG.selectors.summarySpan;
         const selector2 = CONFIG.selectors.summaryRow;
@@ -170,6 +166,8 @@
                 if (res.status === 200) {
                     finderData = parseCSV(res.responseText);
                     if (callback) callback();
+                    // 🔥 Перезапускаем обработку после загрузки данных
+                    if (currentProductId) processProductIdElement(document.querySelector(CONFIG.selectors.productId));
                 }
             },
             onerror: () => {}, ontimeout: () => {}
@@ -228,7 +226,6 @@
 
     function createBonusRow() {
         const row = document.createElement('tr');
-        // 🔥 Добавляем оба класса для совместимости
         row.classList.add(`${UNIQUE_PREFIX}bonus-row`, 'bonus-row');
         
         const cell = document.createElement('td');
@@ -269,8 +266,6 @@
 
         cell.appendChild(button);
         row.appendChild(cell);
-        
-        // 🔥 Гарантия отображения
         row.style.setProperty('display', 'table-row', 'important');
         row.style.setProperty('visibility', 'visible', 'important');
         
@@ -282,7 +277,6 @@
         if (!targetTable) return;
         const tbody = targetTable.querySelector('tbody');
         if (!tbody) return;
-        // 🔥 Проверяем оба класса
         if (tbody.querySelector(`.${UNIQUE_PREFIX}bonus-row`) || tbody.querySelector('.bonus-row')) return;
         tbody.appendChild(createBonusRow());
     }
@@ -294,7 +288,6 @@
         if (!tbody) return;
         const rows = tbody.querySelectorAll('tr');
         rows.forEach(row => {
-            // 🔥 Пропускаем строки с любым из классов
             if (row.classList.contains(`${UNIQUE_PREFIX}bonus-row`) || row.classList.contains('bonus-row')) return;
             const text = row.textContent || row.innerText || '';
             if (
@@ -308,7 +301,7 @@
     }
 
     // ─────────────────────────────────────────────
-    // 🔥 ТАБЛИЦА 3: spent — ИСПРАВЛЕННАЯ ЛОГИКА
+    // 🔥 ТАБЛИЦА 3: spent — ИСПРАВЛЕННАЯ ЛОГИКА (как в оригинале)
     // ─────────────────────────────────────────────
     function fetchSpentData(callback) {
         const url = `https://docs.google.com/spreadsheets/d/${CONFIG.spentSheetId}/gviz/tq?tqx=out:csv&sheet=${CONFIG.spentSheetName}`;
@@ -318,6 +311,10 @@
                 if (res.status === 200) {
                     spentData = parseCSV(res.responseText);
                     if (callback) callback();
+                    // 🔥 КЛЮЧЕВОЕ ИСПРАВЛЕНИЕ: перезапускаем обработку после загрузки данных
+                    if (currentProductId) {
+                        processSpentBonuses(currentProductId);
+                    }
                 }
             },
             onerror: () => {}, ontimeout: () => {}
@@ -328,8 +325,8 @@
         if (!productId || !spentData.length) return null;
         const pidStr = productId.toString().trim();
         for (let i = 0; i < spentData.length; i++) {
-            const productCell = spentData[i][0];
-            const bonusCell = spentData[i][4]; // Столбец E
+            const productCell = spentData[i][0]; // Столбец A
+            const bonusCell = spentData[i][4];   // Столбец E
             if (productCell?.toString().trim() === pidStr) {
                 return bonusCell;
             }
@@ -337,45 +334,41 @@
         return null;
     }
 
-    // 🔥 ПОЛНОСТЬЮ ПЕРЕПИСАНО как в оригинале
+    // 🔥 ПЕРЕПИСАНО максимально близко к оригиналу
     function processSpentBonuses(productId) {
+        // 🔥 Защита от вызова до загрузки данных
+        if (!spentData.length) return;
+        
         const bonuses = getSpentBonuses(productId);
-        // 🔥 В оригинале: если бонусов нет — просто выходим, не создаём элемент
+        // 🔥 Если бонусов нет в таблице — выходим (как в оригинале)
         if (!bonuses) return;
 
-        const chosenSingle = document.querySelector(CONFIG.selectors.chosenSingle);
+        // 🔥 Жёсткий селектор как в оригинале (гарантия совместимости)
+        const chosenSingle = document.querySelector('#Summary > table > tbody > tr > td:nth-child(1) > table.table.table-condensed.table-striped > tbody:nth-child(1) > tr:nth-child(2) > td:nth-child(2) > div > a');
         if (!chosenSingle) return;
 
-        // 🔥 ИСПРАВЛЕНО: используем Set с ссылкой на DOM-элемент (как в оригинале)
+        // 🔥 Проверка по ссылке на DOM-элемент (как в оригинале)
         if (processedChosenElements.has(chosenSingle)) return;
         processedChosenElements.add(chosenSingle);
 
-        // 🔥 Получаем данные как объект {text, element}
         const selectorData = getSummaryData();
-        // 🔥 В оригинале: проверяем существование объекта, а не текста
         if (!selectorData) return;
 
         // Скрываем оригинальный элемент
         chosenSingle.style.display = 'none';
 
-        // Создаём новый элемент
+        // Создаём новый элемент — класс и стили как в оригинале
         const newEl = document.createElement('span');
-        newEl.classList.add(`${UNIQUE_PREFIX}myelem`, 'myelem'); // 🔥 Добавляем оба класса
-        
-        // 🔥 ИСПРАВЛЕНО: инлайновые стили как в оригинале
+        newEl.classList.add('myelem');
         newEl.style.pointerEvents = 'none';
         newEl.style.userSelect = 'none';
         newEl.style.opacity = '0.5';
 
-        // Формируем текст
-        if (bonuses) {
-            newEl.innerHTML = `${selectorData.text} (Было списано <span class="${UNIQUE_PREFIX}bonus-value" style="color: green;">${bonuses}</span> бонусов)`;
-        } else {
-            newEl.textContent = selectorData.text;
-        }
+        // Формируем текст — инлайн-стиль для цвета как в оригинале
+        newEl.innerHTML = `${selectorData.text} (Было списано <span style="color: green;">${bonuses}</span> бонусов)`;
 
-        // Вставляем в контейнер
-        const container = document.querySelector(CONFIG.selectors.clientSelectContainer);
+        // Вставляем — жёсткий селектор контейнера как в оригинале
+        const container = document.querySelector("#Summary > table > tbody > tr > td:nth-child(1) > table > tbody:nth-child(1) > tr:nth-child(2) > td:nth-child(2) > div");
         if (container && chosenSingle.parentNode) {
             container.style.pointerEvents = 'none';
             chosenSingle.parentNode.insertBefore(newEl, chosenSingle);
@@ -405,7 +398,7 @@
                 addBonusRowIfNeeded();
             }
 
-            // 3. Spent — 🔥 вызываем с числовым productId
+            // 3. Spent — вызываем, но данные могут ещё грузиться
             processSpentBonuses(newPid);
         }, 300);
     }
@@ -482,7 +475,7 @@
         if (domObserver) { domObserver.disconnect(); domObserver = null; }
 
         processedProductIds.clear();
-        processedChosenElements.clear(); // 🔥 Очищаем и этот Set
+        processedChosenElements.clear();
         currentProductId = null;
         finderData = [];
         spentData = [];
