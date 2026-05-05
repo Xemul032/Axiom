@@ -1,4 +1,4 @@
-// 2axiomValidator.js — модуль валидации заказа перед отправкой
+// 3axiomValidator.js — модуль валидации заказа перед отправкой
 // Загружается динамически из config.json через Axiom Status Indicator
 // Возвращает API управления: { init, cleanup, toggle, isActive }
 
@@ -31,7 +31,7 @@
     let domObserver = null;
 
     // ─────────────────────────────────────────────
-    // 🔥 Утилиты
+    //  Утилиты
     // ─────────────────────────────────────────────
     const clean = t => t ? t.replace(/\s+/g, ' ').replace(/&nbsp;/g, ' ').trim() : '';
     const parseNum = str => {
@@ -50,7 +50,7 @@
 
     // ─────────────────────────────────────────────
     // 🔥 Загрузка правил
-    // ─────────────────────────────────────────────
+    // ────────────────────────────────────────────
     async function fetchValidationRules() {
         const now = Date.now();
         if (validationRules && (now - rulesLastFetch) < RULES_CACHE_TIME) {
@@ -72,23 +72,15 @@
                                     GM_setValue(`${UNIQUE_PREFIX}rules_time`, now);
                                 }
                                 resolve(validationRules);
-                            } catch (e) {
-                                resolve(loadCachedRules());
-                            }
-                        } else {
-                            resolve(loadCachedRules());
-                        }
+                            } catch (e) { resolve(loadCachedRules()); }
+                        } else { resolve(loadCachedRules()); }
                     },
                     onerror: () => resolve(loadCachedRules())
                 });
             } else {
                 fetch(RULES_URL)
                     .then(r => r.json())
-                    .then(data => {
-                        validationRules = data;
-                        rulesLastFetch = now;
-                        resolve(validationRules);
-                    })
+                    .then(data => { validationRules = data; rulesLastFetch = now; resolve(validationRules); })
                     .catch(() => resolve(loadCachedRules()));
             }
         });
@@ -147,9 +139,7 @@
                 const exp = parseNum(expected);
                 const ops = { gt: r=>r>exp, gte: r=>r>=exp, lt: r=>r<exp, lte: r=>r<=exp, eq: r=>r===exp };
                 return ops[operator]?.(result) ?? false;
-            } catch (e) {
-                return false;
-            }
+            } catch (e) { return false; }
         },
         nestedStatus: (obj, path, expected) => {
             const val = path.split('.').reduce((o, k) => o?.[k], obj);
@@ -169,9 +159,8 @@
     function parseProductMass() {
         let mass = 'Не указана';
         const massCell = document.querySelector('#Summary > table > tbody > tr > td:nth-child(1) > table.table.table-condensed.table-striped > tbody:nth-child(3) > tr:nth-child(8) > td:nth-child(2)');
-        if (massCell) {
-            mass = clean(massCell.textContent);
-        } else {
+        if (massCell) { mass = clean(massCell.textContent); }
+        else {
             const labels = document.querySelectorAll('td');
             for (let i = 0; i < labels.length; i++) {
                 if (clean(labels[i].textContent).includes('Масса тиража')) {
@@ -209,7 +198,6 @@
 
     function parseProductInfo() {
         let client = 'Не указан', deliveryPoint = 'Не указана', address = 'Не указан';
-
         const clientTextRow = document.querySelector('#Summary > table > tbody > tr > td:nth-child(1) > table > tbody:nth-child(2) > tr:nth-child(2)');
         if (clientTextRow && clientTextRow.querySelector('td:first-child')?.textContent.includes('Контактное лицо')) {
             client = clean(clientTextRow.querySelector('td:nth-child(2)').textContent);
@@ -259,7 +247,6 @@
                 address = aSpan ? clean(aSpan.textContent) : (document.querySelector('select.AddressId, select[name*="AddressId"]') ? getSelectedText(document.querySelector('select.AddressId, select[name*="AddressId"]')) : '');
             }
         }
-
         return { client, deliveryPoint, address };
     }
 
@@ -376,7 +363,6 @@
 
     function evaluateCondition(condition, data) {
         const { field, operator, value, options, formula, expectedOperator, source, failMessage } = condition;
-
         let context = data;
         if (source === 'orders' && data.orders?.length) {
             const orders = condition.checkAll ? data.orders : [data.orders[0]];
@@ -386,27 +372,16 @@
                 return runValidator(operator, fieldValue, value, options, ctx, formula, expectedOperator);
             });
             const passed = condition.any ? results.some(r => r.passed) : results.every(r => r.passed);
-            return {
-                passed,
-                message: passed ? null : (failMessage || results.find(r => !r.passed)?.message || '⚠️ Проверка не пройдена')
-            };
+            return { passed, message: passed ? null : (failMessage || results.find(r => !r.passed)?.message || '️ Проверка не пройдена') };
         }
-
         const fieldValue = field ? getNestedValue(context, field) : context;
         const result = runValidator(operator, fieldValue, value, options, context, formula, expectedOperator);
-        return {
-            passed: result,
-            message: result ? null : (failMessage || '⚠️ Проверка не пройдена')
-        };
+        return { passed: result, message: result ? null : (failMessage || '⚠️ Проверка не пройдена') };
     }
 
     function runValidator(operator, fieldValue, value, options, context, formula, expectedOperator) {
-        if (operator === 'calc' && formula) {
-            return validators.calc(context, formula, value, expectedOperator);
-        }
-        if (operator === 'nestedStatus') {
-            return validators.nestedStatus(fieldValue, options?.path, value);
-        }
+        if (operator === 'calc' && formula) return validators.calc(context, formula, value, expectedOperator);
+        if (operator === 'nestedStatus') return validators.nestedStatus(fieldValue, options?.path, value);
         const validator = validators[operator];
         if (!validator) return false;
         return validator(fieldValue, value, options);
@@ -414,29 +389,20 @@
 
     function evaluateRule(rule, data) {
         if (!rule.conditions?.length) return { passed: true, messages: [] };
-
         const logic = rule.logic || 'AND';
         const results = rule.conditions.map(cond => evaluateCondition(cond, data));
-
         if (logic === 'AND') {
             const failed = results.filter(r => !r.passed);
-            return {
-                passed: failed.length === 0,
-                messages: failed.map(r => r.message).filter(Boolean)
-            };
+            return { passed: failed.length === 0, messages: failed.map(r => r.message).filter(Boolean) };
         } else {
             const passed = results.some(r => r.passed);
-            return {
-                passed,
-                messages: passed ? [] : results.map(r => r.message).filter(Boolean)
-            };
+            return { passed, messages: passed ? [] : results.map(r => r.message).filter(Boolean) };
         }
     }
 
     function runValidation(data) {
         if (!validationRules?.rules?.length) return { passed: true, messages: [] };
         const allFailedMessages = [];
-
         for (const rule of validationRules.rules) {
             if (rule.triggers?.length) {
                 const match = rule.triggers.some(t => {
@@ -445,90 +411,53 @@
                 });
                 if (!match) continue;
             }
-
             const ruleResult = evaluateRule(rule, data);
             if (!ruleResult.passed) {
-                if (ruleResult.messages.length > 0) {
-                    allFailedMessages.push(...ruleResult.messages);
-                }
-                if (rule.failMessage) {
-                    allFailedMessages.push(rule.failMessage);
-                } else if (ruleResult.messages.length === 0) {
-                    allFailedMessages.push(validationRules.defaults?.failMessage || '⚠️ Проверка не пройдена');
-                }
+                if (ruleResult.messages.length > 0) allFailedMessages.push(...ruleResult.messages);
+                if (rule.failMessage) allFailedMessages.push(rule.failMessage);
+                else if (ruleResult.messages.length === 0) allFailedMessages.push(validationRules.defaults?.failMessage || '️ Проверка не пройдена');
             }
         }
         return { passed: allFailedMessages.length === 0, messages: allFailedMessages };
     }
 
     // ─────────────────────────────────────────────
-    // 🔥 Перехват кнопок — 🔥 ФИНАЛЬНАЯ ВЕРСИЯ (абсолютное позиционирование)
+    // 🔥 Перехват кнопок — 🔥 ИСПРАВЛЕННАЯ ВЕРСИЯ (Клонирование + Подмена)
     // ─────────────────────────────────────────────
     function interceptButtons() {
         VALIDATION_BUTTONS.forEach(btnConfig => {
             const originalBtn = document.querySelector(btnConfig.selector);
             if (!originalBtn) return;
-            
-            // Проверка: уже обработана?
             if (originalBtn.getAttribute(`data-${UNIQUE_PREFIX}wrapped`) === 'true') return;
 
-            // 🔥 Помечаем оригинал
+            // 1. Помечаем оригинал и сохраняем ссылку
             originalBtn.setAttribute(`data-${UNIQUE_PREFIX}wrapped`, 'true');
             originalButtons.push({ original: originalBtn, config: btnConfig });
 
-            // 🔥 Получаем позицию оригинала ДО любых изменений
-            const rect = originalBtn.getBoundingClientRect();
-            const scrollY = window.scrollY || document.documentElement.scrollTop;
-            const scrollX = window.scrollX || document.documentElement.scrollLeft;
+            // 2. Скрываем оригинал, но оставляем в DOM (чтобы click() сработал)
+            originalBtn.style.display = 'none';
 
-            // 🔥 Скрываем оригинал (мягко, без !important)
-            originalBtn.style.visibility = 'hidden';
-            originalBtn.style.pointerEvents = 'none';
-            originalBtn.setAttribute('tabindex', '-1');
-
-            // 🔥 Создаём НОВУЮ кнопку с нуля
-            const newBtn = document.createElement('button');
-            newBtn.type = 'button';
-            newBtn.textContent = originalBtn.textContent.trim() || 'Рассчитать';
+            // 3. Создаём точную копию
+            const clone = originalBtn.cloneNode(true);
             
-            // 🔥 Абсолютное позиционирование поверх оригинала
-            Object.assign(newBtn.style, {
-                position: 'fixed',
-                left: (rect.left + scrollX) + 'px',
-                top: (rect.top + scrollY) + 'px',
-                width: rect.width + 'px',
-                height: rect.height + 'px',
-                zIndex: '2147483647', // Максимальный возможный
-                cursor: 'pointer',
-                pointerEvents: 'auto',
-                visibility: 'visible',
-                opacity: '1',
-                // Сбрасываем потенциально проблемные свойства
-                margin: '0',
-                padding: originalBtn.style.padding || '8px 16px',
-                border: originalBtn.style.border || '1px solid #ccc',
-                borderRadius: originalBtn.style.borderRadius || '4px',
-                background: originalBtn.style.background || '#007bff',
-                color: originalBtn.style.color || '#fff',
-                fontSize: originalBtn.style.fontSize || '14px',
-                fontWeight: originalBtn.style.fontWeight || '500',
-                textAlign: 'center',
-                lineHeight: 'normal',
-                boxShadow: '0 2px 4px rgba(0,0,0,0.2)',
-                transition: 'none',
-                transform: 'none',
-                display: 'block'
-            });
+            // 4. Убираем динамический onclick у копии (он останется у скрытого оригинала)
+            clone.removeAttribute('onclick');
+            clone.removeAttribute('id'); // Избегаем дублей ID
+            clone.removeAttribute(`data-${UNIQUE_PREFIX}wrapped`);
+            
+            // 5. Гарантируем видимость копии
+            clone.style.display = '';
+            clone.style.visibility = 'visible';
+            clone.style.opacity = '1';
+            clone.style.pointerEvents = 'auto';
 
-            // 🔥 Копируем только безопасные data-атрибуты (без UNIQUE_PREFIX)
-            Array.from(originalBtn.attributes).forEach(attr => {
-                if (attr.name.startsWith('data-') && !attr.name.includes(UNIQUE_PREFIX)) {
-                    newBtn.setAttribute(attr.name, attr.value);
-                }
-            });
+            // 6. Заменяем оригинал на копию в DOM (сохраняет верстку на 100%)
+            if (originalBtn.parentNode) {
+                originalBtn.parentNode.replaceChild(clone, originalBtn);
+            }
 
-            // 🔥 Обработчик клика
-            newBtn.addEventListener('click', async (e) => {
+            // 7. Навешиваем нашу валидацию на копию
+            clone.addEventListener('click', async (e) => {
                 e.preventDefault();
                 e.stopPropagation();
 
@@ -577,40 +506,15 @@
                     return false;
                 }
 
-                // Все проверки пройдены — кликаем оригинал
+                // ✅ Валидация пройдена -> вызываем оригинальную кнопку (с её актуальным onclick)
                 originalBtn.click();
             });
-
-            // 🔥 Добавляем кнопку прямо в body (гарантированно видимо)
-            document.body.appendChild(newBtn);
-
-            // 🔥 Дополнительно: обновляем позицию при ресайзе/скролле
-            const updatePosition = () => {
-                const r = originalBtn.getBoundingClientRect();
-                const sY = window.scrollY || document.documentElement.scrollTop;
-                const sX = window.scrollX || document.documentElement.scrollLeft;
-                Object.assign(newBtn.style, {
-                    left: (r.left + sX) + 'px',
-                    top: (r.top + sY) + 'px',
-                    width: r.width + 'px',
-                    height: r.height + 'px'
-                });
-            };
-            
-            window.addEventListener('resize', updatePosition);
-            window.addEventListener('scroll', updatePosition, true);
-            
-            // Сохраняем ссылку на листенеры для очистки
-            newBtn._axiomCleanup = () => {
-                window.removeEventListener('resize', updatePosition);
-                window.removeEventListener('scroll', updatePosition, true);
-            };
         });
     }
 
     // ─────────────────────────────────────────────
     // 🔥 Парсер для запуска (без вывода в консоль)
-    // ─────────────────────────────────────────────
+    // ────────────────────────────────────────────
     function runParser() {
         if (isRunning) return;
         isRunning = true;
@@ -644,12 +548,10 @@
     // ─────────────────────────────────────────────
     function setupObserver() {
         if (domObserver) domObserver.disconnect();
-        
         domObserver = new MutationObserver(() => {
             clearTimeout(debounceTimer);
             debounceTimer = setTimeout(runParser, 400);
         });
-        
         domObserver.observe(document.body, { childList: true, subtree: true });
     }
 
@@ -659,7 +561,6 @@
     function init() {
         if (active) return;
         active = true;
-        
         setupObserver();
         setTimeout(runParser, 600);
         fetchValidationRules();
@@ -668,77 +569,43 @@
     function cleanup() {
         if (!active) return;
         active = false;
-        
-        if (domObserver) {
-            domObserver.disconnect();
-            domObserver = null;
-        }
+        if (domObserver) { domObserver.disconnect(); domObserver = null; }
         clearTimeout(debounceTimer);
-        
-        // 🔥 Восстанавливаем оригинальные кнопки и удаляем оверлеи
+
+        // 🔥 Восстанавливаем оригинальные кнопки на место копий
         originalButtons.forEach(({ original }) => {
-            if (original) {
-                // Показываем оригинал
-                original.style.visibility = '';
-                original.style.pointerEvents = '';
-                original.removeAttribute('tabindex');
+            if (original && original.parentNode) {
+                original.style.display = '';
                 original.removeAttribute(`data-${UNIQUE_PREFIX}wrapped`);
                 
-                // 🔥 Удаляем оверлей-кнопку (она в body, ищем по тексту и позиции)
-                // Простой способ: ищем кнопку с таким же текстом рядом
-                const overlays = document.querySelectorAll('button[style*="z-index: 2147483647"]');
-                overlays.forEach(btn => {
-                    if (btn._axiomCleanup) {
-                        btn._axiomCleanup();
-                        btn.remove();
-                    }
-                });
+                // Ищем копию рядом (она была заменена через replaceChild, поэтому оригинал сейчас в DOM, а копия удалена)
+                // Но если копия осталась, удаляем её
+                const siblings = Array.from(original.parentNode.children);
+                const clone = siblings.find(el => el !== original && el.getAttribute(`data-${UNIQUE_PREFIX}wrapped`) !== 'true' && el.textContent.trim() === original.textContent.trim());
+                if (clone) clone.remove();
             }
         });
         originalButtons = [];
-        
         lastStateHash = '';
         isRunning = false;
     }
 
-    function toggle() {
-        active ? cleanup() : init();
-    }
+    function toggle() { active ? cleanup() : init(); }
+    function isActive() { return active; }
 
-    function isActive() {
-        return active;
-    }
-
-    // 🔥 Публичные методы
-    function forceValidate() {
-        runParser();
-    }
-
-    function reloadRules() {
-        rulesLastFetch = 0;
-        return fetchValidationRules();
-    }
+    function forceValidate() { runParser(); }
+    function reloadRules() { rulesLastFetch = 0; return fetchValidationRules(); }
 
     // 🔥 Авто-запуск
     if (config?.autoInit !== false) {
-        if (document.readyState === 'loading') {
-            document.addEventListener('DOMContentLoaded', init);
-        } else {
-            setTimeout(init, 100);
-        }
+        if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init);
+        else setTimeout(init, 100);
     }
 
-    // 🔥 Экспорт API
+    //  Экспорт API
     return {
-        init,
-        cleanup,
-        toggle,
-        isActive,
-        forceValidate,
-        reloadRules,
-        runValidation,
-        parseOrders,
-        fetchValidationRules
+        init, cleanup, toggle, isActive, forceValidate, reloadRules,
+        runValidation, parseOrders, fetchValidationRules
     };
 
 })(config, GM, utils, api);
