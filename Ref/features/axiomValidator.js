@@ -1,4 +1,4 @@
-// 7axiomValidator.js — модуль валидации заказа перед отправкой
+// 8axiomValidator.js — модуль валидации заказа перед отправкой
 // Загружается динамически из config.json через Axiom Status Indicator
 // Возвращает API управления: { init, cleanup, toggle, isActive }
 
@@ -455,55 +455,46 @@
         return { passed: allFailedMessages.length === 0, messages: allFailedMessages };
     }
 
-    // === ПЕРЕХВАТ КНОПОК — 🔥 ИСПРАВЛЕННАЯ ВЕРСИЯ (как в axiomCalculatorValidator) ===
+    // === ПЕРЕХВАТ КНОПОК — 🔥 РАБОЧАЯ ВЕРСИЯ (как в axiomCalculatorValidator) ===
     function interceptButtons() {
         VALIDATION_BUTTONS.forEach(btnConfig => {
             const originalBtn = document.querySelector(btnConfig.selector);
-            if (!originalBtn || originalBtn.getAttribute(`data-${UNIQUE_PREFIX}intercepted`) === 'true') return;
+            if (!originalBtn) return;
+            if (originalBtn.getAttribute(`data-${UNIQUE_PREFIX}intercepted`) === 'true') return;
 
-            // 1. Помечаем оригинал
-            originalBtn.setAttribute(`data-${UNIQUE_PREFIX}intercepted`, 'true');
-            
-            // 2. Сохраняем оригинальный display для восстановления
+            // 1. Сохраняем оригинальный display
             const origDisplay = originalBtn.style.display || '';
             
-            // 3. Скрываем оригинал
+            // 2. Скрываем оригинал и помечаем
             originalBtn.style.display = 'none';
+            originalBtn.setAttribute(`data-${UNIQUE_PREFIX}intercepted`, 'true');
             originalButtons.push({ original: originalBtn, config: btnConfig, origDisplay: origDisplay });
 
-            // 4. 🔥 Создаём НОВУЮ кнопку (не клон!) — как в рабочем модуле
+            // 3. 🔥 Создаём НОВУЮ кнопку (простой createElement)
             const newBtn = document.createElement('button');
-            newBtn.type = originalBtn.type || 'button';
+            newBtn.type = 'button';
             
-            // Копируем классы — это даёт 99% стилей
+            // Копируем классы — это даёт все стили из CSS
             if (originalBtn.className) {
                 newBtn.className = originalBtn.className;
             }
             
             // Копируем текст
-            newBtn.textContent = originalBtn.textContent.trim() || 'Кнопка';
+            newBtn.textContent = originalBtn.textContent.trim();
             
-            // Копируем безопасные data-атрибуты (без UNIQUE_PREFIX)
-            Array.from(originalBtn.attributes).forEach(attr => {
-                if (attr.name.startsWith('data-') && !attr.name.includes(UNIQUE_PREFIX)) {
-                    newBtn.setAttribute(attr.name, attr.value);
-                }
-            });
-            
-            // 5. 🔥 Явно гарантируем видимость
-            newBtn.style.setProperty('display', 'inline-block', 'important');
-            newBtn.style.setProperty('visibility', 'visible', 'important');
-            newBtn.style.setProperty('opacity', '1', 'important');
-            newBtn.style.setProperty('pointer-events', 'auto', 'important');
+            // 4. 🔥 Гарантируем видимость (БЕЗ !important, как в рабочем модуле)
+            newBtn.style.display = '';
+            newBtn.style.visibility = 'visible';
+            newBtn.style.opacity = '1';
             newBtn.style.cursor = 'pointer';
-            newBtn.style.position = 'relative';
-            
-            // 6. Вставляем ПЕРЕД оригиналом (сохраняет позицию в вёрстке)
+            newBtn.style.pointerEvents = 'auto';
+
+            // 5. Вставляем ПЕРЕД оригиналом
             if (originalBtn.parentNode) {
                 originalBtn.parentNode.insertBefore(newBtn, originalBtn);
             }
 
-            // 7. Навешиваем валидацию на новую кнопку
+            // 6. Навешиваем валидацию
             newBtn.addEventListener('click', async (e) => {
                 e.preventDefault();
                 e.stopPropagation();
@@ -553,7 +544,7 @@
                     return false;
                 }
 
-                // ✅ Валидация пройдена — клик по скрытому оригиналу с его onclick
+                // ✅ Клик по скрытому оригиналу
                 originalBtn.click();
             });
         });
@@ -619,16 +610,15 @@
         
         // 🔥 Восстанавливаем оригиналы и удаляем новые кнопки
         originalButtons.forEach(({ original, origDisplay }) => {
-            if (original) {
+            if (original && original.parentNode) {
                 // Показываем оригинал
                 original.style.display = origDisplay || '';
                 original.removeAttribute(`data-${UNIQUE_PREFIX}intercepted`);
                 
-                // 🔥 Удаляем новую кнопку (она ПЕРЕД оригиналом)
-                const prevBtn = original.previousElementSibling;
-                if (prevBtn && prevBtn.tagName === 'BUTTON' && 
-                    !prevBtn.getAttribute(`data-${UNIQUE_PREFIX}intercepted`)) {
-                    prevBtn.remove();
+                // 🔥 Ищем и удаляем новую кнопку (она ПЕРЕД оригиналом)
+                const newBtn = original.previousElementSibling;
+                if (newBtn && newBtn.tagName === 'BUTTON') {
+                    newBtn.remove();
                 }
             }
         });
