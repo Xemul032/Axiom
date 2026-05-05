@@ -1,4 +1,4 @@
-// 8axiomValidator.js — модуль валидации заказа перед отправкой
+// 9axiomValidator.js — модуль валидации заказа перед отправкой
 // Загружается динамически из config.json через Axiom Status Indicator
 // Возвращает API управления: { init, cleanup, toggle, isActive }
 
@@ -47,6 +47,7 @@
     };
 
     // === ЗАГРУЗКА ПРАВИЛ ===
+    // ✅ ИСПРАВЛЕНИЕ #1: GM_xmlhttpRequest заменён на GM.xmlHttpRequest (совместимость с модульным окружением)
     async function fetchValidationRules() {
         const now = Date.now();
         if (validationRules && (now - rulesLastFetch) < RULES_CACHE_TIME) {
@@ -54,8 +55,8 @@
         }
 
         return new Promise((resolve) => {
-            if (typeof GM_xmlhttpRequest !== 'undefined') {
-                GM_xmlhttpRequest({
+            if (GM && typeof GM.xmlHttpRequest === 'function') {
+                GM.xmlHttpRequest({
                     method: 'GET',
                     url: RULES_URL,
                     onload: (response) => {
@@ -63,9 +64,9 @@
                             try {
                                 validationRules = JSON.parse(response.responseText);
                                 rulesLastFetch = now;
-                                if (typeof GM_setValue !== 'undefined') {
-                                    GM_setValue(`${UNIQUE_PREFIX}rules`, response.responseText);
-                                    GM_setValue(`${UNIQUE_PREFIX}rules_time`, now);
+                                if (GM && typeof GM.setValue === 'function') {
+                                    GM.setValue(`${UNIQUE_PREFIX}rules`, response.responseText);
+                                    GM.setValue(`${UNIQUE_PREFIX}rules_time`, now);
                                 }
                                 resolve(validationRules);
                             } catch (e) {
@@ -92,10 +93,10 @@
         });
     }
 
-    function loadCachedRules() {
-        if (typeof GM_getValue !== 'undefined') {
-            const cached = GM_getValue(`${UNIQUE_PREFIX}rules`);
-            const cachedTime = GM_getValue(`${UNIQUE_PREFIX}rules_time`);
+    async function loadCachedRules() {
+        if (GM && typeof GM.getValue === 'function') {
+            const cached = await GM.getValue(`${UNIQUE_PREFIX}rules`);
+            const cachedTime = await GM.getValue(`${UNIQUE_PREFIX}rules_time`);
             if (cached && cachedTime) {
                 try {
                     validationRules = JSON.parse(cached);
@@ -455,7 +456,9 @@
         return { passed: allFailedMessages.length === 0, messages: allFailedMessages };
     }
 
-    // === ПЕРЕХВАТ КНОПОК — 🔥 РАБОЧАЯ ВЕРСИЯ (как в axiomCalculatorValidator) ===
+    // === ПЕРЕХВАТ КНОПОК ===
+    // ✅ ИСПРАВЛЕНИЕ #2: Копируем ВСЕ атрибуты оригинальной кнопки (data-*, aria-*, name и т.д.)
+    // ✅ ИСПРАВЛЕНИЕ #3: Убран stopPropagation — не блокирует подменю и делегированные обработчики
     function interceptButtons() {
         VALIDATION_BUTTONS.forEach(btnConfig => {
             const originalBtn = document.querySelector(btnConfig.selector);
@@ -464,40 +467,47 @@
 
             // 1. Сохраняем оригинальный display
             const origDisplay = originalBtn.style.display || '';
-            
+
             // 2. Скрываем оригинал и помечаем
             originalBtn.style.display = 'none';
             originalBtn.setAttribute(`data-${UNIQUE_PREFIX}intercepted`, 'true');
-            originalButtons.push({ original: originalBtn, config: btnConfig, origDisplay: origDisplay });
+            originalButtons.push({ original: originalBtn, config: btnConfig, origDisplay });
 
-            // 3. 🔥 Создаём НОВУЮ кнопку (простой createElement)
+            // 3. Создаём новую кнопку
             const newBtn = document.createElement('button');
-            newBtn.type = 'button';
-            
-            // Копируем классы — это даёт все стили из CSS
-            if (originalBtn.className) {
-                newBtn.className = originalBtn.className;
-            }
-            
-            // Копируем текст
+            newBtn.type = originalBtn.type || 'button';
+
+            // ✅ Копируем ВСЕ атрибуты оригинала (кроме служебных)
+            Array.from(originalBtn.attributes).forEach(attr => {
+                if (
+                    attr.name === 'style' ||
+                    attr.name === `data-${UNIQUE_PREFIX}intercepted`
+                ) return;
+                try {
+                    newBtn.setAttribute(attr.name, attr.value);
+                } catch (e) { /* ignore */ }
+            });
+
+            // Копируем классы и текст
+            if (originalBtn.className) newBtn.className = originalBtn.className;
             newBtn.textContent = originalBtn.textContent.trim();
-            
-            // 4. 🔥 Гарантируем видимость (БЕЗ !important, как в рабочем модуле)
+
+            // 4. Гарантируем видимость
             newBtn.style.display = '';
             newBtn.style.visibility = 'visible';
             newBtn.style.opacity = '1';
             newBtn.style.cursor = 'pointer';
             newBtn.style.pointerEvents = 'auto';
 
-            // 5. Вставляем ПЕРЕД оригиналом
+            // 5. Вставляем перед оригиналом
             if (originalBtn.parentNode) {
                 originalBtn.parentNode.insertBefore(newBtn, originalBtn);
             }
 
             // 6. Навешиваем валидацию
+            // ✅ ИСПРАВЛЕНИЕ #3: e.stopPropagation() убран — не ломаем делегирование и подменю
             newBtn.addEventListener('click', async (e) => {
                 e.preventDefault();
-                e.stopPropagation();
 
                 const productName = parseProductName();
                 const mass = parseProductMass();
@@ -541,7 +551,7 @@
                             duration: 0
                         });
                     }
-                    return false;
+                    return;
                 }
 
                 // ✅ Клик по скрытому оригиналу
@@ -589,33 +599,49 @@
         domObserver.observe(document.body, { childList: true, subtree: true });
     }
 
+    // ✅ ИСПРАВЛЕНИЕ #4: Слишком ранний запуск — используем waitForButtons вместо голого setTimeout
+    function waitForButtons(callback) {
+        const maxAttempts = 30;
+        let attempts = 0;
+        const check = () => {
+            attempts++;
+            const found = VALIDATION_BUTTONS.some(btn => document.querySelector(btn.selector));
+            if (found) {
+                callback();
+            } else if (attempts < maxAttempts) {
+                setTimeout(check, 300);
+            }
+        };
+        check();
+    }
+
     // === API МОДУЛЯ ===
+    // ✅ ИСПРАВЛЕНИЕ #4: init использует waitForButtons — запуск только когда кнопки реально есть в DOM
     function init() {
         if (active) return;
         active = true;
         setupObserver();
-        setTimeout(runParser, 600);
+        waitForButtons(() => setTimeout(runParser, 200));
         fetchValidationRules();
     }
 
     function cleanup() {
         if (!active) return;
         active = false;
-        
+
         if (domObserver) {
             domObserver.disconnect();
             domObserver = null;
         }
         clearTimeout(debounceTimer);
-        
-        // 🔥 Восстанавливаем оригиналы и удаляем новые кнопки
+
+        // Восстанавливаем оригиналы и удаляем новые кнопки
         originalButtons.forEach(({ original, origDisplay }) => {
             if (original && original.parentNode) {
-                // Показываем оригинал
                 original.style.display = origDisplay || '';
                 original.removeAttribute(`data-${UNIQUE_PREFIX}intercepted`);
-                
-                // 🔥 Ищем и удаляем новую кнопку (она ПЕРЕД оригиналом)
+
+                // Ищем и удаляем новую кнопку (она стоит перед оригиналом)
                 const newBtn = original.previousElementSibling;
                 if (newBtn && newBtn.tagName === 'BUTTON') {
                     newBtn.remove();
@@ -626,6 +652,7 @@
         lastStateHash = '';
         isRunning = false;
     }
+
     function toggle() {
         active ? cleanup() : init();
     }
