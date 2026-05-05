@@ -21,7 +21,7 @@
         {
           "field": "client",
           "operator": "contains",
-          "value": "ООО ТЕСТ",
+          "value": "Линк",
           "caseSensitive": false,
           "failMessage": "⚠️ Заказчик 'ООО ТЕСТ' требует дополнительного согласования!"
         }
