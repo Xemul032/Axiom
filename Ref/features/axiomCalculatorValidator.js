@@ -1,4 +1,4 @@
-// 1axiomValidator.js — модуль валидации заказа перед отправкой
+// V.6.1 axiomCalculatorValidator.js — модуль валидации калькулятора перед расчётом
 // Загружается динамически из config.json через Axiom Status Indicator
 // Возвращает API управления: { init, cleanup, toggle, isActive }
 
@@ -6,623 +6,361 @@
     'use strict';
 
     // 🔥 Конфигурация из config.json
-    const UNIQUE_PREFIX = config?.uniquePrefix || 'axiom-val-';
-    const RULES_URL = config?.rulesUrl || 'https://raw.githubusercontent.com/Xemul032/Axiom/refs/heads/main/Ref/test_rules.json';
-    const RULES_CACHE_TIME = config?.rulesCacheTime || 5 * 60 * 1000;
-    const VALIDATION_BUTTONS = config?.validationButtons || [
-        {
-            selector: '#Summary > table > tbody > tr > td:nth-child(2) > table > tbody > tr.TimeFilesInfo > td.right > button',
-            trigger: 'Файлы получены'
-        },
-        {
-            selector: '#Summary > table > tbody > tr > td:nth-child(1) > div.right > div > button:nth-child(2)',
-            trigger: 'В работу с файлами'
-        }
-    ];
+    const RULES_URL = config?.rulesUrl || 'https://raw.githubusercontent.com/Xemul032/Axiom/refs/heads/main/Ref/calc_rules.json';
+    const UNIQUE_PREFIX = config?.uniquePrefix || 'axiom-calc-val-';
+    const CACHE_DURATION = config?.cacheDurationSec || 300;
+    const WRAPPED_ATTR = `data-${UNIQUE_PREFIX}wrapped`;
 
     // 🔥 Внутреннее состояние
+    let cachedRules = null;
+    let cacheTime = 0;
     let active = false;
+    let observer = null;
     let debounceTimer = null;
-    let isRunning = false;
-    let lastStateHash = '';
-    let validationRules = null;
-    let rulesLastFetch = 0;
-    let originalButtons = [];
-    let domObserver = null;
+    let isCalcActive = false;
 
     // ─────────────────────────────────────────────
-    // 🔥 Утилиты
+    // Утилиты
     // ─────────────────────────────────────────────
-    const clean = t => t ? t.replace(/\s+/g, ' ').replace(/&nbsp;/g, ' ').trim() : '';
-    const parseNum = str => {
-        if (!str) return 0;
-        const numStr = str.toString().replace(/\s/g, '').replace(',', '.');
-        const num = parseFloat(numStr);
-        return isNaN(num) ? 0 : num;
-    };
-    const getSelectedText = select => {
-        if (!select) return '';
-        if (select.selectedIndex >= 0 && select.options[select.selectedIndex]) {
-            return clean(select.options[select.selectedIndex].text);
-        }
-        return clean(select.value);
-    };
-
-    // ─────────────────────────────────────────────
-    // 🔥 Загрузка правил
-    // ─────────────────────────────────────────────
-    async function fetchValidationRules() {
-        const now = Date.now();
-        if (validationRules && (now - rulesLastFetch) < RULES_CACHE_TIME) {
-            return validationRules;
-        }
-
-        return new Promise((resolve) => {
-            if (typeof GM_xmlhttpRequest !== 'undefined') {
-                GM_xmlhttpRequest({
-                    method: 'GET',
-                    url: RULES_URL,
-                    onload: (response) => {
-                        if (response.status === 200) {
-                            try {
-                                validationRules = JSON.parse(response.responseText);
-                                rulesLastFetch = now;
-                                if (typeof GM_setValue !== 'undefined') {
-                                    GM_setValue(`${UNIQUE_PREFIX}rules`, response.responseText);
-                                    GM_setValue(`${UNIQUE_PREFIX}rules_time`, now);
-                                }
-                                resolve(validationRules);
-                            } catch (e) {
-                                resolve(loadCachedRules());
-                            }
-                        } else {
-                            resolve(loadCachedRules());
-                        }
-                    },
-                    onerror: () => resolve(loadCachedRules())
-                });
-            } else {
-                fetch(RULES_URL)
-                    .then(r => r.json())
-                    .then(data => {
-                        validationRules = data;
-                        rulesLastFetch = now;
-                        resolve(validationRules);
-                    })
-                    .catch(() => resolve(loadCachedRules()));
-            }
-        });
-    }
-
-    function loadCachedRules() {
-        if (typeof GM_getValue !== 'undefined') {
-            const cached = GM_getValue(`${UNIQUE_PREFIX}rules`);
-            const cachedTime = GM_getValue(`${UNIQUE_PREFIX}rules_time`);
-            if (cached && cachedTime) {
-                try {
-                    validationRules = JSON.parse(cached);
-                    rulesLastFetch = cachedTime;
-                    return validationRules;
-                } catch (e) { /* ignore */ }
-            }
-        }
-        validationRules = { rules: [], defaults: { failMessage: '⚠️ Проверка не пройдена' } };
-        return validationRules;
-    }
-
-    // ─────────────────────────────────────────────
-    // 🔥 Универсальные валидаторы
-    // ─────────────────────────────────────────────
-    const validators = {
-        contains: (value, expected, opts) => {
-            if (!value) return false;
-            const v = opts?.caseSensitive ? String(value) : String(value).toLowerCase();
-            const e = opts?.caseSensitive ? String(expected) : String(expected).toLowerCase();
-            return v.includes(e);
-        },
-        equals: (value, expected, opts) => {
-            if (!value) return false;
-            const v = opts?.caseSensitive ? String(value).trim() : String(value).trim().toLowerCase();
-            const e = opts?.caseSensitive ? String(expected).trim() : String(expected).trim().toLowerCase();
-            return v === e;
-        },
-        gt: (value, expected) => parseNum(value) > parseNum(expected),
-        gte: (value, expected) => parseNum(value) >= parseNum(expected),
-        lt: (value, expected) => parseNum(value) < parseNum(expected),
-        lte: (value, expected) => parseNum(value) <= parseNum(expected),
-        eq: (value, expected) => parseNum(value) === parseNum(expected),
-        exists: (value) => value && String(value).trim() !== '' && !['Не указано', 'Не указана'].includes(String(value).trim()),
-        notExists: (value) => !value || String(value).trim() === '' || ['Не указано', 'Не указана'].includes(String(value).trim()),
-        calc: (data, formula, expected, operator) => {
-            try {
-                const ctx = {
-                    req: parseNum(data?.stock?.req) || 0,
-                    stock: parseNum(data?.stock?.stock) || 0,
-                    others: parseNum(data?.stock?.others) || 0,
-                    res: parseNum(data?.stock?.res) || 0,
-                    summa: parseNum(data?.summa) || 0,
-                    mass: parseNum(data?.mass) || 0
-                };
-                const result = new Function('ctx', `with(ctx) { return ${formula}; }`)(ctx);
-                const exp = parseNum(expected);
-                const ops = { gt: r=>r>exp, gte: r=>r>=exp, lt: r=>r<exp, lte: r=>r<=exp, eq: r=>r===exp };
-                return ops[operator]?.(result) ?? false;
-            } catch (e) {
-                return false;
-            }
-        },
-        nestedStatus: (obj, path, expected) => {
-            const val = path.split('.').reduce((o, k) => o?.[k], obj);
-            const map = { 'не начат': '❌ НЕ НАЧАТ', 'в работе': '⏳ В РАБОТЕ', 'готово': '✅ ГОТОВО', 'нет данных': 'Нет данных' };
-            return (val?.status || val) === (map[expected?.toLowerCase()] || expected);
-        }
-    };
-
-    // ─────────────────────────────────────────────
-    // 🔥 Парсинг данных
-    // ─────────────────────────────────────────────
-    function parseProductName() {
-        const input = document.querySelector('#Top > form > div > div > div > input') || document.querySelector('.ProductName.form-control');
-        return input ? input.value.trim() : 'Не указано';
-    }
-
-    function parseProductMass() {
-        let mass = 'Не указана';
-        const massCell = document.querySelector('#Summary > table > tbody > tr > td:nth-child(1) > table.table.table-condensed.table-striped > tbody:nth-child(3) > tr:nth-child(8) > td:nth-child(2)');
-        if (massCell) {
-            mass = clean(massCell.textContent);
-        } else {
-            const labels = document.querySelectorAll('td');
-            for (let i = 0; i < labels.length; i++) {
-                if (clean(labels[i].textContent).includes('Масса тиража')) {
-                    const nextTd = labels[i].nextElementSibling;
-                    if (nextTd) { mass = clean(nextTd.textContent); break; }
-                }
-            }
-        }
-        return mass;
-    }
-
-    function parseProductSumma() {
-        let summa = 0, correction = 0;
-        const summaEl = document.querySelector('.summa.Summa#Summa, .Summa');
-        if (summaEl) summa = parseNum(summaEl.textContent || summaEl.value);
-        const correctionEl = document.querySelector('input.SummaCorrection');
-        if (correctionEl) correction = parseNum(correctionEl.value);
-        return { rawSumma: summa, rawCorrection: correction, total: (summa - correction).toFixed(2) };
-    }
-
-    function parseInvoiceInfo() {
-        const topButtons = document.querySelector('#TopButtons');
-        if (!topButtons) return { hasInvoice: false, invoiceNumber: null };
-        const invoiceBtn = Array.from(topButtons.querySelectorAll('a.btn')).find(btn => {
-            const text = clean(btn.textContent);
-            return text.startsWith('Счет') && text.match(/Счет\s*\d+/);
-        });
-        if (invoiceBtn) {
-            const text = clean(invoiceBtn.textContent);
-            const match = text.match(/Счет\s*(\d+)/);
-            if (match) return { hasInvoice: true, invoiceNumber: match[1], rawText: text };
-        }
-        return { hasInvoice: false, invoiceNumber: null };
-    }
-
-    function parseProductInfo() {
-        let client = 'Не указан', deliveryPoint = 'Не указана', address = 'Не указан';
-
-        const clientTextRow = document.querySelector('#Summary > table > tbody > tr > td:nth-child(1) > table > tbody:nth-child(2) > tr:nth-child(2)');
-        if (clientTextRow && clientTextRow.querySelector('td:first-child')?.textContent.includes('Контактное лицо')) {
-            client = clean(clientTextRow.querySelector('td:nth-child(2)').textContent);
-        } else {
-            const summaryCell = document.querySelector('#Summary > table > tbody > tr > td:nth-child(1) > table > tbody:nth-child(1) > tr:nth-child(2) > td:nth-child(2)');
-            if (summaryCell) {
-                const chosenLink = summaryCell.querySelector('div > a.chosen-single span');
-                client = chosenLink ? clean(chosenLink.textContent) : (summaryCell.querySelector('select[name="ClientId"]') ? getSelectedText(summaryCell.querySelector('select[name="ClientId"]')) : clean(summaryCell.textContent));
-            } else {
-                const sel = document.querySelector('select[name="ClientId"]');
-                if (sel) client = getSelectedText(sel);
-            }
-        }
-
-        const pointRow = document.querySelector('#Summary > table > tbody > tr > td:nth-child(1) > table > tbody:nth-child(3) > tr:nth-child(1)');
-        if (pointRow && pointRow.querySelector('td:first-child')?.textContent.includes('Точка выдачи')) {
-            const pointCell = pointRow.querySelector('td:nth-child(2)');
-            if (pointCell) {
-                const chosenSpan = pointCell.querySelector('.chosen-single span');
-                deliveryPoint = chosenSpan ? clean(chosenSpan.textContent) : (pointCell.querySelector('select') ? getSelectedText(pointCell.querySelector('select')) : clean(pointCell.textContent));
-            }
-        } else {
-            const houseSpan = document.querySelector('.HouseTargetId + .chosen-container .chosen-single span');
-            if (houseSpan) deliveryPoint = clean(houseSpan.textContent);
-            else {
-                const h = document.querySelector('select.HouseTargetId, select[name*="HouseTarget"]');
-                if (h) deliveryPoint = getSelectedText(h);
-            }
-        }
-
-        const addrRow = document.querySelector('#Summary > table > tbody > tr > td:nth-child(1) > table > tbody:nth-child(3) > tr:nth-child(2)');
-        if (addrRow && addrRow.querySelector('td:first-child')?.textContent.includes('Адрес доставки')) {
-            const addrCell = addrRow.querySelector('td:nth-child(2)');
-            if (addrCell) {
-                const addrInput = addrCell.querySelector('input.AddressText#AddressText, input[name*="AddressText"]');
-                if (addrInput?.value) address = clean(addrInput.value);
-                else {
-                    const chosenSpan = addrCell.querySelector('.chosen-single span');
-                    address = chosenSpan ? clean(chosenSpan.textContent) : (addrCell.querySelector('select') ? getSelectedText(addrCell.querySelector('select')) : clean(addrCell.textContent));
-                }
-            }
-        } else {
-            const addrInput = document.querySelector('input.AddressText#AddressText, input[name*="AddressText"]');
-            if (addrInput?.value) address = clean(addrInput.value);
-            else {
-                const aSpan = document.querySelector('.AddressId + .chosen-container .chosen-single span');
-                address = aSpan ? clean(aSpan.textContent) : (document.querySelector('select.AddressId, select[name*="AddressId"]') ? getSelectedText(document.querySelector('select.AddressId, select[name*="AddressId"]')) : '');
-            }
-        }
-
-        return { client, deliveryPoint, address };
-    }
-
-    function parseDesignBlock() {
-        const block = document.querySelector('#DesignBlockSummary');
-        if (!block) return null;
-        const table = block.querySelector('table');
-        if (!table) return null;
-        const designs = [];
-        table.querySelectorAll('tbody tr').forEach(row => {
-            const t1 = row.querySelector('td:first-child'), t2 = row.querySelector('td:nth-child(2)');
-            if (t1 && t2) {
-                const txt = clean(t1.textContent);
-                if (txt.length > 5 && txt.includes('руб')) {
-                    const ta = t2.querySelector('textarea');
-                    designs.push({ desc: txt, instr: ta ? clean(ta.value) : '' });
-                }
-            }
-        });
-        return designs.length > 0 ? designs : null;
-    }
-
-    function parseHistoryPrepress() {
-        const hist = document.querySelector('#History');
-        if (!hist) return null;
-        let check = { status: 'Нет данных', who: '', when: '' }, layout = { status: 'Нет данных', who: '', when: '' };
-        hist.querySelectorAll('tr').forEach(row => {
-            const first = row.querySelector('td:first-child');
-            if (!first) return;
-            const text = clean(first.textContent);
-            if (text.includes('Операция') || text.includes('Участник')) return;
-            if (text.includes('Препресс проверка')) {
-                check.who = row.querySelector('td:nth-child(3)')?.textContent.trim() || '';
-                check.when = row.querySelector('td:nth-child(4)')?.textContent.trim() || '';
-                check.status = (check.who && check.when) ? '✅ ГОТОВО' : (check.who ? '⏳ В РАБОТЕ' : '❌ НЕ НАЧАТ');
-            }
-            if (text.includes('Препресс монтаж')) {
-                layout.who = row.querySelector('td:nth-child(3)')?.textContent.trim() || '';
-                layout.when = row.querySelector('td:nth-child(4)')?.textContent.trim() || '';
-                layout.status = (layout.who && layout.when) ? '✅ ГОТОВО' : (layout.who ? '⏳ В РАБОТЕ' : '❌ НЕ НАЧАТ');
-            }
-        });
-        return { check, layout };
-    }
-
-    function parseGlobalPostpress() {
-        const globals = [];
-        const orders = Array.from(document.querySelectorAll('.formblock')).filter(b => b.className.match(/Order(\d+)/) && b.offsetParent !== null);
-        if (orders.length === 0) return globals;
-        let next = orders[orders.length - 1].nextElementSibling;
-        while (next) {
-            const table = next.tagName === 'TABLE' ? next : next.querySelector('table.table-condensed');
-            if (table) {
-                table.querySelectorAll('tr[class^="PostpressPrice"]').forEach(r => {
-                    const b = r.querySelector('b');
-                    if (b) { const n = clean(b.textContent); if (n && !globals.includes(n)) globals.push(n); }
-                });
-                if (globals.length > 0) break;
-            }
-            next = next.nextElementSibling;
-        }
-        return globals;
-    }
-
-    function parseOrders() {
-        const orders = [];
-        document.querySelectorAll('.formblock').forEach(block => {
-            const m = block.className.match(/Order(\d+)/);
-            if (!m || block.offsetParent === null) return;
-            const id = m[1];
-            const nameEl = block.querySelector('.OrderName');
-            const name = nameEl ? (nameEl.value || clean(nameEl.textContent)) : 'Без названия';
-            let printInfo = '', colorInfo = '', paperInfo = '';
-            const header = block.querySelector('td[align="right"] h4, td[align="right"] nobr h4');
-            if (header) {
-                const clone = header.cloneNode(true);
-                clone.querySelectorAll('script, button, .glyphicon, .label, .hide, .btn, .PrepressControllerOrder').forEach(e => e.remove());
-                printInfo = clean(clone.textContent);
-            }
-            const cRow = [...block.querySelectorAll('tr')].find(tr => { const f = tr.querySelector('td.fieldname'); return f && clean(f.textContent) === 'Цветность'; });
-            if (cRow) { const s = cRow.querySelector('td.center span'); colorInfo = s ? clean(s.textContent) : 'N/A'; }
-            const pLabel = [...block.querySelectorAll('td.fieldname')].find(td => clean(td.textContent) === 'Бумага');
-            if (pLabel) {
-                const v = pLabel.nextElementSibling;
-                if (v) { const cl = v.cloneNode(true); cl.querySelectorAll('span, div, script, button, .glyphicon, .MaterialCommentForm').forEach(e => e.remove()); paperInfo = clean(cl.textContent); }
-            }
-            let stock = { req: '-', res: '-', stock: '-', others: '-' };
-            const sklad = block.querySelector('td.SkladBlock');
-            if (sklad) {
-                sklad.querySelectorAll('tr').forEach(tr => {
-                    const [k, v] = tr.querySelectorAll('td');
-                    if (k && v) {
-                        const key = clean(k.textContent), val = clean(v.textContent) || '-';
-                        if (key.includes('Требуется')) stock.req = val;
-                        else if (key.includes('Использовано') || key.includes('зарезервировано')) stock.res = val;
-                        else if (key.includes('На складе')) stock.stock = val;
-                        else if (key.includes('Другие заказы')) stock.others = val;
-                    }
-                });
-            }
-            const localPP = [];
-            block.querySelectorAll('table.table-condensed tr[class^="PostpressPrice"], table.inner tr[class^="PostpressPrice"]').forEach(r => { const b = r.querySelector('b'); if (b) localPP.push(clean(b.textContent)); });
-            orders.push({ id, name, printInfo, colorInfo, paperInfo, stock, localPP });
-        });
-        return orders;
-    }
-
-    // ─────────────────────────────────────────────
-    // 🔥 Движок валидации
-    // ─────────────────────────────────────────────
-    function getNestedValue(obj, path) {
-        return path.split('.').reduce((o, k) => o?.[k], obj);
-    }
-
-    function evaluateCondition(condition, data) {
-        const { field, operator, value, options, formula, expectedOperator, source, failMessage } = condition;
-
-        let context = data;
-        if (source === 'orders' && data.orders?.length) {
-            const orders = condition.checkAll ? data.orders : [data.orders[0]];
-            const results = orders.map(ord => {
-                const ctx = { ...data, ...ord, stock: ord.stock };
-                const fieldValue = field ? getNestedValue(ctx, field) : ctx;
-                return runValidator(operator, fieldValue, value, options, ctx, formula, expectedOperator);
-            });
-            const passed = condition.any ? results.some(r => r.passed) : results.every(r => r.passed);
-            return {
-                passed,
-                message: passed ? null : (failMessage || results.find(r => !r.passed)?.message || '⚠️ Проверка не пройдена')
-            };
-        }
-
-        const fieldValue = field ? getNestedValue(context, field) : context;
-        const result = runValidator(operator, fieldValue, value, options, context, formula, expectedOperator);
-        return {
-            passed: result,
-            message: result ? null : (failMessage || '⚠️ Проверка не пройдена')
+    function debounce(fn, delay) {
+        return (...args) => {
+            clearTimeout(debounceTimer);
+            debounceTimer = setTimeout(() => fn.apply(this, args), delay);
         };
     }
 
-    function runValidator(operator, fieldValue, value, options, context, formula, expectedOperator) {
-        if (operator === 'calc' && formula) {
-            return validators.calc(context, formula, value, expectedOperator);
+    // 📥 Загрузка и кэширование правил
+    async function loadRules() {
+        const now = Date.now();
+        if (cachedRules && now - cacheTime < CACHE_DURATION * 1000) return cachedRules;
+        try {
+            const res = await fetch(RULES_URL);
+            if (!res.ok) throw new Error(`HTTP ${res.status}`);
+            cachedRules = await res.json();
+            cacheTime = now;
+            return cachedRules;
+        } catch (e) {
+            return cachedRules || [];
         }
-        if (operator === 'nestedStatus') {
-            return validators.nestedStatus(fieldValue, options?.path, value);
-        }
-        const validator = validators[operator];
-        if (!validator) return false;
-        return validator(fieldValue, value, options);
     }
 
-    function evaluateRule(rule, data) {
-        if (!rule.conditions?.length) return { passed: true, messages: [] };
+    // 🔍 Определение типа калькулятора
+    function detectCalculatorType() {
+        let type = 'Неизвестный';
+        let found = false;
+        if (document.querySelector("#Skrepka")) { type = "Многостраничная"; found = true; }
+        else {
+            const pt = document.querySelector("#ProductTirazh");
+            if (pt) {
+                if (pt.classList.contains("superhead")) { type = "Листовая"; found = true; }
+                else if (pt.classList.contains("need")) { type = "Составное"; found = true; }
+            }
+        }
+        if (!found && document.querySelector("#size_max")) { type = "Перекидной календарь"; found = true; }
+        if (!found && document.querySelector("#size_h")) { type = "Календарь-домик"; found = true; }
+        return { type, found };
+    }
 
-        const logic = rule.logic || 'AND';
-        const results = rule.conditions.map(cond => evaluateCondition(cond, data));
+    // 📊 Сбор данных ордера
+    function getOrderData(el) {
+        const getVal = id => el.querySelector(`input#${id}`)?.value?.trim() || '';
+        const layoutSel = el.querySelector('select#CifraLayoutType');
+        const layoutVal = layoutSel ? (layoutSel.options[layoutSel.selectedIndex]?.text || layoutSel.value) : '';
 
-        if (logic === 'AND') {
-            const failed = results.filter(r => !r.passed);
-            return {
-                passed: failed.length === 0,
-                messages: failed.map(r => r.message).filter(Boolean)
-            };
+        // 🔥 Получаем бумагу из Chosen.js dropdown
+        const paperSpan = el.querySelector('.chosen-container .chosen-single span');
+        const paper = paperSpan ? paperSpan.textContent.trim() : '';
+
+        const postpress = [];
+        const list = el.querySelector('#PostpressList');
+        if (list) {
+            list.querySelectorAll('tr').forEach(row => {
+                if (row.closest('thead')) return;
+                const nameTd = row.querySelector('td');
+                const name = nameTd ? nameTd.textContent.replace(/\s+/g, ' ').trim() : '';
+                if (!name) return;
+                let qty = '1';
+                const qtyInput = row.querySelector('input#Quantity');
+                if (qtyInput) qty = qtyInput.value.trim() || '1';
+                else {
+                    const cells = row.querySelectorAll('td');
+                    if (cells[1]) qty = cells[1].textContent.trim() || '1';
+                }
+                postpress.push({ name, qty: parseFloat(qty) || 0 });
+            });
+        }
+        return {
+            tirazh: parseFloat(getVal('Tirazh')) || 0,
+            pages: parseFloat(getVal('Pages')) || 1,
+            trim: parseFloat(getVal('TrimSize')) || 0,
+            cifra_layout: layoutVal,
+            paper: paper,  // 🔥 Новое поле
+            postpress_text: postpress.map(p => p.name).join(' | '),
+            postpress: postpress
+        };
+    }
+
+    // 🌍 Сбор глобальных данных
+    function getGlobalData() {
+        const container = document.querySelector("#Doc > div > div:nth-child(2)") || document.querySelector(".calc_input > div.block:first-child");
+        const getVal = id => container?.querySelector(`input#${id}`)?.value?.trim() || '';
+
+        // 🔥 Получаем название заказа из #ProdName
+        const prodNameInput = document.querySelector('#ProdName');
+        const prod_name = prodNameInput ? prodNameInput.value.trim() : '';
+
+        const postpress = [];
+        const list = document.querySelector('#ProductPostpress > #PostpressList, #ProductPostpress tbody#PostpressList');
+        if (list) {
+            list.querySelectorAll('tr').forEach(row => {
+                if (row.closest('thead')) return;
+                const nameTd = row.querySelector('td');
+                const name = nameTd ? nameTd.textContent.replace(/\s+/g, ' ').trim() : '';
+                if (!name) return;
+                let qty = '1';
+                const qtyInput = row.querySelector('input#Quantity');
+                if (qtyInput) qty = qtyInput.value.trim() || '1';
+                else {
+                    const cells = row.querySelectorAll('td');
+                    if (cells[1]) qty = cells[1].textContent.trim() || '1';
+                }
+                postpress.push({ name, qty: parseFloat(qty) || 0 });
+            });
+        }
+        return {
+            tirazh: parseFloat(getVal('Tirazh')) || 0,
+            size_w: parseFloat(getVal('SizeWidth')) || 0,
+            size_h: parseFloat(getVal('SizeHeight')) || 0,
+            prod_name: prod_name,  // 🔥 Новое поле
+            postpress_text: postpress.map(p => p.name).join(' | '),
+            postpress: postpress
+        };
+    }
+
+    // ⚙️ Движок проверки условия (ИСПРАВЛЕНО: поддержка target_op для postpress_qty)
+    function checkCondition(cond, data) {
+        const { field, op, value, target_op } = cond;
+        
+        // 🔥 Специальная обработка: количество конкретной операции
+        if (field === 'postpress_qty' && target_op && data.postpress) {
+            const target = data.postpress.find(p => 
+                p.name.toUpperCase().includes(target_op.toUpperCase())
+            );
+            if (!target) return false; // Операция не найдена
+            
+            const qty = Number(target.qty);
+            const val = Number(value);
+            
+            switch(op) {
+                case 'eq': return qty == val;
+                case 'neq': return qty != val;
+                case 'gt': return qty > val;
+                case 'gte': return qty >= val;
+                case 'lt': return qty < val;
+                case 'lte': return qty <= val;
+                default: return false;
+            }
+        }
+        
+        // Стандартная проверка
+        let target = data[field];
+        if (target === undefined) return false;
+
+        switch (op) {
+            case 'eq': return target == value;
+            case 'neq': return target != value;
+            case 'gt': return Number(target) > Number(value);
+            case 'gte': return Number(target) >= Number(value);
+            case 'lt': return Number(target) < Number(value);
+            case 'lte': return Number(target) <= Number(value);
+            case 'contains': return String(target).toUpperCase().includes(String(value).toUpperCase());
+            case 'not_contains': return !String(target).toUpperCase().includes(String(value).toUpperCase());
+            default: return false;
+        }
+    }
+
+    // ✅ ВАЛИДАЦИЯ ПЕРЕД РАСЧЕТОМ (v6.1 — исправлена работа глобальных правил)
+    async function validateAndCalculate(originalBtn) {
+        const rules = await loadRules();
+        const errors = [];
+
+        const orderContainers = Array.from(document.querySelectorAll('[id^="Order"]'))
+            .filter(el => /^Order\d+$/.test(el.id) && window.getComputedStyle(el).display !== 'none' && window.getComputedStyle(el).visibility !== 'hidden')
+            .sort((a, b) => parseInt(a.id.replace('Order', '')) - parseInt(b.id.replace('Order', '')));
+
+        const globalData = getGlobalData();
+
+        for (const rule of rules) {
+            // 1. Глобальные условия — фильтр
+            const globalConds = rule.conditions.filter(c => c.scope === 'global');
+            if (!globalConds.every(c => checkCondition(c, globalData))) continue;
+
+            // 2. Локальные условия — проверка по ордерам
+            const orderConds = rule.conditions.filter(c => c.scope === 'order');
+            
+            // 🔥 Если правило чисто глобальное (нет order-условий)
+            if (orderConds.length === 0) {
+                errors.push({ message: rule.message, isGlobal: true });
+                continue;
+            }
+            
+            // 🔥 Если есть order-условия — проверяем каждый ордер
+            orderContainers.forEach((el, idx) => {
+                const num = idx + 1;
+                const name = getOrderName(el, idx);
+                const orderData = getOrderData(el);
+
+                const orderOk = orderConds.every(c => checkCondition(c, orderData));
+
+                if (orderOk) {
+                    errors.push({
+                        message: rule.message,
+                        orderNum: num,
+                        orderName: name,
+                        isGlobal: false
+                    });
+                }
+            });
+        }
+
+        // 🎯 Результат валидации
+        if (errors.length === 0) {
+            originalBtn.click();
         } else {
-            const passed = results.some(r => r.passed);
-            return {
-                passed,
-                messages: passed ? [] : results.map(r => r.message).filter(Boolean)
-            };
-        }
-    }
+            const formattedErrors = errors.map((err, idx) => {
+                if (err.isGlobal) {
+                    return `<b>${idx + 1}.</b> ${err.message}`;
+                }
+                return `<b>${idx + 1}.</b> Ордер №${err.orderNum} (${err.orderName}):<br>${err.message}`;
+            });
 
-    function runValidation(data) {
-        if (!validationRules?.rules?.length) return { passed: true, messages: [] };
-        const allFailedMessages = [];
-
-        for (const rule of validationRules.rules) {
-            if (rule.triggers?.length) {
-                const match = rule.triggers.some(t => {
-                    const val = getNestedValue(data, t.field);
-                    return validators[t.operator]?.(val, t.value, t.options);
+            if (api?.showCenterMessage) {
+                api.showCenterMessage({
+                    title: '⚠️ Ошибки валидации',
+                    message: formattedErrors.join('<hr style="margin:8px 0;opacity:0.3">'), 
+                    buttonText: 'Понятно, исправлю',
+                    duration: 0,
+                    type: 'error'
                 });
-                if (!match) continue;
-            }
-
-            const ruleResult = evaluateRule(rule, data);
-            if (!ruleResult.passed) {
-                if (ruleResult.messages.length > 0) {
-                    allFailedMessages.push(...ruleResult.messages);
-                }
-                if (rule.failMessage) {
-                    allFailedMessages.push(rule.failMessage);
-                } else if (ruleResult.messages.length === 0) {
-                    allFailedMessages.push(validationRules.defaults?.failMessage || '⚠️ Проверка не пройдена');
-                }
+            } else {
+                console.group('%c❌ ОШИБКИ ВАЛИДАЦИИ', 'color: #dc3545; font-weight: bold;');
+                errors.forEach((err, i) => {
+                    const prefix = err.isGlobal ? '[Глобально]' : `Ордер №${err.orderNum} (${err.orderName})`;
+                    console.log(`🔴 ${prefix}: ${err.message}`);
+                });
+                console.groupEnd();
             }
         }
-        return { passed: allFailedMessages.length === 0, messages: allFailedMessages };
     }
 
-    // ─────────────────────────────────────────────
-    // 🔥 Перехват кнопок — 🔥 ИСПРАВЛЕННАЯ ВЕРСИЯ
-    // ─────────────────────────────────────────────
-    function interceptButtons() {
-        VALIDATION_BUTTONS.forEach(btnConfig => {
-            const originalBtn = document.querySelector(btnConfig.selector);
-            if (!originalBtn) return;
-            
-            // 🔥 Проверка через атрибут (не dataset!)
-            if (originalBtn.getAttribute(`data-${UNIQUE_PREFIX}wrapped`) === 'true') return;
+    // 🔘 Замена кнопки расчёта
+    function setupCalculateButton() {
+        const originalBtn = document.querySelector('button[onclick*="ProductSave"]');
+        if (!originalBtn) return;
+        if (originalBtn.getAttribute(WRAPPED_ATTR) === 'true') return;
 
-            // 🔥 Получаем РЕАЛЬНЫЙ отображаемый стиль ДО скрытия
-            const origStyle = window.getComputedStyle(originalBtn);
-            const origDisplay = origStyle.display;
-            const origVisibility = origStyle.visibility;
-            
-            // Скрываем оригинал и помечаем
-            originalBtn.style.setProperty('display', 'none', 'important');
-            originalBtn.setAttribute(`data-${UNIQUE_PREFIX}wrapped`, 'true');
-            
-            originalButtons.push({ original: originalBtn, config: btnConfig });
+        const origDisplay = originalBtn.style.display || '';
+        originalBtn.style.display = 'none';
+        originalBtn.setAttribute(WRAPPED_ATTR, 'true');
+        originalBtn.dataset._origDisplay = origDisplay;
 
-            // 🔥 Создаём НОВУЮ кнопку (не клон!), чтобы не наследовать display:none
-            const newBtn = document.createElement(originalBtn.tagName);
-            newBtn.type = originalBtn.type || 'button';
-            
-            // Копируем классы
-            if (originalBtn.className) {
-                newBtn.className = originalBtn.className;
-            }
-            
-            // Копируем текст/HTML
-            if (originalBtn.textContent) {
-                newBtn.textContent = originalBtn.textContent;
-            } else if (originalBtn.innerHTML) {
-                newBtn.innerHTML = originalBtn.innerHTML;
-            }
-            
-            // Копируем только безопасные атрибуты
-            Array.from(originalBtn.attributes).forEach(attr => {
-                const name = attr.name;
-                if (name === 'id') {
-                    newBtn.setAttribute('id', name + '-validated');
-                } else if (name.startsWith('data-') && !name.includes(UNIQUE_PREFIX)) {
-                    newBtn.setAttribute(name, attr.value);
-                } else if (['title', 'aria-label'].includes(name)) {
-                    newBtn.setAttribute(name, attr.value);
-                }
-            });
-            
-            // 🔥 Явно делаем кнопку видимой с приоритетом !important
-            newBtn.style.setProperty('display', origDisplay || 'inline-block', 'important');
-            newBtn.style.setProperty('visibility', 'visible', 'important');
-            newBtn.style.setProperty('opacity', '1', 'important');
-            newBtn.style.setProperty('pointer-events', 'auto', 'important');
-            newBtn.style.cursor = 'pointer';
-            newBtn.style.position = 'relative';
-            newBtn.style.zIndex = '10';
+        const newBtn = document.createElement('button');
+        newBtn.type = 'button';
+        newBtn.className = originalBtn.className || '';
+        newBtn.textContent = 'Рассчитать';
+        newBtn.style.display = '';
+        newBtn.style.visibility = 'visible';
+        newBtn.style.opacity = '1';
+        newBtn.style.cursor = 'pointer';
 
-            // 🔥 Обработчик клика
-            newBtn.addEventListener('click', async (e) => {
-                e.preventDefault();
-                e.stopPropagation();
+        if (originalBtn.parentNode) {
+            originalBtn.parentNode.insertBefore(newBtn, originalBtn);
+        }
 
-                const productName = parseProductName();
-                const mass = parseProductMass();
-                const summaData = parseProductSumma();
-                const invoiceInfo = parseInvoiceInfo();
-                const productInfo = parseProductInfo();
-                const designData = parseDesignBlock();
-                const prepress = parseHistoryPrepress();
-                const globalPP = parseGlobalPostpress();
-                const orders = parseOrders();
-
-                const validationData = {
-                    productName,
-                    summa: summaData.total,
-                    rawSumma: summaData.rawSumma,
-                    mass,
-                    invoice: invoiceInfo.hasInvoice,
-                    invoiceNumber: invoiceInfo.invoiceNumber,
-                    client: productInfo.client,
-                    deliveryPoint: productInfo.deliveryPoint,
-                    address: productInfo.address,
-                    prepress,
-                    globalPP,
-                    orders: orders.map(o => ({
-                        id: o.id, name: o.name, paperInfo: o.paperInfo,
-                        stock: o.stock, localPP: o.localPP
-                    })),
-                    stock: orders[0]?.stock,
-                    design: designData?.map(d => d.desc).join(' | ') || ''
-                };
-
-                await fetchValidationRules();
-                const result = runValidation(validationData);
-
-                if (!result.passed) {
-                    if (api?.showCenterMessage) {
-                        const formattedErrors = result.messages.map((msg, idx) => `${idx + 1}. ${msg}`).join('<br><br>');
-                        api.showCenterMessage({
-                            message: formattedErrors,
-                            buttonText: 'Понятно',
-                            duration: 0
-                        });
-                    }
-                    return false;
-                }
-
-                originalBtn.click();
-            });
-
-            // 🔥 Вставляем ПЕРЕД оригиналом (гарантированно работает)
-            if (originalBtn.parentNode) {
-                originalBtn.parentNode.insertBefore(newBtn, originalBtn);
-            }
+        newBtn.addEventListener('click', (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            validateAndCalculate(originalBtn);
         });
     }
 
-    // ─────────────────────────────────────────────
-    // 🔥 Парсер для запуска (без вывода в консоль)
-    // ─────────────────────────────────────────────
-    function runParser() {
-        if (isRunning) return;
-        isRunning = true;
-
-        const productName = parseProductName();
-        const mass = parseProductMass();
-        const summaData = parseProductSumma();
-        const invoiceInfo = parseInvoiceInfo();
-        const productInfo = parseProductInfo();
-        const designData = parseDesignBlock();
-        const prepress = parseHistoryPrepress();
-        const globalPP = parseGlobalPostpress();
-        const orders = parseOrders();
-
-        const currentState = JSON.stringify({
-            n: productName, m: mass, s: summaData, inv: invoiceInfo,
-            p: productInfo, d: designData, pp: prepress,
-            gpp: globalPP?.sort?.(),
-            o: orders.map(o => ({ id: o.id, name: o.name, ppCount: o.localPP?.length }))
+    // 📦 Вспомогательные функции (без логов)
+    function extractPostpressOps(listElement) {
+        if (!listElement) return [];
+        const ops = [];
+        listElement.querySelectorAll('tr').forEach(row => {
+            if (row.closest('thead')) return;
+            const nameTd = row.querySelector('td');
+            const name = nameTd ? nameTd.textContent.replace(/\s+/g, ' ').trim() : '';
+            if (!name) return;
+            let qty = '1';
+            const qtyInput = row.querySelector('input#Quantity');
+            if (qtyInput && qtyInput.value.trim()) qty = qtyInput.value.trim();
+            else {
+                const cells = row.querySelectorAll('td');
+                if (cells.length > 1) {
+                    const val = cells[1].textContent.replace(/\s+/g, ' ').trim();
+                    if (val && !isNaN(parseFloat(val))) qty = val;
+                }
+            }
+            ops.push({ name, qty });
         });
+        return ops;
+    }
+    function getGlobalPostpressOps() { return extractPostpressOps(document.querySelector('#ProductPostpress > #PostpressList, #ProductPostpress tbody#PostpressList')); }
+    function getOrderPostpressOps(c) { return extractPostpressOps(c.querySelector('#Postpress #PostpressList, #PostpressList')); }
 
-        if (currentState === lastStateHash) { isRunning = false; return; }
-        lastStateHash = currentState;
-
-        setTimeout(interceptButtons, 300);
-        isRunning = false;
+    function getOrderName(container, idx) {
+        const input = container.querySelector('input#name, input.head');
+        if (input && input.value.trim()) return input.value.trim();
+        const headEl = container.querySelector('td.head, .head');
+        if (headEl) return headEl.textContent.trim();
+        if (container.id === 'Order0' && document.querySelector('#Skrepka')) return 'Обложка';
+        return `Блок ${idx + 1}`;
+    }
+    function getOrderPaper(orderEl) { const s = orderEl.querySelector('.chosen-container .chosen-single span'); return s ? s.textContent.trim() : 'Не выбрано'; }
+    function getOrderFields(orderEl) {
+        const g = id => orderEl.querySelector(`input#${id}`)?.value?.trim() || '';
+        return { sizeW: g('SizeWidth'), sizeH: g('SizeHeight'), tirazh: g('Tirazh'), pages: g('Pages'), trim: g('TrimSize'), paper: getOrderPaper(orderEl) };
+    }
+    function getMultipageGlobalConfig() {
+        const c = document.querySelector("#Doc > div > div:nth-child(2)") || document.querySelector(".calc_input > div.block:first-child");
+        if (!c) return null;
+        const g = id => c.querySelector(`input#${id}`)?.value?.trim() || '';
+        const b = c.querySelector('#Binding');
+        return { tirazh: g('Tirazh'), sizeW: g('SizeWidth'), sizeH: g('SizeHeight'), trim: g('TrimSize'), binding: b ? b.options[b.selectedIndex]?.text?.trim() : 'Не выбрано' };
     }
 
-    // ─────────────────────────────────────────────
-    // 🔥 Настройка observer'ов
-    // ─────────────────────────────────────────────
+    // 📊 Анализ и настройка
+    function analyzeCalculator() {
+        const calcRoot = document.querySelector('.calc_input');
+        const postpressRoot = document.querySelector('#ProductPostpress');
+        if (!calcRoot || !postpressRoot) {
+            if (active) isCalcActive = false;
+            return;
+        }
+
+        const { type: calcType, found: typeFound } = detectCalculatorType();
+        if (!typeFound || calcType.includes("Календарь")) {
+            if (active) isCalcActive = false;
+            return;
+        }
+
+        isCalcActive = true;
+        setupCalculateButton();
+        getGlobalPostpressOps();
+    }
+
+    const runAnalysis = debounce(analyzeCalculator, 500);
+
     function setupObserver() {
-        if (domObserver) domObserver.disconnect();
-        
-        domObserver = new MutationObserver(() => {
-            clearTimeout(debounceTimer);
-            debounceTimer = setTimeout(runParser, 400);
+        if (observer) observer.disconnect();
+        observer = new MutationObserver(m => {
+            if (m.some(x => x.type === 'childList' || (x.type === 'attributes' && ['checked','value','class','style'].includes(x.attributeName)))) {
+                runAnalysis();
+            }
         });
-        
-        domObserver.observe(document.body, { childList: true, subtree: true });
+        observer.observe(document.body, { childList: true, subtree: true, attributes: true, attributeFilter: ['checked','value','class','style'] });
     }
 
     // ─────────────────────────────────────────────
@@ -631,41 +369,30 @@
     function init() {
         if (active) return;
         active = true;
-        
         setupObserver();
-        setTimeout(runParser, 600);
-        fetchValidationRules();
+        runAnalysis();
     }
 
     function cleanup() {
         if (!active) return;
         active = false;
         
-        if (domObserver) {
-            domObserver.disconnect();
-            domObserver = null;
+        if (observer) {
+            observer.disconnect();
+            observer = null;
         }
         clearTimeout(debounceTimer);
         
-        // 🔥 Восстанавливаем оригинальные кнопки
-        originalButtons.forEach(({ original }) => {
-            if (original && original.parentNode) {
-                // Показываем оригинал
-                original.style.removeProperty('display');
-                original.style.removeProperty('visibility');
-                original.removeAttribute(`data-${UNIQUE_PREFIX}wrapped`);
-                
-                // 🔥 Удаляем новую кнопку (она всегда ПЕРЕД оригиналом)
-                const prevBtn = original.previousElementSibling;
-                if (prevBtn && prevBtn.getAttribute(`data-${UNIQUE_PREFIX}wrapped`) !== 'true') {
-                    prevBtn.remove();
-                }
+        document.querySelectorAll(`button[${WRAPPED_ATTR}="true"]`).forEach(wrappedBtn => {
+            wrappedBtn.style.display = wrappedBtn.dataset._origDisplay || '';
+            delete wrappedBtn.dataset._origDisplay;
+            wrappedBtn.removeAttribute(WRAPPED_ATTR);
+            
+            const fakeBtn = wrappedBtn.nextElementSibling;
+            if (fakeBtn && fakeBtn.textContent.trim() === 'Рассчитать') {
+                fakeBtn.remove();
             }
         });
-        originalButtons = [];
-        
-        lastStateHash = '';
-        isRunning = false;
     }
 
     function toggle() {
@@ -676,22 +403,12 @@
         return active;
     }
 
-    // 🔥 Публичные методы
-    function forceValidate() {
-        runParser();
-    }
-
-    function reloadRules() {
-        rulesLastFetch = 0;
-        return fetchValidationRules();
-    }
-
     // 🔥 Авто-запуск
     if (config?.autoInit !== false) {
         if (document.readyState === 'loading') {
             document.addEventListener('DOMContentLoaded', init);
         } else {
-            setTimeout(init, 100);
+            init();
         }
     }
 
@@ -701,11 +418,9 @@
         cleanup,
         toggle,
         isActive,
-        forceValidate,
-        reloadRules,
-        runValidation,
-        parseOrders,
-        fetchValidationRules
+        validateAndCalculate,
+        loadRules,
+        checkCondition
     };
 
 })(config, GM, utils, api);
