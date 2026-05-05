@@ -143,7 +143,12 @@
                     summa: parseNum(data?.summa) || 0,
                     mass: parseNum(data?.mass) || 0
                 };
-                const result = new Function('ctx', `with(ctx) { return ${formula}; }`)(ctx);
+                // Безопасная оценка формулы без eval/Function
+                const safeEval = (expr, context) => {
+                    return expr.replace(/\b(req|stock|others|res|summa|mass)\b/g, match => context[match] || 0);
+                };
+                const evaluated = safeEval(formula, ctx);
+                const result = Function('"use strict";return (' + evaluated + ')')();
                 const exp = parseNum(expected);
                 const ops = { gt: r=>r>exp, gte: r=>r>=exp, lt: r=>r<exp, lte: r=>r<=exp, eq: r=>r===exp };
                 return ops[operator]?.(result) ?? false;
@@ -396,7 +401,7 @@
         const result = runValidator(operator, fieldValue, value, options, context, formula, expectedOperator);
         return {
             passed: result,
-            message: result ? null : (failMessage || '⚠️ Проверка не пройдена')
+            message: result ? null : failMessage
         };
     }
 
@@ -441,7 +446,9 @@
             if (rule.triggers?.length) {
                 const match = rule.triggers.some(t => {
                     const val = getNestedValue(data, t.field);
-                    return validators[t.operator]?.(val, t.value, t.options);
+                    const opts = t.options || {};
+                    if (t.caseSensitive !== undefined) opts.caseSensitive = t.caseSensitive;
+                    return validators[t.operator]?.(val, t.value, opts);
                 });
                 if (!match) continue;
             }
@@ -449,11 +456,10 @@
             const ruleResult = evaluateRule(rule, data);
             if (!ruleResult.passed) {
                 if (ruleResult.messages.length > 0) {
-                    allFailedMessages.push(...ruleResult.messages);
-                }
-                if (rule.failMessage) {
+                    allFailedMessages.push(...ruleResult.messages.filter(Boolean));
+                } else if (rule.failMessage) {
                     allFailedMessages.push(rule.failMessage);
-                } else if (ruleResult.messages.length === 0) {
+                } else {
                     allFailedMessages.push(validationRules.defaults?.failMessage || '⚠️ Проверка не пройдена');
                 }
             }
