@@ -4,20 +4,28 @@
   },
   "rules": [
     {
-      "name": "Проверка бумаги",
-      "logic": "AND",
+      "name": "Проверка 1: Достаточно ли бумаги",
+      "description": "Проверяет наличие бумаги и показывает имя ордера",
       "conditions": [
         {
-          "operator": "calc",
-          "formula": "req + 50",
-          "expectedOperator": "gt",
-          "value": "stock - others",
-          "source": "orders",
-          "failMessage": "❌ КОНКРЕТНО: Бумаги не хватает! (Требуется: {{req}} + 50 > На складе: {{stock}} - Другие: {{others}})"
+          "field": "paperStock",
+          "operator": "paperStock",
+          "failMessage": "❌ НЕ ХВАТАЕТ БУМАГИ! Проверьте ордер (см. детали в консоли)"
         }
-      ],
-      "failMessage": "🚫 Заказ заблокирован: проблема с бумагой"
+      ]
+    },
+    {
+      "name": "Проверка 2: Специальный заказчик",
+      "description": "Проверяет наличие текста в имени заказчика",
+      "conditions": [
+        {
+          "field": "client",
+          "operator": "contains",
+          "value": "ООО ТЕСТ",
+          "caseSensitive": false,
+          "failMessage": "⚠️ Заказчик 'ООО ТЕСТ' требует дополнительного согласования!"
+        }
+      ]
     }
-
   ]
 }
