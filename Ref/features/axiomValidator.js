@@ -1,4 +1,4 @@
-// axiomValidator.js — модуль валидации заказа перед отправкой
+// 1axiomValidator.js — модуль валидации заказа перед отправкой
 // Загружается динамически из config.json через Axiom Status Indicator
 // Возвращает API управления: { init, cleanup, toggle, isActive }
 
@@ -462,41 +462,66 @@
     }
 
     // ─────────────────────────────────────────────
-    // 🔥 Перехват кнопок
+    // 🔥 Перехват кнопок — 🔥 ИСПРАВЛЕННАЯ ВЕРСИЯ
     // ─────────────────────────────────────────────
     function interceptButtons() {
         VALIDATION_BUTTONS.forEach(btnConfig => {
             const originalBtn = document.querySelector(btnConfig.selector);
             if (!originalBtn) return;
             
-            // 🔥 Проверка через атрибут, а не dataset
+            // 🔥 Проверка через атрибут (не dataset!)
             if (originalBtn.getAttribute(`data-${UNIQUE_PREFIX}wrapped`) === 'true') return;
 
-            // Сохраняем оригинальные стили
-            const origDisplay = originalBtn.style.display || '';
-            const origVisibility = originalBtn.style.visibility || '';
+            // 🔥 Получаем РЕАЛЬНЫЙ отображаемый стиль ДО скрытия
+            const origStyle = window.getComputedStyle(originalBtn);
+            const origDisplay = origStyle.display;
+            const origVisibility = origStyle.visibility;
             
-            // Скрываем и помечаем оригинал
-            originalBtn.style.display = 'none';
+            // Скрываем оригинал и помечаем
+            originalBtn.style.setProperty('display', 'none', 'important');
             originalBtn.setAttribute(`data-${UNIQUE_PREFIX}wrapped`, 'true');
-            originalBtn.setAttribute(`data-${UNIQUE_PREFIX}display`, origDisplay);
-            originalBtn.setAttribute(`data-${UNIQUE_PREFIX}visibility`, origVisibility);
             
             originalButtons.push({ original: originalBtn, config: btnConfig });
 
-            // Создаём клон-кнопку
-            const newBtn = originalBtn.cloneNode(true);
-            newBtn.removeAttribute(`data-${UNIQUE_PREFIX}wrapped`);
-            newBtn.style.display = origDisplay || 'inline-block';
-            newBtn.style.visibility = origVisibility || 'visible';
-            newBtn.style.opacity = '1';
-
-            // Очищаем старые обработчики
-            const clone = newBtn.cloneNode(true);
-            clone.onclick = null;
+            // 🔥 Создаём НОВУЮ кнопку (не клон!), чтобы не наследовать display:none
+            const newBtn = document.createElement(originalBtn.tagName);
+            newBtn.type = originalBtn.type || 'button';
             
-            // Новый обработчик
-            clone.addEventListener('click', async (e) => {
+            // Копируем классы
+            if (originalBtn.className) {
+                newBtn.className = originalBtn.className;
+            }
+            
+            // Копируем текст/HTML
+            if (originalBtn.textContent) {
+                newBtn.textContent = originalBtn.textContent;
+            } else if (originalBtn.innerHTML) {
+                newBtn.innerHTML = originalBtn.innerHTML;
+            }
+            
+            // Копируем только безопасные атрибуты
+            Array.from(originalBtn.attributes).forEach(attr => {
+                const name = attr.name;
+                if (name === 'id') {
+                    newBtn.setAttribute('id', name + '-validated');
+                } else if (name.startsWith('data-') && !name.includes(UNIQUE_PREFIX)) {
+                    newBtn.setAttribute(name, attr.value);
+                } else if (['title', 'aria-label'].includes(name)) {
+                    newBtn.setAttribute(name, attr.value);
+                }
+            });
+            
+            // 🔥 Явно делаем кнопку видимой с приоритетом !important
+            newBtn.style.setProperty('display', origDisplay || 'inline-block', 'important');
+            newBtn.style.setProperty('visibility', 'visible', 'important');
+            newBtn.style.setProperty('opacity', '1', 'important');
+            newBtn.style.setProperty('pointer-events', 'auto', 'important');
+            newBtn.style.cursor = 'pointer';
+            newBtn.style.position = 'relative';
+            newBtn.style.zIndex = '10';
+
+            // 🔥 Обработчик клика
+            newBtn.addEventListener('click', async (e) => {
                 e.preventDefault();
                 e.stopPropagation();
 
@@ -534,7 +559,6 @@
                 const result = runValidation(validationData);
 
                 if (!result.passed) {
-                    // 🔥 Вывод ошибок через глобальную функцию
                     if (api?.showCenterMessage) {
                         const formattedErrors = result.messages.map((msg, idx) => `${idx + 1}. ${msg}`).join('<br><br>');
                         api.showCenterMessage({
@@ -546,11 +570,13 @@
                     return false;
                 }
 
-                // Все проверки пройдены — кликаем оригинал
                 originalBtn.click();
             });
 
-            originalBtn.parentNode?.insertBefore(clone, originalBtn.nextSibling);
+            // 🔥 Вставляем ПЕРЕД оригиналом (гарантированно работает)
+            if (originalBtn.parentNode) {
+                originalBtn.parentNode.insertBefore(newBtn, originalBtn);
+            }
         });
     }
 
@@ -615,7 +641,6 @@
         if (!active) return;
         active = false;
         
-        // Отключаем observer
         if (domObserver) {
             domObserver.disconnect();
             domObserver = null;
@@ -625,27 +650,20 @@
         // 🔥 Восстанавливаем оригинальные кнопки
         originalButtons.forEach(({ original }) => {
             if (original && original.parentNode) {
-                // Восстанавливаем стили
-                const origDisplay = original.getAttribute(`data-${UNIQUE_PREFIX}display`) || '';
-                const origVisibility = original.getAttribute(`data-${UNIQUE_PREFIX}visibility`) || '';
-                original.style.display = origDisplay;
-                original.style.visibility = origVisibility;
-                
-                // Удаляем атрибуты-флаги
+                // Показываем оригинал
+                original.style.removeProperty('display');
+                original.style.removeProperty('visibility');
                 original.removeAttribute(`data-${UNIQUE_PREFIX}wrapped`);
-                original.removeAttribute(`data-${UNIQUE_PREFIX}display`);
-                original.removeAttribute(`data-${UNIQUE_PREFIX}visibility`);
                 
-                // Удаляем клон-кнопку (идёт сразу после оригинала)
-                const clone = original.nextElementSibling;
-                if (clone && clone.getAttribute(`data-${UNIQUE_PREFIX}wrapped`) !== 'true') {
-                    clone.remove();
+                // 🔥 Удаляем новую кнопку (она всегда ПЕРЕД оригиналом)
+                const prevBtn = original.previousElementSibling;
+                if (prevBtn && prevBtn.getAttribute(`data-${UNIQUE_PREFIX}wrapped`) !== 'true') {
+                    prevBtn.remove();
                 }
             }
         });
         originalButtons = [];
         
-        // Сброс состояния
         lastStateHash = '';
         isRunning = false;
     }
@@ -685,7 +703,6 @@
         isActive,
         forceValidate,
         reloadRules,
-        // Для отладки/расширения
         runValidation,
         parseOrders,
         fetchValidationRules
