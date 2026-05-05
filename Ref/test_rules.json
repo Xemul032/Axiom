@@ -1,38 +1,70 @@
 {
   "defaults": {
-    "failMessage": "️ Проверка не пройдена"
+    "failMessage": "⚠️ Проверка не пройдена"
   },
   "rules": [
     {
-      "name": "1. Базовая проверка бумаги",
-      "description": "Блокирует заказ, если рассчитанного остатка бумаги недостаточно",
+      "name": "Бумаги не хватает (любой ордер)",
+      "description": "Блокировка если (Требуется+50) > (На складе - Другие)",
+      "logic": "AND",
       "conditions": [
         {
-          "field": "paperStock",
-          "operator": "paperStock",
-          "failMessage": "❌ ВНИМАНИЕ: Бумаги НЕ хватает! (Формула: Требуется+50 > На складе - Другие)"
+          "operator": "calc",
+          "formula": "req + 50",
+          "expectedOperator": "gt",
+          "value": "stock - others",
+          "source": "orders",
+          "checkAll": false,
+          "failMessage": "❌ Бумаги НЕ хватает! (Требуется+50 > На складе - Другие)"
         }
       ]
     },
     {
-      "name": "2. Комбо: Мало бумаги И Препресс не начат",
-      "description": "Сложная проверка: блокировка срабатывает только при совпадении двух условий",
+      "name": "Бумаги мало И препресс не начат",
       "logic": "AND",
       "conditions": [
         {
-          "field": "paperStock",
-          "operator": "paperStock",
-          "failMessage": "❌ Условие 1: Бумаги НЕ хватает"
+          "operator": "calc",
+          "formula": "req + 50",
+          "expectedOperator": "gt", 
+          "value": "stock - others",
+          "source": "orders",
+          "failMessage": "❌ Бумаги мало"
         },
         {
-          "field": "prepress",
-          "operator": "prepressStatus",
-          "subField": "check",
+          "field": "prepress.check",
+          "operator": "nestedStatus",
           "value": "не начат",
-          "failMessage": "❌ Условие 2: Препресс-проверка не начата"
+          "options": { "path": "status" },
+          "failMessage": "❌ Препресс не начат"
         }
       ],
-      "failMessage": "🚫 БЛОКИРОВКА ЗАКАЗА: Бумаги на складе мало И Препресс еще не начат. Сначала закажите бумагу или запустите препресс."
+      "failMessage": "🚫 Бумаги мало И препресс не начат — нельзя брать в работу!"
+    },
+    {
+      "name": "Счёт для крупных заказов",
+      "triggers": [
+        { "field": "rawSumma", "operator": "gt", "value": 50000 }
+      ],
+      "conditions": [
+        {
+          "field": "invoice",
+          "operator": "exists",
+          "failMessage": "❌ Для заказов >50000₽ нужен счёт"
+        }
+      ]
+    },
+    {
+      "name": "Заказчик содержит текст",
+      "conditions": [
+        {
+          "field": "client",
+          "operator": "contains",
+          "value": "Линк",
+          "options": { "caseSensitive": false },
+          "failMessage": "⚠️ Заказ на Линк. Ты увеена?"
+        }
+      ]
     }
   ]
 }
