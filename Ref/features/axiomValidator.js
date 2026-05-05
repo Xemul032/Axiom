@@ -1,4 +1,4 @@
-// 6axiomValidator.js — модуль валидации заказа перед отправкой
+// 7axiomValidator.js — модуль валидации заказа перед отправкой
 // Загружается динамически из config.json через Axiom Status Indicator
 // Возвращает API управления: { init, cleanup, toggle, isActive }
 
@@ -455,7 +455,7 @@
         return { passed: allFailedMessages.length === 0, messages: allFailedMessages };
     }
 
-    // === ПЕРЕХВАТ КНОПОК — 🔥 ИСПРАВЛЕННАЯ ВЕРСИЯ ===
+    // === ПЕРЕХВАТ КНОПОК — 🔥 ИСПРАВЛЕННАЯ ВЕРСИЯ (как в axiomCalculatorValidator) ===
     function interceptButtons() {
         VALIDATION_BUTTONS.forEach(btnConfig => {
             const originalBtn = document.querySelector(btnConfig.selector);
@@ -464,42 +464,47 @@
             // 1. Помечаем оригинал
             originalBtn.setAttribute(`data-${UNIQUE_PREFIX}intercepted`, 'true');
             
-            // 2. Получаем вычисленные стили ДО скрытия
-            const computedStyle = window.getComputedStyle(originalBtn);
-            const origDisplay = computedStyle.display;
-            const origVisibility = computedStyle.visibility;
+            // 2. Сохраняем оригинальный display для восстановления
+            const origDisplay = originalBtn.style.display || '';
             
             // 3. Скрываем оригинал
-            originalBtn.style.setProperty('display', 'none', 'important');
-            originalButtons.push({ original: originalBtn, config: btnConfig });
+            originalBtn.style.display = 'none';
+            originalButtons.push({ original: originalBtn, config: btnConfig, origDisplay: origDisplay });
 
-            // 4. Создаём клон
-            const clone = originalBtn.cloneNode(true);
+            // 4. 🔥 Создаём НОВУЮ кнопку (не клон!) — как в рабочем модуле
+            const newBtn = document.createElement('button');
+            newBtn.type = originalBtn.type || 'button';
             
-            // 5. Очищаем атрибуты клона
-            clone.removeAttribute(`data-${UNIQUE_PREFIX}intercepted`);
-            clone.removeAttribute('id'); // Избегаем дублирования ID
-            clone.setAttribute(`data-${UNIQUE_PREFIX}clone`, 'true');
+            // Копируем классы — это даёт 99% стилей
+            if (originalBtn.className) {
+                newBtn.className = originalBtn.className;
+            }
             
-            // 6. 🔥 Явно делаем клон видимым с максимальным приоритетом
-            clone.style.setProperty('display', origDisplay || 'inline-block', 'important');
-            clone.style.setProperty('visibility', 'visible', 'important');
-            clone.style.setProperty('opacity', '1', 'important');
-            clone.style.setProperty('pointer-events', 'auto', 'important');
-            clone.style.removeProperty('display'); // Убираем inline display:none если есть
-            clone.style.display = origDisplay || 'inline-block'; // Явно устанавливаем
+            // Копируем текст
+            newBtn.textContent = originalBtn.textContent.trim() || 'Кнопка';
             
-            // 7. Очищаем onclick у клона (он останется у скрытого оригинала)
-            clone.onclick = null;
-            clone.removeAttribute('onclick');
+            // Копируем безопасные data-атрибуты (без UNIQUE_PREFIX)
+            Array.from(originalBtn.attributes).forEach(attr => {
+                if (attr.name.startsWith('data-') && !attr.name.includes(UNIQUE_PREFIX)) {
+                    newBtn.setAttribute(attr.name, attr.value);
+                }
+            });
             
-            // 8. 🔥 Вставляем клон ПЕРЕД оригиналом (не после!)
+            // 5. 🔥 Явно гарантируем видимость
+            newBtn.style.setProperty('display', 'inline-block', 'important');
+            newBtn.style.setProperty('visibility', 'visible', 'important');
+            newBtn.style.setProperty('opacity', '1', 'important');
+            newBtn.style.setProperty('pointer-events', 'auto', 'important');
+            newBtn.style.cursor = 'pointer';
+            newBtn.style.position = 'relative';
+            
+            // 6. Вставляем ПЕРЕД оригиналом (сохраняет позицию в вёрстке)
             if (originalBtn.parentNode) {
-                originalBtn.parentNode.insertBefore(clone, originalBtn);
+                originalBtn.parentNode.insertBefore(newBtn, originalBtn);
             }
 
-            // 9. Навешиваем обработчик на клон
-            clone.addEventListener('click', async (e) => {
+            // 7. Навешиваем валидацию на новую кнопку
+            newBtn.addEventListener('click', async (e) => {
                 e.preventDefault();
                 e.stopPropagation();
 
@@ -548,7 +553,7 @@
                     return false;
                 }
 
-                // ✅ Клик по скрытому оригиналу с его актуальным onclick
+                // ✅ Валидация пройдена — клик по скрытому оригиналу с его onclick
                 originalBtn.click();
             });
         });
@@ -612,18 +617,18 @@
         }
         clearTimeout(debounceTimer);
         
-        // 🔥 Восстанавливаем оригиналы и удаляем клоны
-        originalButtons.forEach(({ original }) => {
+        // 🔥 Восстанавливаем оригиналы и удаляем новые кнопки
+        originalButtons.forEach(({ original, origDisplay }) => {
             if (original) {
                 // Показываем оригинал
-                original.style.removeProperty('display');
-                original.style.removeProperty('visibility');
+                original.style.display = origDisplay || '';
                 original.removeAttribute(`data-${UNIQUE_PREFIX}intercepted`);
                 
-                // 🔥 Ищем и удаляем клон (он теперь ПЕРЕД оригиналом)
-                const prevSibling = original.previousElementSibling;
-                if (prevSibling && prevSibling.getAttribute(`data-${UNIQUE_PREFIX}clone`) === 'true') {
-                    prevSibling.remove();
+                // 🔥 Удаляем новую кнопку (она ПЕРЕД оригиналом)
+                const prevBtn = original.previousElementSibling;
+                if (prevBtn && prevBtn.tagName === 'BUTTON' && 
+                    !prevBtn.getAttribute(`data-${UNIQUE_PREFIX}intercepted`)) {
+                    prevBtn.remove();
                 }
             }
         });
@@ -631,7 +636,6 @@
         lastStateHash = '';
         isRunning = false;
     }
-
     function toggle() {
         active ? cleanup() : init();
     }
