@@ -1,4 +1,4 @@
-// 1axiomValidator.js — модуль валидации заказа перед отправкой
+// 2axiomValidator.js — модуль валидации заказа перед отправкой
 // Загружается динамически из config.json через Axiom Status Indicator
 // Возвращает API управления: { init, cleanup, toggle, isActive }
 
@@ -462,63 +462,70 @@
     }
 
     // ─────────────────────────────────────────────
-    // 🔥 Перехват кнопок — 🔥 ИСПРАВЛЕННАЯ ВЕРСИЯ
+    // 🔥 Перехват кнопок — 🔥 ФИНАЛЬНАЯ ВЕРСИЯ (абсолютное позиционирование)
     // ─────────────────────────────────────────────
     function interceptButtons() {
         VALIDATION_BUTTONS.forEach(btnConfig => {
             const originalBtn = document.querySelector(btnConfig.selector);
             if (!originalBtn) return;
             
-            // 🔥 Проверка через атрибут (не dataset!)
+            // Проверка: уже обработана?
             if (originalBtn.getAttribute(`data-${UNIQUE_PREFIX}wrapped`) === 'true') return;
 
-            // 🔥 Получаем РЕАЛЬНЫЙ отображаемый стиль ДО скрытия
-            const origStyle = window.getComputedStyle(originalBtn);
-            const origDisplay = origStyle.display;
-            const origVisibility = origStyle.visibility;
-            
-            // Скрываем оригинал и помечаем
-            originalBtn.style.setProperty('display', 'none', 'important');
+            // 🔥 Помечаем оригинал
             originalBtn.setAttribute(`data-${UNIQUE_PREFIX}wrapped`, 'true');
-            
             originalButtons.push({ original: originalBtn, config: btnConfig });
 
-            // 🔥 Создаём НОВУЮ кнопку (не клон!), чтобы не наследовать display:none
-            const newBtn = document.createElement(originalBtn.tagName);
-            newBtn.type = originalBtn.type || 'button';
+            // 🔥 Получаем позицию оригинала ДО любых изменений
+            const rect = originalBtn.getBoundingClientRect();
+            const scrollY = window.scrollY || document.documentElement.scrollTop;
+            const scrollX = window.scrollX || document.documentElement.scrollLeft;
+
+            // 🔥 Скрываем оригинал (мягко, без !important)
+            originalBtn.style.visibility = 'hidden';
+            originalBtn.style.pointerEvents = 'none';
+            originalBtn.setAttribute('tabindex', '-1');
+
+            // 🔥 Создаём НОВУЮ кнопку с нуля
+            const newBtn = document.createElement('button');
+            newBtn.type = 'button';
+            newBtn.textContent = originalBtn.textContent.trim() || 'Рассчитать';
             
-            // Копируем классы
-            if (originalBtn.className) {
-                newBtn.className = originalBtn.className;
-            }
-            
-            // Копируем текст/HTML
-            if (originalBtn.textContent) {
-                newBtn.textContent = originalBtn.textContent;
-            } else if (originalBtn.innerHTML) {
-                newBtn.innerHTML = originalBtn.innerHTML;
-            }
-            
-            // Копируем только безопасные атрибуты
+            // 🔥 Абсолютное позиционирование поверх оригинала
+            Object.assign(newBtn.style, {
+                position: 'fixed',
+                left: (rect.left + scrollX) + 'px',
+                top: (rect.top + scrollY) + 'px',
+                width: rect.width + 'px',
+                height: rect.height + 'px',
+                zIndex: '2147483647', // Максимальный возможный
+                cursor: 'pointer',
+                pointerEvents: 'auto',
+                visibility: 'visible',
+                opacity: '1',
+                // Сбрасываем потенциально проблемные свойства
+                margin: '0',
+                padding: originalBtn.style.padding || '8px 16px',
+                border: originalBtn.style.border || '1px solid #ccc',
+                borderRadius: originalBtn.style.borderRadius || '4px',
+                background: originalBtn.style.background || '#007bff',
+                color: originalBtn.style.color || '#fff',
+                fontSize: originalBtn.style.fontSize || '14px',
+                fontWeight: originalBtn.style.fontWeight || '500',
+                textAlign: 'center',
+                lineHeight: 'normal',
+                boxShadow: '0 2px 4px rgba(0,0,0,0.2)',
+                transition: 'none',
+                transform: 'none',
+                display: 'block'
+            });
+
+            // 🔥 Копируем только безопасные data-атрибуты (без UNIQUE_PREFIX)
             Array.from(originalBtn.attributes).forEach(attr => {
-                const name = attr.name;
-                if (name === 'id') {
-                    newBtn.setAttribute('id', name + '-validated');
-                } else if (name.startsWith('data-') && !name.includes(UNIQUE_PREFIX)) {
-                    newBtn.setAttribute(name, attr.value);
-                } else if (['title', 'aria-label'].includes(name)) {
-                    newBtn.setAttribute(name, attr.value);
+                if (attr.name.startsWith('data-') && !attr.name.includes(UNIQUE_PREFIX)) {
+                    newBtn.setAttribute(attr.name, attr.value);
                 }
             });
-            
-            // 🔥 Явно делаем кнопку видимой с приоритетом !important
-            newBtn.style.setProperty('display', origDisplay || 'inline-block', 'important');
-            newBtn.style.setProperty('visibility', 'visible', 'important');
-            newBtn.style.setProperty('opacity', '1', 'important');
-            newBtn.style.setProperty('pointer-events', 'auto', 'important');
-            newBtn.style.cursor = 'pointer';
-            newBtn.style.position = 'relative';
-            newBtn.style.zIndex = '10';
 
             // 🔥 Обработчик клика
             newBtn.addEventListener('click', async (e) => {
@@ -570,13 +577,34 @@
                     return false;
                 }
 
+                // Все проверки пройдены — кликаем оригинал
                 originalBtn.click();
             });
 
-            // 🔥 Вставляем ПЕРЕД оригиналом (гарантированно работает)
-            if (originalBtn.parentNode) {
-                originalBtn.parentNode.insertBefore(newBtn, originalBtn);
-            }
+            // 🔥 Добавляем кнопку прямо в body (гарантированно видимо)
+            document.body.appendChild(newBtn);
+
+            // 🔥 Дополнительно: обновляем позицию при ресайзе/скролле
+            const updatePosition = () => {
+                const r = originalBtn.getBoundingClientRect();
+                const sY = window.scrollY || document.documentElement.scrollTop;
+                const sX = window.scrollX || document.documentElement.scrollLeft;
+                Object.assign(newBtn.style, {
+                    left: (r.left + sX) + 'px',
+                    top: (r.top + sY) + 'px',
+                    width: r.width + 'px',
+                    height: r.height + 'px'
+                });
+            };
+            
+            window.addEventListener('resize', updatePosition);
+            window.addEventListener('scroll', updatePosition, true);
+            
+            // Сохраняем ссылку на листенеры для очистки
+            newBtn._axiomCleanup = () => {
+                window.removeEventListener('resize', updatePosition);
+                window.removeEventListener('scroll', updatePosition, true);
+            };
         });
     }
 
@@ -647,19 +675,24 @@
         }
         clearTimeout(debounceTimer);
         
-        // 🔥 Восстанавливаем оригинальные кнопки
+        // 🔥 Восстанавливаем оригинальные кнопки и удаляем оверлеи
         originalButtons.forEach(({ original }) => {
-            if (original && original.parentNode) {
+            if (original) {
                 // Показываем оригинал
-                original.style.removeProperty('display');
-                original.style.removeProperty('visibility');
+                original.style.visibility = '';
+                original.style.pointerEvents = '';
+                original.removeAttribute('tabindex');
                 original.removeAttribute(`data-${UNIQUE_PREFIX}wrapped`);
                 
-                // 🔥 Удаляем новую кнопку (она всегда ПЕРЕД оригиналом)
-                const prevBtn = original.previousElementSibling;
-                if (prevBtn && prevBtn.getAttribute(`data-${UNIQUE_PREFIX}wrapped`) !== 'true') {
-                    prevBtn.remove();
-                }
+                // 🔥 Удаляем оверлей-кнопку (она в body, ищем по тексту и позиции)
+                // Простой способ: ищем кнопку с таким же текстом рядом
+                const overlays = document.querySelectorAll('button[style*="z-index: 2147483647"]');
+                overlays.forEach(btn => {
+                    if (btn._axiomCleanup) {
+                        btn._axiomCleanup();
+                        btn.remove();
+                    }
+                });
             }
         });
         originalButtons = [];
