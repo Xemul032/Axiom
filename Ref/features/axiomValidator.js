@@ -1,4 +1,4 @@
-// 33axiomValidator.js — модуль валидации заказа перед отправкой
+// axiomValidator.js — модуль валидации заказа перед отправкой
 // Загружается динамически из config.json через Axiom Status Indicator
 // Возвращает API управления: { init, cleanup, toggle, isActive }
 
@@ -19,6 +19,17 @@
             trigger: 'В работу с файлами'
         }
     ];
+
+    // 🔥 Логгер модуля
+    const log = {
+        prefix: `[AxiomValidator]`,
+        info: (...args) => console.log(log.prefix, 'ℹ️', ...args),
+        warn: (...args) => console.warn(log.prefix, '⚠️', ...args),
+        error: (...args) => console.error(log.prefix, '❌', ...args),
+        debug: (...args) => {
+            if (config?.debug) console.log(log.prefix, '🔍', ...args);
+        }
+    };
 
     // 🔥 Внутреннее состояние
     let active = false;
@@ -52,49 +63,72 @@
     // 🔥 Загрузка правил
     // ─────────────────────────────────────────────
     async function fetchValidationRules() {
+        log.debug('fetchValidationRules: start');
         const now = Date.now();
+        
         if (validationRules && (now - rulesLastFetch) < RULES_CACHE_TIME) {
+            log.debug('fetchValidationRules: using cached rules');
             return validationRules;
         }
 
+        log.info('fetchValidationRules: loading from', RULES_URL);
+
         return new Promise((resolve) => {
             if (typeof GM_xmlhttpRequest !== 'undefined') {
+                log.debug('fetchValidationRules: using GM_xmlhttpRequest');
                 GM_xmlhttpRequest({
                     method: 'GET',
                     url: RULES_URL,
                     onload: (response) => {
+                        log.debug('fetchValidationRules: response status', response.status);
                         if (response.status === 200) {
                             try {
                                 validationRules = JSON.parse(response.responseText);
                                 rulesLastFetch = now;
+                                log.info('fetchValidationRules: rules loaded successfully, count:', validationRules.rules?.length || 0);
                                 if (typeof GM_setValue !== 'undefined') {
                                     GM_setValue(`${UNIQUE_PREFIX}rules`, response.responseText);
                                     GM_setValue(`${UNIQUE_PREFIX}rules_time`, now);
+                                    log.debug('fetchValidationRules: rules cached in GM storage');
                                 }
                                 resolve(validationRules);
                             } catch (e) {
+                                log.warn('fetchValidationRules: JSON parse error', e.message);
                                 resolve(loadCachedRules());
                             }
                         } else {
+                            log.warn('fetchValidationRules: HTTP error', response.status);
                             resolve(loadCachedRules());
                         }
                     },
-                    onerror: () => resolve(loadCachedRules())
+                    onerror: (err) => {
+                        log.warn('fetchValidationRules: network error', err);
+                        resolve(loadCachedRules());
+                    }
                 });
             } else {
+                log.debug('fetchValidationRules: using native fetch');
                 fetch(RULES_URL)
-                    .then(r => r.json())
+                    .then(r => {
+                        log.debug('fetchValidationRules: fetch response status', r.status);
+                        return r.json();
+                    })
                     .then(data => {
                         validationRules = data;
                         rulesLastFetch = now;
+                        log.info('fetchValidationRules: rules loaded via fetch, count:', validationRules.rules?.length || 0);
                         resolve(validationRules);
                     })
-                    .catch(() => resolve(loadCachedRules()));
+                    .catch(err => {
+                        log.warn('fetchValidationRules: fetch error', err.message);
+                        resolve(loadCachedRules());
+                    });
             }
         });
     }
 
     function loadCachedRules() {
+        log.debug('loadCachedRules: attempting to load from cache');
         if (typeof GM_getValue !== 'undefined') {
             const cached = GM_getValue(`${UNIQUE_PREFIX}rules`);
             const cachedTime = GM_getValue(`${UNIQUE_PREFIX}rules_time`);
@@ -102,10 +136,16 @@
                 try {
                     validationRules = JSON.parse(cached);
                     rulesLastFetch = cachedTime;
+                    log.info('loadCachedRules: loaded from cache, age:', Math.round((Date.now() - cachedTime) / 1000), 'sec');
                     return validationRules;
-                } catch (e) { /* ignore */ }
+                } catch (e) {
+                    log.warn('loadCachedRules: cache parse error', e.message);
+                }
+            } else {
+                log.debug('loadCachedRules: no cache found');
             }
         }
+        log.info('loadCachedRules: using empty default rules');
         validationRules = { rules: [], defaults: { failMessage: '⚠️ Проверка не пройдена' } };
         return validationRules;
     }
@@ -147,10 +187,8 @@
                     mass: parseNum(data?.mass) || 0
                 };
                 
-                // Базовая санитизация: оставляем только безопасные символы
                 const safeFormula = String(formula).replace(/[^\w\s+\-*/().,<>=!&|?:]/g, '');
                 
-                // Создаём функцию с явными параметрами — значения подставляются как аргументы
                 const evaluator = new Function(
                     'req', 'stock', 'others', 'res', 'summa', 'mass',
                     '"use strict"; return (' + safeFormula + ')'
@@ -171,7 +209,7 @@
                 };
                 return ops[operator]?.(result) ?? false;
             } catch (e) {
-                console.warn('[AxiomValidator] Calc error:', e.message, { formula, data });
+                log.warn('calc validator error:', e.message, { formula, data });
                 return false;
             }
         },
@@ -433,7 +471,10 @@
             return validators.nestedStatus(fieldValue, options?.path, value);
         }
         const validator = validators[operator];
-        if (!validator) return false;
+        if (!validator) {
+            log.warn('runValidator: unknown operator', operator);
+            return false;
+        }
         return validator(fieldValue, value, options);
     }
 
@@ -459,7 +500,13 @@
     }
 
     function runValidation(data) {
-        if (!validationRules?.rules?.length) return { passed: true, messages: [] };
+        log.debug('runValidation: start, rules count:', validationRules?.rules?.length || 0);
+        
+        if (!validationRules?.rules?.length) {
+            log.debug('runValidation: no rules, passing');
+            return { passed: true, messages: [] };
+        }
+        
         const allFailedMessages = [];
 
         for (const rule of validationRules.rules) {
@@ -470,11 +517,15 @@
                     if (t.caseSensitive !== undefined) opts.caseSensitive = t.caseSensitive;
                     return validators[t.operator]?.(val, t.value, opts);
                 });
-                if (!match) continue;
+                if (!match) {
+                    log.debug('runValidation: rule skipped (no trigger match)', rule.id || rule.name);
+                    continue;
+                }
             }
 
             const ruleResult = evaluateRule(rule, data);
             if (!ruleResult.passed) {
+                log.debug('runValidation: rule failed', rule.id || rule.name, ruleResult.messages);
                 if (ruleResult.messages.length > 0) {
                     allFailedMessages.push(...ruleResult.messages.filter(Boolean));
                 } else if (rule.failMessage) {
@@ -484,6 +535,8 @@
                 }
             }
         }
+        
+        log.debug('runValidation: result', { passed: allFailedMessages.length === 0, errors: allFailedMessages.length });
         return { passed: allFailedMessages.length === 0, messages: allFailedMessages };
     }
 
@@ -491,11 +544,22 @@
     // 🔥 Перехват кнопок
     // ─────────────────────────────────────────────
     function interceptButtons() {
-        VALIDATION_BUTTONS.forEach(btnConfig => {
+        log.info('interceptButtons: start, buttons to intercept:', VALIDATION_BUTTONS.length);
+        
+        VALIDATION_BUTTONS.forEach((btnConfig, idx) => {
+            log.debug(`interceptButtons: processing button #${idx + 1}`, btnConfig.selector);
+            
             const originalBtn = document.querySelector(btnConfig.selector);
-            if (!originalBtn) return;
+            if (!originalBtn) {
+                log.warn(`interceptButtons: button NOT FOUND`, btnConfig.selector);
+                return;
+            }
+            log.debug(`interceptButtons: button found`, originalBtn);
 
-            if (originalBtn.getAttribute(`data-${UNIQUE_PREFIX}wrapped`) === 'true') return;
+            if (originalBtn.getAttribute(`data-${UNIQUE_PREFIX}wrapped`) === 'true') {
+                log.debug('interceptButtons: button already wrapped, skipping');
+                return;
+            }
 
             const origDisplay = originalBtn.style.display || '';
             const origVisibility = originalBtn.style.visibility || '';
@@ -517,6 +581,7 @@
             clone.onclick = null;
 
             clone.addEventListener('click', async (e) => {
+                log.info('interceptButtons: button clicked, starting validation');
                 e.preventDefault();
                 e.stopPropagation();
 
@@ -550,10 +615,15 @@
                     design: designData?.map(d => d.desc).join(' | ') || ''
                 };
 
+                log.debug('interceptButtons: validation data prepared', { 
+                    productName, hasInvoice: invoiceInfo.hasInvoice, ordersCount: orders.length 
+                });
+
                 await fetchValidationRules();
                 const result = runValidation(validationData);
 
                 if (!result.passed) {
+                    log.warn('interceptButtons: validation FAILED', result.messages);
                     if (api?.showCenterMessage) {
                         const formattedErrors = result.messages.map((msg, idx) => `${idx + 1}. ${msg}`).join('<br><br>');
                         api.showCenterMessage({
@@ -565,81 +635,161 @@
                     return false;
                 }
 
+                log.info('interceptButtons: validation PASSED, clicking original button');
                 originalBtn.click();
             });
 
             originalBtn.parentNode?.insertBefore(clone, originalBtn.nextSibling);
+            log.debug(`interceptButtons: button #${idx + 1} wrapped successfully`);
         });
+        
+        log.info('interceptButtons: complete');
     }
 
     // ─────────────────────────────────────────────
     // 🔥 Парсер для запуска
     // ─────────────────────────────────────────────
     function runParser() {
-        if (isRunning) return;
+        log.debug('runParser: start');
+        
+        if (isRunning) {
+            log.debug('runParser: already running, skipping');
+            return;
+        }
         isRunning = true;
 
-        const productName = parseProductName();
-        const mass = parseProductMass();
-        const summaData = parseProductSumma();
-        const invoiceInfo = parseInvoiceInfo();
-        const productInfo = parseProductInfo();
-        const designData = parseDesignBlock();
-        const prepress = parseHistoryPrepress();
-        const globalPP = parseGlobalPostpress();
-        const orders = parseOrders();
+        try {
+            const productName = parseProductName();
+            const mass = parseProductMass();
+            const summaData = parseProductSumma();
+            const invoiceInfo = parseInvoiceInfo();
+            const productInfo = parseProductInfo();
+            const designData = parseDesignBlock();
+            const prepress = parseHistoryPrepress();
+            const globalPP = parseGlobalPostpress();
+            const orders = parseOrders();
 
-        const currentState = JSON.stringify({
-            n: productName, m: mass, s: summaData, inv: invoiceInfo,
-            p: productInfo, d: designData, pp: prepress,
-            gpp: globalPP?.sort?.(),
-            o: orders.map(o => ({ id: o.id, name: o.name, ppCount: o.localPP?.length }))
-        });
+            log.debug('runParser: parsed data', {
+                productName,
+                mass,
+                summa: summaData.total,
+                hasInvoice: invoiceInfo.hasInvoice,
+                ordersCount: orders.length,
+                client: productInfo.client
+            });
 
-        if (currentState === lastStateHash) { isRunning = false; return; }
-        lastStateHash = currentState;
+            const currentState = JSON.stringify({
+                n: productName, m: mass, s: summaData, inv: invoiceInfo,
+                p: productInfo, d: designData, pp: prepress,
+                gpp: globalPP?.sort?.(),
+                o: orders.map(o => ({ id: o.id, name: o.name, ppCount: o.localPP?.length }))
+            });
 
-        setTimeout(interceptButtons, 300);
-        isRunning = false;
+            if (currentState === lastStateHash) { 
+                log.debug('runParser: state unchanged, skipping intercept');
+                isRunning = false; 
+                return; 
+            }
+            log.debug('runParser: state changed, scheduling interceptButtons');
+            lastStateHash = currentState;
+
+            setTimeout(() => {
+                try {
+                    interceptButtons();
+                } catch (e) {
+                    log.error('runParser: interceptButtons error', e);
+                }
+            }, 300);
+        } catch (e) {
+            log.error('runParser: parsing error', e);
+        } finally {
+            isRunning = false;
+        }
     }
 
     // ─────────────────────────────────────────────
     // 🔥 Настройка observer'ов
     // ─────────────────────────────────────────────
     function setupObserver() {
-        if (domObserver) domObserver.disconnect();
+        log.info('setupObserver: initializing MutationObserver');
+        
+        if (domObserver) {
+            log.debug('setupObserver: disconnecting existing observer');
+            domObserver.disconnect();
+        }
 
-        domObserver = new MutationObserver(() => {
+        domObserver = new MutationObserver((mutations) => {
+            log.debug('setupObserver: DOM mutation detected, scheduling runParser');
             clearTimeout(debounceTimer);
             debounceTimer = setTimeout(runParser, 400);
         });
 
         domObserver.observe(document.body, { childList: true, subtree: true });
+        log.info('setupObserver: observer active on document.body');
     }
 
     // ─────────────────────────────────────────────
     // 🔥 API модуля
     // ─────────────────────────────────────────────
     function init() {
-        if (active) return;
+        log.info('🚀 init: module initialization started');
+        
+        if (active) {
+            log.warn('init: module already active, skipping');
+            return;
+        }
         active = true;
+        log.debug('init: config', { 
+            uniquePrefix: UNIQUE_PREFIX, 
+            rulesUrl: RULES_URL, 
+            cacheTime: RULES_CACHE_TIME,
+            buttonsCount: VALIDATION_BUTTONS.length,
+            debug: config?.debug 
+        });
 
-        setupObserver();
-        setTimeout(runParser, 600);
-        fetchValidationRules();
+        try {
+            setupObserver();
+            log.debug('init: observer setup complete');
+        } catch (e) {
+            log.error('init: setupObserver failed', e);
+        }
+
+        setTimeout(() => {
+            try {
+                runParser();
+                log.debug('init: initial runParser scheduled');
+            } catch (e) {
+                log.error('init: runParser failed', e);
+            }
+        }, 600);
+        
+        fetchValidationRules().then(rules => {
+            log.info('init: rules loaded, ready to validate');
+        }).catch(e => {
+            log.error('init: fetchValidationRules failed', e);
+        });
+        
+        log.info('✅ init: module initialization complete');
     }
 
     function cleanup() {
-        if (!active) return;
+        log.info('🧹 cleanup: module cleanup started');
+        
+        if (!active) {
+            log.warn('cleanup: module not active, skipping');
+            return;
+        }
         active = false;
 
         if (domObserver) {
             domObserver.disconnect();
             domObserver = null;
+            log.debug('cleanup: observer disconnected');
         }
         clearTimeout(debounceTimer);
+        log.debug('cleanup: debounce timer cleared');
 
-        originalButtons.forEach(({ original }) => {
+        originalButtons.forEach(({ original }, idx) => {
             if (original && original.parentNode) {
                 const origDisplay = original.getAttribute(`data-${UNIQUE_PREFIX}display`) || '';
                 const origVisibility = original.getAttribute(`data-${UNIQUE_PREFIX}visibility`) || '';
@@ -653,16 +803,21 @@
                 const clone = original.nextElementSibling;
                 if (clone && clone.getAttribute(`data-${UNIQUE_PREFIX}wrapped`) !== 'true') {
                     clone.remove();
+                    log.debug(`cleanup: cloned button #${idx + 1} removed`);
                 }
             }
         });
         originalButtons = [];
+        log.debug('cleanup: original buttons restored');
 
         lastStateHash = '';
         isRunning = false;
+        
+        log.info('✅ cleanup: module cleanup complete');
     }
 
     function toggle() {
+        log.info('🔄 toggle: called, current active:', active);
         active ? cleanup() : init();
     }
 
@@ -671,21 +826,31 @@
     }
 
     function forceValidate() {
+        log.info('⚡ forceValidate: manual validation triggered');
         runParser();
     }
 
     function reloadRules() {
+        log.info('🔄 reloadRules: forcing rules reload');
         rulesLastFetch = 0;
         return fetchValidationRules();
     }
 
     // 🔥 Авто-запуск
     if (config?.autoInit !== false) {
+        log.info('📦 axiomValidator module loaded, autoInit enabled');
         if (document.readyState === 'loading') {
-            document.addEventListener('DOMContentLoaded', init);
+            log.debug('autoInit: waiting for DOMContentLoaded');
+            document.addEventListener('DOMContentLoaded', () => {
+                log.debug('autoInit: DOMContentLoaded fired, calling init');
+                init();
+            });
         } else {
+            log.debug('autoInit: DOM already loaded, scheduling init');
             setTimeout(init, 100);
         }
+    } else {
+        log.info('📦 axiomValidator module loaded, autoInit disabled');
     }
 
     // 🔥 Экспорт API
