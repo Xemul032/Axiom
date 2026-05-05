@@ -1,5 +1,5 @@
 {
-  "version": "2.5",
+  "version": "2.6",
   "enabled": true,
   "checkIntervalSec": 1800,
 
@@ -16,6 +16,7 @@
       "enabled": true,
       "url": "https://raw.githubusercontent.com/Xemul032/Axiom/refs/heads/main/Ref/features/axiomValidator.js",
       "runAt": "document-idle",
+      "debug": true,
       "config": {}
     }, 
     "confidAgree": {
