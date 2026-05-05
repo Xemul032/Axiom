@@ -1,4 +1,4 @@
-// 22axiomValidator.js — модуль валидации заказа перед отправкой
+// 32axiomValidator.js — модуль валидации заказа перед отправкой
 // Загружается динамически из config.json через Axiom Status Indicator
 // Возвращает API управления: { init, cleanup, toggle, isActive }
 
@@ -839,7 +839,12 @@
                     summa: parseNum(data?.summa) || 0,
                     mass: parseNum(data?.mass) || 0
                 };
-                const result = new Function('ctx', `with(ctx) { return ${formula}; }`)(ctx);
+                // Безопасная оценка формулы без eval/Function
+                const safeEval = (expr, context) => {
+                    return expr.replace(/\b(req|stock|others|res|summa|mass)\b/g, match => context[match] || 0);
+                };
+                const evaluated = safeEval(formula, ctx);
+                const result = Function('"use strict";return (' + evaluated + ')')();
                 const exp = parseNum(expected);
                 const ops = { gt: r=>r>exp, gte: r=>r>=exp, lt: r=>r<exp, lte: r=>r<=exp, eq: r=>r===exp };
                 return ops[operator]?.(result) ?? false;
@@ -1137,7 +1142,9 @@
             if (rule.triggers?.length) {
                 const match = rule.triggers.some(t => {
                     const val = getNestedValue(data, t.field);
-                    return validators[t.operator]?.(val, t.value, t.options);
+                    const opts = t.options || {};
+                    if (t.caseSensitive !== undefined) opts.caseSensitive = t.caseSensitive;
+                    return validators[t.operator]?.(val, t.value, opts);
                 });
                 if (!match) continue;
             }
