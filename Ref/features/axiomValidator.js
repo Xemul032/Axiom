@@ -1,6 +1,7 @@
-// 9axiomValidator.js — модуль валидации заказа перед отправкой
+// 10axiomValidator.js — модуль валидации заказа перед отправкой
 // Загружается динамически из config.json через Axiom Status Indicator
 // Возвращает API управления: { init, cleanup, toggle, isActive }
+// 🔥 РЕЖИМ: Оверлей-перехватчик (не клонирует кнопки, не ломает стили)
 
 (function(config, GM, utils, api) {
     'use strict';
@@ -19,6 +20,7 @@
             trigger: 'В работу с файлами'
         }
     ];
+    const DEBUG_OVERLAY = config?.debugOverlay === true;
 
     // === ГЛОБАЛЬНЫЕ ПЕРЕМЕННЫЕ ===
     let debounceTimer = null;
@@ -26,9 +28,9 @@
     let lastStateHash = '';
     let validationRules = null;
     let rulesLastFetch = 0;
-    let originalButtons = [];
     let active = false;
     let domObserver = null;
+    let resizeObservers = new Map(); // btn -> ResizeObserver
 
     // === УТИЛИТЫ ===
     const clean = t => t ? t.replace(/\s+/g, ' ').replace(/&nbsp;/g, ' ').trim() : '';
@@ -47,7 +49,6 @@
     };
 
     // === ЗАГРУЗКА ПРАВИЛ ===
-    // ✅ ИСПРАВЛЕНИЕ #1: GM_xmlhttpRequest заменён на GM.xmlHttpRequest (совместимость с модульным окружением)
     async function fetchValidationRules() {
         const now = Date.now();
         if (validationRules && (now - rulesLastFetch) < RULES_CACHE_TIME) {
@@ -401,9 +402,7 @@
             return validators.nestedStatus(fieldValue, options?.path, value);
         }
         const validator = validators[operator];
-        if (!validator) {
-            return false;
-        }
+        if (!validator) return false;
         return validator(fieldValue, value, options);
     }
 
@@ -456,59 +455,73 @@
         return { passed: allFailedMessages.length === 0, messages: allFailedMessages };
     }
 
-    // === ПЕРЕХВАТ КНОПОК ===
-    // ✅ ИСПРАВЛЕНИЕ #2: Копируем ВСЕ атрибуты оригинальной кнопки (data-*, aria-*, name и т.д.)
-    // ✅ ИСПРАВЛЕНИЕ #3: Убран stopPropagation — не блокирует подменю и делегированные обработчики
+    // === ПЕРЕХВАТ КНОПОК ЧЕРЕЗ ОВЕРЛЕЙ ===
     function interceptButtons() {
         VALIDATION_BUTTONS.forEach(btnConfig => {
             const originalBtn = document.querySelector(btnConfig.selector);
             if (!originalBtn) return;
-            if (originalBtn.getAttribute(`data-${UNIQUE_PREFIX}intercepted`) === 'true') return;
+            
+            // Проверяем, не создан ли уже оверлей
+            if (originalBtn.dataset[UNIQUE_PREFIX + 'overlay']) return;
+            originalBtn.dataset[UNIQUE_PREFIX + 'overlay'] = 'true';
 
-            // 1. Сохраняем оригинальный display
-            const origDisplay = originalBtn.style.display || '';
+            // Создаем оверлей
+            const overlay = document.createElement('div');
+            overlay.style.position = 'absolute';
+            overlay.style.top = '0';
+            overlay.style.left = '0';
+            overlay.style.width = '100%';
+            overlay.style.height = '100%';
+            overlay.style.zIndex = '9999';
+            overlay.style.cursor = 'pointer';
+            overlay.style.background = DEBUG_OVERLAY ? 'rgba(255, 0, 0, 0.15)' : 'transparent';
+            overlay.style.border = DEBUG_OVERLAY ? '1px dashed rgba(255, 0, 0, 0.5)' : 'none';
+            overlay.style.borderRadius = originalBtn.style.borderRadius || '4px';
+            overlay.dataset[UNIQUE_PREFIX + 'overlay-target'] = 'true';
 
-            // 2. Скрываем оригинал и помечаем
-            originalBtn.style.display = 'none';
-            originalBtn.setAttribute(`data-${UNIQUE_PREFIX}intercepted`, 'true');
-            originalButtons.push({ original: originalBtn, config: btnConfig, origDisplay });
-
-            // 3. Создаём новую кнопку
-            const newBtn = document.createElement('button');
-            newBtn.type = originalBtn.type || 'button';
-
-            // ✅ Копируем ВСЕ атрибуты оригинала (кроме служебных)
-            Array.from(originalBtn.attributes).forEach(attr => {
-                if (
-                    attr.name === 'style' ||
-                    attr.name === `data-${UNIQUE_PREFIX}intercepted`
-                ) return;
-                try {
-                    newBtn.setAttribute(attr.name, attr.value);
-                } catch (e) { /* ignore */ }
-            });
-
-            // Копируем классы и текст
-            if (originalBtn.className) newBtn.className = originalBtn.className;
-            newBtn.textContent = originalBtn.textContent.trim();
-
-            // 4. Гарантируем видимость
-            newBtn.style.display = '';
-            newBtn.style.visibility = 'visible';
-            newBtn.style.opacity = '1';
-            newBtn.style.cursor = 'pointer';
-            newBtn.style.pointerEvents = 'auto';
-
-            // 5. Вставляем перед оригиналом
-            if (originalBtn.parentNode) {
-                originalBtn.parentNode.insertBefore(newBtn, originalBtn);
+            // Обеспечиваем позиционирование родителя
+            const btnStyle = window.getComputedStyle(originalBtn);
+            const parentStyle = window.getComputedStyle(originalBtn.parentNode);
+            if (btnStyle.position === 'static' && parentStyle.position === 'static') {
+                originalBtn.style.position = 'relative';
             }
 
-            // 6. Навешиваем валидацию
-            // ✅ ИСПРАВЛЕНИЕ #3: e.stopPropagation() убран — не ломаем делегирование и подменю
-            newBtn.addEventListener('click', async (e) => {
-                e.preventDefault();
+            // Вставляем оверлей после кнопки (чтобы не перекрывать вложенный контент)
+            if (originalBtn.parentNode) {
+                originalBtn.parentNode.insertBefore(overlay, originalBtn.nextSibling);
+            }
 
+            // Функция обновления позиции оверлея
+            const updateOverlayPosition = () => {
+                const rect = originalBtn.getBoundingClientRect();
+                const parentRect = originalBtn.parentNode.getBoundingClientRect();
+                overlay.style.top = (rect.top - parentRect.top) + 'px';
+                overlay.style.left = (rect.left - parentRect.left) + 'px';
+                overlay.style.width = rect.width + 'px';
+                overlay.style.height = rect.height + 'px';
+            };
+            updateOverlayPosition();
+
+            // Подписка на ResizeObserver
+            if (typeof ResizeObserver !== 'undefined') {
+                const ro = new ResizeObserver(() => {
+                    updateOverlayPosition();
+                });
+                ro.observe(originalBtn);
+                resizeObservers.set(originalBtn, ro);
+            }
+
+            // Подписка на scroll для коррекции позиции
+            const onScroll = () => updateOverlayPosition();
+            window.addEventListener('scroll', onScroll, { passive: true });
+            overlay.dataset[UNIQUE_PREFIX + 'scroll-handler'] = 'true';
+
+            // Обработчик клика по оверлею
+            overlay.addEventListener('click', async (e) => {
+                e.preventDefault();
+                e.stopPropagation();
+
+                // Сбор данных
                 const productName = parseProductName();
                 const mass = parseProductMass();
                 const summaData = parseProductSumma();
@@ -551,13 +564,49 @@
                             duration: 0
                         });
                     }
+                    // Оверлей НЕ удаляем — пользователь должен исправить ошибки
                     return;
                 }
 
-                // ✅ Клик по скрытому оригиналу
-                originalBtn.click();
+                // ✅ Валидация пройдена: удаляем оверлей и кликаем по оригиналу
+                removeOverlay(originalBtn);
+                // Небольшая задержка для визуального "отклика"
+                setTimeout(() => originalBtn.click(), 50);
             });
         });
+    }
+
+    // Удаление оверлея для конкретной кнопки
+    function removeOverlay(originalBtn) {
+        if (!originalBtn) return;
+        
+        delete originalBtn.dataset[UNIQUE_PREFIX + 'overlay'];
+        
+        // Удаляем оверлей (следующий элемент после кнопки)
+        const overlay = originalBtn.nextElementSibling;
+        if (overlay?.dataset[UNIQUE_PREFIX + 'overlay-target'] === 'true') {
+            // Отписываемся от scroll
+            if (overlay.dataset[UNIQUE_PREFIX + 'scroll-handler'] === 'true') {
+                window.removeEventListener('scroll', onScroll);
+                delete overlay.dataset[UNIQUE_PREFIX + 'scroll-handler'];
+            }
+            overlay.remove();
+        }
+        
+        // Очищаем ResizeObserver
+        const ro = resizeObservers.get(originalBtn);
+        if (ro) {
+            ro.disconnect();
+            resizeObservers.delete(originalBtn);
+        }
+        
+        // Возвращаем позиционирование, если меняли
+        if (originalBtn.style.position === 'relative') {
+            const cs = window.getComputedStyle(originalBtn);
+            if (!originalBtn.getAttribute('style')?.match(/position\s*:\s*relative/)) {
+                originalBtn.style.position = '';
+            }
+        }
     }
 
     // === ПАРСЕР ===
@@ -599,7 +648,6 @@
         domObserver.observe(document.body, { childList: true, subtree: true });
     }
 
-    // ✅ ИСПРАВЛЕНИЕ #4: Слишком ранний запуск — используем waitForButtons вместо голого setTimeout
     function waitForButtons(callback) {
         const maxAttempts = 30;
         let attempts = 0;
@@ -616,7 +664,6 @@
     }
 
     // === API МОДУЛЯ ===
-    // ✅ ИСПРАВЛЕНИЕ #4: init использует waitForButtons — запуск только когда кнопки реально есть в DOM
     function init() {
         if (active) return;
         active = true;
@@ -635,20 +682,15 @@
         }
         clearTimeout(debounceTimer);
 
-        // Восстанавливаем оригиналы и удаляем новые кнопки
-        originalButtons.forEach(({ original, origDisplay }) => {
-            if (original && original.parentNode) {
-                original.style.display = origDisplay || '';
-                original.removeAttribute(`data-${UNIQUE_PREFIX}intercepted`);
-
-                // Ищем и удаляем новую кнопку (она стоит перед оригиналом)
-                const newBtn = original.previousElementSibling;
-                if (newBtn && newBtn.tagName === 'BUTTON') {
-                    newBtn.remove();
-                }
-            }
+        // Удаляем все оверлеи
+        document.querySelectorAll(`[data-${UNIQUE_PREFIX}overlay="true"]`).forEach(btn => {
+            removeOverlay(btn);
         });
-        originalButtons = [];
+        
+        // Очищаем все ResizeObservers
+        resizeObservers.forEach(ro => ro.disconnect());
+        resizeObservers.clear();
+
         lastStateHash = '';
         isRunning = false;
     }
