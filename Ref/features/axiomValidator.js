@@ -1,4 +1,4 @@
-// 4axiomValidator.js — модуль валидации заказа перед отправкой
+// 5axiomValidator.js — модуль валидации заказа перед отправкой
 // Загружается динамически из config.json через Axiom Status Indicator
 // Возвращает API управления: { init, cleanup, toggle, isActive }
 
@@ -20,19 +20,17 @@
         }
     ];
 
-    // 🔥 Внутреннее состояние
-    let active = false;
+    // === ГЛОБАЛЬНЫЕ ПЕРЕМЕННЫЕ ===
     let debounceTimer = null;
     let isRunning = false;
     let lastStateHash = '';
     let validationRules = null;
     let rulesLastFetch = 0;
-    let buttonPairs = []; // { original, clone, config }
+    let originalButtons = [];
+    let active = false;
     let domObserver = null;
 
-    // ─────────────────────────────────────────────
-    // 🔥 Утилиты
-    // ─────────────────────────────────────────────
+    // === УТИЛИТЫ ===
     const clean = t => t ? t.replace(/\s+/g, ' ').replace(/&nbsp;/g, ' ').trim() : '';
     const parseNum = str => {
         if (!str) return 0;
@@ -48,34 +46,47 @@
         return clean(select.value);
     };
 
-    // ─────────────────────────────────────────────
-    // 🔥 Загрузка правил
-    // ─────────────────────────────────────────────
+    // === ЗАГРУЗКА ПРАВИЛ ===
     async function fetchValidationRules() {
         const now = Date.now();
-        if (validationRules && (now - rulesLastFetch) < RULES_CACHE_TIME) return validationRules;
+        if (validationRules && (now - rulesLastFetch) < RULES_CACHE_TIME) {
+            return validationRules;
+        }
 
         return new Promise((resolve) => {
             if (typeof GM_xmlhttpRequest !== 'undefined') {
                 GM_xmlhttpRequest({
-                    method: 'GET', url: RULES_URL,
-                    onload: (res) => {
-                        if (res.status === 200) {
+                    method: 'GET',
+                    url: RULES_URL,
+                    onload: (response) => {
+                        if (response.status === 200) {
                             try {
-                                validationRules = JSON.parse(res.responseText);
+                                validationRules = JSON.parse(response.responseText);
                                 rulesLastFetch = now;
                                 if (typeof GM_setValue !== 'undefined') {
-                                    GM_setValue(`${UNIQUE_PREFIX}rules`, res.responseText);
+                                    GM_setValue(`${UNIQUE_PREFIX}rules`, response.responseText);
                                     GM_setValue(`${UNIQUE_PREFIX}rules_time`, now);
                                 }
                                 resolve(validationRules);
-                            } catch { resolve(loadCachedRules()); }
-                        } else { resolve(loadCachedRules()); }
+                            } catch (e) {
+                                resolve(loadCachedRules());
+                            }
+                        } else {
+                            resolve(loadCachedRules());
+                        }
                     },
-                    onerror: () => resolve(loadCachedRules())
+                    onerror: () => {
+                        resolve(loadCachedRules());
+                    }
                 });
             } else {
-                fetch(RULES_URL).then(r => r.json()).then(d => { validationRules = d; rulesLastFetch = now; resolve(d); })
+                fetch(RULES_URL)
+                    .then(r => r.json())
+                    .then(data => {
+                        validationRules = data;
+                        rulesLastFetch = now;
+                        resolve(validationRules);
+                    })
                     .catch(() => resolve(loadCachedRules()));
             }
         });
@@ -83,34 +94,58 @@
 
     function loadCachedRules() {
         if (typeof GM_getValue !== 'undefined') {
-            const c = GM_getValue(`${UNIQUE_PREFIX}rules`), t = GM_getValue(`${UNIQUE_PREFIX}rules_time`);
-            if (c && t) { try { validationRules = JSON.parse(c); rulesLastFetch = t; return validationRules; } catch {} }
+            const cached = GM_getValue(`${UNIQUE_PREFIX}rules`);
+            const cachedTime = GM_getValue(`${UNIQUE_PREFIX}rules_time`);
+            if (cached && cachedTime) {
+                try {
+                    validationRules = JSON.parse(cached);
+                    rulesLastFetch = cachedTime;
+                    return validationRules;
+                } catch (e) { /* ignore */ }
+            }
         }
         validationRules = { rules: [], defaults: { failMessage: '⚠️ Проверка не пройдена' } };
         return validationRules;
     }
 
-    // ─────────────────────────────────────────────
-    // 🔥 Универсальные валидаторы
-    // ─────────────────────────────────────────────
+    // === УНИВЕРСАЛЬНЫЕ ВАЛИДАТОРЫ ===
     const validators = {
-        contains: (v, e, o) => v ? (o?.caseSensitive ? String(v) : String(v).toLowerCase()).includes(o?.caseSensitive ? String(e) : String(e).toLowerCase()) : false,
-        equals: (v, e, o) => v ? (o?.caseSensitive ? String(v).trim() : String(v).trim().toLowerCase()) === (o?.caseSensitive ? String(e).trim() : String(e).trim().toLowerCase()) : false,
-        gt: (v, e) => parseNum(v) > parseNum(e),
-        gte: (v, e) => parseNum(v) >= parseNum(e),
-        lt: (v, e) => parseNum(v) < parseNum(e),
-        lte: (v, e) => parseNum(v) <= parseNum(e),
-        eq: (v, e) => parseNum(v) === parseNum(e),
-        exists: v => v && String(v).trim() !== '' && !['Не указано', 'Не указана'].includes(String(v).trim()),
-        notExists: v => !v || String(v).trim() === '' || ['Не указано', 'Не указана'].includes(String(v).trim()),
-        calc: (data, formula, expected, op) => {
+        contains: (value, expected, opts) => {
+            if (!value) return false;
+            const v = opts?.caseSensitive ? String(value) : String(value).toLowerCase();
+            const e = opts?.caseSensitive ? String(expected) : String(expected).toLowerCase();
+            return v.includes(e);
+        },
+        equals: (value, expected, opts) => {
+            if (!value) return false;
+            const v = opts?.caseSensitive ? String(value).trim() : String(value).trim().toLowerCase();
+            const e = opts?.caseSensitive ? String(expected).trim() : String(expected).trim().toLowerCase();
+            return v === e;
+        },
+        gt: (value, expected) => parseNum(value) > parseNum(expected),
+        gte: (value, expected) => parseNum(value) >= parseNum(expected),
+        lt: (value, expected) => parseNum(value) < parseNum(expected),
+        lte: (value, expected) => parseNum(value) <= parseNum(expected),
+        eq: (value, expected) => parseNum(value) === parseNum(expected),
+        exists: (value) => value && String(value).trim() !== '' && !['Не указано', 'Не указана'].includes(String(value).trim()),
+        notExists: (value) => !value || String(value).trim() === '' || ['Не указано', 'Не указана'].includes(String(value).trim()),
+        calc: (data, formula, expected, operator) => {
             try {
-                const ctx = { req: parseNum(data?.stock?.req)||0, stock: parseNum(data?.stock?.stock)||0, others: parseNum(data?.stock?.others)||0, res: parseNum(data?.stock?.res)||0, summa: parseNum(data?.summa)||0, mass: parseNum(data?.mass)||0 };
+                const ctx = {
+                    req: parseNum(data?.stock?.req) || 0,
+                    stock: parseNum(data?.stock?.stock) || 0,
+                    others: parseNum(data?.stock?.others) || 0,
+                    res: parseNum(data?.stock?.res) || 0,
+                    summa: parseNum(data?.summa) || 0,
+                    mass: parseNum(data?.mass) || 0
+                };
                 const result = new Function('ctx', `with(ctx) { return ${formula}; }`)(ctx);
                 const exp = parseNum(expected);
                 const ops = { gt: r=>r>exp, gte: r=>r>=exp, lt: r=>r<exp, lte: r=>r<=exp, eq: r=>r===exp };
-                return ops[op]?.(result) ?? false;
-            } catch { return false; }
+                return ops[operator]?.(result) ?? false;
+            } catch (e) {
+                return false;
+            }
         },
         nestedStatus: (obj, path, expected) => {
             const val = path.split('.').reduce((o, k) => o?.[k], obj);
@@ -119,9 +154,7 @@
         }
     };
 
-    // ─────────────────────────────────────────────
-    // 🔥 Парсинг данных
-    // ─────────────────────────────────────────────
+    // === ПАРСИНГ ДАННЫХ ===
     function parseProductName() {
         const input = document.querySelector('#Top > form > div > div > div > input') || document.querySelector('.ProductName.form-control');
         return input ? input.value.trim() : 'Не указано';
@@ -130,8 +163,9 @@
     function parseProductMass() {
         let mass = 'Не указана';
         const massCell = document.querySelector('#Summary > table > tbody > tr > td:nth-child(1) > table.table.table-condensed.table-striped > tbody:nth-child(3) > tr:nth-child(8) > td:nth-child(2)');
-        if (massCell) mass = clean(massCell.textContent);
-        else {
+        if (massCell) {
+            mass = clean(massCell.textContent);
+        } else {
             const labels = document.querySelectorAll('td');
             for (let i = 0; i < labels.length; i++) {
                 if (clean(labels[i].textContent).includes('Масса тиража')) {
@@ -169,6 +203,7 @@
 
     function parseProductInfo() {
         let client = 'Не указан', deliveryPoint = 'Не указана', address = 'Не указан';
+
         const clientTextRow = document.querySelector('#Summary > table > tbody > tr > td:nth-child(1) > table > tbody:nth-child(2) > tr:nth-child(2)');
         if (clientTextRow && clientTextRow.querySelector('td:first-child')?.textContent.includes('Контактное лицо')) {
             client = clean(clientTextRow.querySelector('td:nth-child(2)').textContent);
@@ -218,6 +253,7 @@
                 address = aSpan ? clean(aSpan.textContent) : (document.querySelector('select.AddressId, select[name*="AddressId"]') ? getSelectedText(document.querySelector('select.AddressId, select[name*="AddressId"]')) : '');
             }
         }
+
         return { client, deliveryPoint, address };
     }
 
@@ -248,7 +284,7 @@
             const first = row.querySelector('td:first-child');
             if (!first) return;
             const text = clean(first.textContent);
-            if (text.includes('Операция') || text.includes('Участник')) return;
+            if (text.includes('Операция') || text.includes('Участок')) return;
             if (text.includes('Препресс проверка')) {
                 check.who = row.querySelector('td:nth-child(3)')?.textContent.trim() || '';
                 check.when = row.querySelector('td:nth-child(4)')?.textContent.trim() || '';
@@ -257,7 +293,7 @@
             if (text.includes('Препресс монтаж')) {
                 layout.who = row.querySelector('td:nth-child(3)')?.textContent.trim() || '';
                 layout.when = row.querySelector('td:nth-child(4)')?.textContent.trim() || '';
-                layout.status = (layout.who && layout.when) ? '✅ ГОТОВО' : (layout.who ? ' В РАБОТЕ' : '❌ НЕ НАЧАТ');
+                layout.status = (layout.who && layout.when) ? '✅ ГОТОВО' : (layout.who ? '⏳ В РАБОТЕ' : '❌ НЕ НАЧАТ');
             }
         });
         return { check, layout };
@@ -325,13 +361,14 @@
         return orders;
     }
 
-    // ─────────────────────────────────────────────
-    // 🔥 Движок валидации
-    // ─────────────────────────────────────────────
-    function getNestedValue(obj, path) { return path.split('.').reduce((o, k) => o?.[k], obj); }
+    // === ДВИЖОК ВАЛИДАЦИИ ===
+    function getNestedValue(obj, path) {
+        return path.split('.').reduce((o, k) => o?.[k], obj);
+    }
 
     function evaluateCondition(condition, data) {
         const { field, operator, value, options, formula, expectedOperator, source, failMessage } = condition;
+
         let context = data;
         if (source === 'orders' && data.orders?.length) {
             const orders = condition.checkAll ? data.orders : [data.orders[0]];
@@ -341,37 +378,59 @@
                 return runValidator(operator, fieldValue, value, options, ctx, formula, expectedOperator);
             });
             const passed = condition.any ? results.some(r => r.passed) : results.every(r => r.passed);
-            return { passed, message: passed ? null : (failMessage || results.find(r => !r.passed)?.message || '⚠️ Проверка не пройдена') };
+            return {
+                passed,
+                message: passed ? null : (failMessage || results.find(r => !r.passed)?.message || '⚠️ Проверка не пройдена')
+            };
         }
+
         const fieldValue = field ? getNestedValue(context, field) : context;
         const result = runValidator(operator, fieldValue, value, options, context, formula, expectedOperator);
-        return { passed: result, message: result ? null : (failMessage || '⚠️ Проверка не пройдена') };
+        return {
+            passed: result,
+            message: result ? null : (failMessage || '⚠️ Проверка не пройдена')
+        };
     }
 
     function runValidator(operator, fieldValue, value, options, context, formula, expectedOperator) {
-        if (operator === 'calc' && formula) return validators.calc(context, formula, value, expectedOperator);
-        if (operator === 'nestedStatus') return validators.nestedStatus(fieldValue, options?.path, value);
+        if (operator === 'calc' && formula) {
+            return validators.calc(context, formula, value, expectedOperator);
+        }
+        if (operator === 'nestedStatus') {
+            return validators.nestedStatus(fieldValue, options?.path, value);
+        }
         const validator = validators[operator];
-        if (!validator) return false;
+        if (!validator) {
+            return false;
+        }
         return validator(fieldValue, value, options);
     }
 
     function evaluateRule(rule, data) {
         if (!rule.conditions?.length) return { passed: true, messages: [] };
+
         const logic = rule.logic || 'AND';
         const results = rule.conditions.map(cond => evaluateCondition(cond, data));
+
         if (logic === 'AND') {
             const failed = results.filter(r => !r.passed);
-            return { passed: failed.length === 0, messages: failed.map(r => r.message).filter(Boolean) };
+            return {
+                passed: failed.length === 0,
+                messages: failed.map(r => r.message).filter(Boolean)
+            };
         } else {
             const passed = results.some(r => r.passed);
-            return { passed, messages: passed ? [] : results.map(r => r.message).filter(Boolean) };
+            return {
+                passed,
+                messages: passed ? [] : results.map(r => r.message).filter(Boolean)
+            };
         }
     }
 
     function runValidation(data) {
         if (!validationRules?.rules?.length) return { passed: true, messages: [] };
         const allFailedMessages = [];
+
         for (const rule of validationRules.rules) {
             if (rule.triggers?.length) {
                 const match = rule.triggers.some(t => {
@@ -380,58 +439,48 @@
                 });
                 if (!match) continue;
             }
+
             const ruleResult = evaluateRule(rule, data);
             if (!ruleResult.passed) {
-                if (ruleResult.messages.length > 0) allFailedMessages.push(...ruleResult.messages);
-                if (rule.failMessage) allFailedMessages.push(rule.failMessage);
-                else if (ruleResult.messages.length === 0) allFailedMessages.push(validationRules.defaults?.failMessage || '⚠️ Проверка не пройдена');
+                if (ruleResult.messages.length > 0) {
+                    allFailedMessages.push(...ruleResult.messages);
+                }
+                if (rule.failMessage) {
+                    allFailedMessages.push(rule.failMessage);
+                } else if (ruleResult.messages.length === 0) {
+                    allFailedMessages.push(validationRules.defaults?.failMessage || '⚠️ Проверка не пройдена');
+                }
             }
         }
         return { passed: allFailedMessages.length === 0, messages: allFailedMessages };
     }
 
-    // ─────────────────────────────────────────────
-    // 🔥 Перехват кнопок — 🔥 ФИНАЛЬНАЯ ИСПРАВЛЕННАЯ ВЕРСИЯ
-    // ─────────────────────────────────────────────
+    // === ПЕРЕХВАТ КНОПОК — 🔥 ОРИГИНАЛЬНАЯ ЛОГИКА, МИНИМАЛЬНЫЕ ИЗМЕНЕНИЯ ===
     function interceptButtons() {
         VALIDATION_BUTTONS.forEach(btnConfig => {
             const originalBtn = document.querySelector(btnConfig.selector);
-            if (!originalBtn) return;
-            if (originalBtn.getAttribute(`data-${UNIQUE_PREFIX}wrapped`) === 'true') return;
+            // 🔥 Используем атрибут с UNIQUE_PREFIX вместо dataset (безопаснее)
+            if (!originalBtn || originalBtn.getAttribute(`data-${UNIQUE_PREFIX}intercepted`) === 'true') return;
 
-            // 1. Помечаем и сохраняем пару
-            originalBtn.setAttribute(`data-${UNIQUE_PREFIX}wrapped`, 'true');
+            // 🔥 Помечаем через атрибут
+            originalBtn.setAttribute(`data-${UNIQUE_PREFIX}intercepted`, 'true');
             
-            // 2. Получаем реальный отображаемый стиль ДО любых изменений
-            const computed = window.getComputedStyle(originalBtn);
-            const displayVal = computed.display || 'inline-block';
-
-            // 3. Создаём точный клон
-            const clone = originalBtn.cloneNode(true);
-            clone.removeAttribute('onclick'); // Убираем динамический обработчик
-            clone.removeAttribute('id');      // Избегаем дублирования ID
-            clone.removeAttribute(`data-${UNIQUE_PREFIX}wrapped`);
-
-            // 4. Явно форсируем видимость с максимальным приоритетом
-            clone.style.setProperty('display', displayVal, 'important');
-            clone.style.setProperty('visibility', 'visible', 'important');
-            clone.style.setProperty('opacity', '1', 'important');
-            clone.style.setProperty('pointer-events', 'auto', 'important');
-            clone.style.setProperty('cursor', 'pointer', 'important');
-
-            // 5. Вставляем клон ПЕРЕД оригиналом (сохраняет верстку на 100%)
-            if (originalBtn.parentNode) {
-                originalBtn.parentNode.insertBefore(clone, originalBtn);
-            }
-
-            // 6. Скрываем оригинал ПОСЛЕ вставки клона (нет мерцания)
+            const originalDisplay = window.getComputedStyle(originalBtn).display;
+            const originalVisibility = window.getComputedStyle(originalBtn).visibility;
             originalBtn.style.display = 'none';
+            originalButtons.push({ original: originalBtn, config: btnConfig });
 
-            // 7. Сохраняем ссылки для cleanup()
-            buttonPairs.push({ original: originalBtn, clone: clone, config: btnConfig });
+            // 🔥 Двойной клон — как в оригинале
+            const clone = originalBtn.cloneNode(true);
+            clone.setAttribute(`data-${UNIQUE_PREFIX}clone`, 'true');
+            clone.removeAttribute(`data-${UNIQUE_PREFIX}intercepted`);
+            clone.style.display = originalDisplay || 'inline-block';
+            clone.style.visibility = originalVisibility || 'visible';
+            clone.style.opacity = '1';
 
-            // 8. Навешиваем валидацию на клон
-            clone.addEventListener('click', async (e) => {
+            const newClone = clone.cloneNode(true);
+            newClone.onclick = null;
+            newClone.addEventListener('click', async (e) => {
                 e.preventDefault();
                 e.stopPropagation();
 
@@ -469,22 +518,28 @@
                 const result = runValidation(validationData);
 
                 if (!result.passed) {
+                    // 🔥 Вывод ошибок через глобальную функцию
                     if (api?.showCenterMessage) {
                         const formattedErrors = result.messages.map((msg, idx) => `${idx + 1}. ${msg}`).join('<br><br>');
-                        api.showCenterMessage({ message: formattedErrors, buttonText: 'Понятно', duration: 0 });
+                        api.showCenterMessage({
+                            message: formattedErrors,
+                            buttonText: 'Понятно',
+                            duration: 0
+                        });
                     }
                     return false;
                 }
 
-                // ✅ Валидация пройдена -> вызываем скрытый оригинал с его актуальным onclick
+                // ✅ Валидация пройдена — клик по оригиналу с его актуальным onclick
                 originalBtn.click();
             });
+
+            // 🔥 Вставка как в оригинале: после скрытого оригинала
+            originalBtn.parentNode.insertBefore(newClone, originalBtn.nextSibling);
         });
     }
 
-    // ─────────────────────────────────────────────
-    //  Парсер для запуска
-    // ─────────────────────────────────────────────
+    // === ПАРСЕР ===
     function runParser() {
         if (isRunning) return;
         isRunning = true;
@@ -513,9 +568,7 @@
         isRunning = false;
     }
 
-    // ─────────────────────────────────────────────
-    // 🔥 Настройка observer'ов
-    // ─────────────────────────────────────────────
+    // === НАБЛЮДАТЕЛИ ===
     function setupObserver() {
         if (domObserver) domObserver.disconnect();
         domObserver = new MutationObserver(() => {
@@ -525,9 +578,7 @@
         domObserver.observe(document.body, { childList: true, subtree: true });
     }
 
-    // ─────────────────────────────────────────────
-    // 🔥 API модуля
-    // ─────────────────────────────────────────────
+    // === API МОДУЛЯ ===
     function init() {
         if (active) return;
         active = true;
@@ -539,40 +590,68 @@
     function cleanup() {
         if (!active) return;
         active = false;
-        if (domObserver) { domObserver.disconnect(); domObserver = null; }
+        
+        if (domObserver) {
+            domObserver.disconnect();
+            domObserver = null;
+        }
         clearTimeout(debounceTimer);
-
-        // 🔥 Восстанавливаем оригиналы и удаляем клоны
-        buttonPairs.forEach(({ original, clone }) => {
-            if (original) {
+        
+        // 🔥 Восстанавливаем оригинальные кнопки и удаляем клоны
+        originalButtons.forEach(({ original }) => {
+            if (original && original.parentNode) {
                 original.style.display = '';
-                original.removeAttribute(`data-${UNIQUE_PREFIX}wrapped`);
-            }
-            if (clone && clone.parentNode) {
-                clone.parentNode.removeChild(clone);
+                original.removeAttribute(`data-${UNIQUE_PREFIX}intercepted`);
+                
+                // Удаляем клон (он идёт сразу после оригинала)
+                const clone = original.nextElementSibling;
+                if (clone && clone.getAttribute(`data-${UNIQUE_PREFIX}clone`) === 'true') {
+                    clone.remove();
+                }
             }
         });
-        buttonPairs = [];
+        originalButtons = [];
         lastStateHash = '';
         isRunning = false;
     }
 
-    function toggle() { active ? cleanup() : init(); }
-    function isActive() { return active; }
+    function toggle() {
+        active ? cleanup() : init();
+    }
 
-    function forceValidate() { runParser(); }
-    function reloadRules() { rulesLastFetch = 0; return fetchValidationRules(); }
+    function isActive() {
+        return active;
+    }
+
+    function forceValidate() {
+        runParser();
+    }
+
+    function reloadRules() {
+        rulesLastFetch = 0;
+        return fetchValidationRules();
+    }
 
     // 🔥 Авто-запуск
     if (config?.autoInit !== false) {
-        if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init);
-        else setTimeout(init, 100);
+        if (document.readyState === 'loading') {
+            document.addEventListener('DOMContentLoaded', init);
+        } else {
+            setTimeout(init, 100);
+        }
     }
 
     // 🔥 Экспорт API
     return {
-        init, cleanup, toggle, isActive, forceValidate, reloadRules,
-        runValidation, parseOrders, fetchValidationRules
+        init,
+        cleanup,
+        toggle,
+        isActive,
+        forceValidate,
+        reloadRules,
+        runValidation,
+        parseOrders,
+        fetchValidationRules
     };
 
 })(config, GM, utils, api);
