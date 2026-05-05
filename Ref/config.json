@@ -12,6 +12,12 @@
       "runAt": "document-idle",
       "config": {}
     },
+      "axiomValidator": {
+      "enabled": true,
+      "url": "https://raw.githubusercontent.com/Xemul032/Axiom/refs/heads/main/Ref/features/axiomValidator.js",
+      "runAt": "document-idle",
+      "config": {}
+    }, 
     "confidAgree": {
       "enabled": true,
       "url": "https://raw.githubusercontent.com/Xemul032/Axiom/refs/heads/main/Ref/features/confidAgree.js",
