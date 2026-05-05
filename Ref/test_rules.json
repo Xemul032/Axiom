@@ -4,18 +4,22 @@
   },
   "rules": [
     {
-      "name": "Проверка 1: Достаточно ли бумаги",
-      "description": "Блокирует, если бумаги мало. Выводит имя проблемного ордера.",
+      "name": "Проверка: Достаточно ли бумаги",
+      "description": "Проверяет, что на складе есть бумага",
       "conditions": [
         {
-          "field": "paperStock",
-          "operator": "paperStock",
+          "source": "orders",
+          "checkAll": true,
+          "operator": "calc",
+          "formula": "stock >= req",
+          "expectedOperator": "eq",
+          "expected": "1",
           "failMessage": "❌ НЕ ХВАТАЕТ БУМАГИ!"
         }
       ]
     },
     {
-      "name": "Проверка 2: Специальный заказчик",
+      "name": "Проверка: Специальный заказчик",
       "description": "Блокирует, если в имени заказчика есть 'ЛИНК'",
       "conditions": [
         {
@@ -23,7 +27,6 @@
           "operator": "contains",
           "value": "ЛИНК",
           "caseSensitive": false,
-          "negate": true,
           "failMessage": "⚠️ Заказчик содержит 'ЛИНК' — требуется согласование!"
         }
       ]
