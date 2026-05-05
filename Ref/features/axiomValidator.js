@@ -1,4 +1,4 @@
-// 5axiomValidator.js — модуль валидации заказа перед отправкой
+// 6axiomValidator.js — модуль валидации заказа перед отправкой
 // Загружается динамически из config.json через Axiom Status Indicator
 // Возвращает API управления: { init, cleanup, toggle, isActive }
 
@@ -455,32 +455,51 @@
         return { passed: allFailedMessages.length === 0, messages: allFailedMessages };
     }
 
-    // === ПЕРЕХВАТ КНОПОК — 🔥 ОРИГИНАЛЬНАЯ ЛОГИКА, МИНИМАЛЬНЫЕ ИЗМЕНЕНИЯ ===
+    // === ПЕРЕХВАТ КНОПОК — 🔥 ИСПРАВЛЕННАЯ ВЕРСИЯ ===
     function interceptButtons() {
         VALIDATION_BUTTONS.forEach(btnConfig => {
             const originalBtn = document.querySelector(btnConfig.selector);
-            // 🔥 Используем атрибут с UNIQUE_PREFIX вместо dataset (безопаснее)
             if (!originalBtn || originalBtn.getAttribute(`data-${UNIQUE_PREFIX}intercepted`) === 'true') return;
 
-            // 🔥 Помечаем через атрибут
+            // 1. Помечаем оригинал
             originalBtn.setAttribute(`data-${UNIQUE_PREFIX}intercepted`, 'true');
             
-            const originalDisplay = window.getComputedStyle(originalBtn).display;
-            const originalVisibility = window.getComputedStyle(originalBtn).visibility;
-            originalBtn.style.display = 'none';
+            // 2. Получаем вычисленные стили ДО скрытия
+            const computedStyle = window.getComputedStyle(originalBtn);
+            const origDisplay = computedStyle.display;
+            const origVisibility = computedStyle.visibility;
+            
+            // 3. Скрываем оригинал
+            originalBtn.style.setProperty('display', 'none', 'important');
             originalButtons.push({ original: originalBtn, config: btnConfig });
 
-            // 🔥 Двойной клон — как в оригинале
+            // 4. Создаём клон
             const clone = originalBtn.cloneNode(true);
-            clone.setAttribute(`data-${UNIQUE_PREFIX}clone`, 'true');
+            
+            // 5. Очищаем атрибуты клона
             clone.removeAttribute(`data-${UNIQUE_PREFIX}intercepted`);
-            clone.style.display = originalDisplay || 'inline-block';
-            clone.style.visibility = originalVisibility || 'visible';
-            clone.style.opacity = '1';
+            clone.removeAttribute('id'); // Избегаем дублирования ID
+            clone.setAttribute(`data-${UNIQUE_PREFIX}clone`, 'true');
+            
+            // 6. 🔥 Явно делаем клон видимым с максимальным приоритетом
+            clone.style.setProperty('display', origDisplay || 'inline-block', 'important');
+            clone.style.setProperty('visibility', 'visible', 'important');
+            clone.style.setProperty('opacity', '1', 'important');
+            clone.style.setProperty('pointer-events', 'auto', 'important');
+            clone.style.removeProperty('display'); // Убираем inline display:none если есть
+            clone.style.display = origDisplay || 'inline-block'; // Явно устанавливаем
+            
+            // 7. Очищаем onclick у клона (он останется у скрытого оригинала)
+            clone.onclick = null;
+            clone.removeAttribute('onclick');
+            
+            // 8. 🔥 Вставляем клон ПЕРЕД оригиналом (не после!)
+            if (originalBtn.parentNode) {
+                originalBtn.parentNode.insertBefore(clone, originalBtn);
+            }
 
-            const newClone = clone.cloneNode(true);
-            newClone.onclick = null;
-            newClone.addEventListener('click', async (e) => {
+            // 9. Навешиваем обработчик на клон
+            clone.addEventListener('click', async (e) => {
                 e.preventDefault();
                 e.stopPropagation();
 
@@ -518,7 +537,6 @@
                 const result = runValidation(validationData);
 
                 if (!result.passed) {
-                    // 🔥 Вывод ошибок через глобальную функцию
                     if (api?.showCenterMessage) {
                         const formattedErrors = result.messages.map((msg, idx) => `${idx + 1}. ${msg}`).join('<br><br>');
                         api.showCenterMessage({
@@ -530,12 +548,9 @@
                     return false;
                 }
 
-                // ✅ Валидация пройдена — клик по оригиналу с его актуальным onclick
+                // ✅ Клик по скрытому оригиналу с его актуальным onclick
                 originalBtn.click();
             });
-
-            // 🔥 Вставка как в оригинале: после скрытого оригинала
-            originalBtn.parentNode.insertBefore(newClone, originalBtn.nextSibling);
         });
     }
 
@@ -597,16 +612,18 @@
         }
         clearTimeout(debounceTimer);
         
-        // 🔥 Восстанавливаем оригинальные кнопки и удаляем клоны
+        // 🔥 Восстанавливаем оригиналы и удаляем клоны
         originalButtons.forEach(({ original }) => {
-            if (original && original.parentNode) {
-                original.style.display = '';
+            if (original) {
+                // Показываем оригинал
+                original.style.removeProperty('display');
+                original.style.removeProperty('visibility');
                 original.removeAttribute(`data-${UNIQUE_PREFIX}intercepted`);
                 
-                // Удаляем клон (он идёт сразу после оригинала)
-                const clone = original.nextElementSibling;
-                if (clone && clone.getAttribute(`data-${UNIQUE_PREFIX}clone`) === 'true') {
-                    clone.remove();
+                // 🔥 Ищем и удаляем клон (он теперь ПЕРЕД оригиналом)
+                const prevSibling = original.previousElementSibling;
+                if (prevSibling && prevSibling.getAttribute(`data-${UNIQUE_PREFIX}clone`) === 'true') {
+                    prevSibling.remove();
                 }
             }
         });
