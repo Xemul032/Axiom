@@ -1,4 +1,4 @@
-// 13axiomValidator.js — модуль валидации заказа перед отправкой
+// 14axiomValidator.js — модуль валидации заказа перед отправкой
 // Загружается динамически из config.json через Axiom Status Indicator
 // Возвращает API управления: { init, cleanup, toggle, isActive }
 // ✅ Версия с оверлеем вместо клонирования кнопок
@@ -35,12 +35,14 @@
 
     // === УТИЛИТЫ ===
     const clean = t => t ? t.replace(/\s+/g, ' ').replace(/&nbsp;/g, ' ').trim() : '';
+    
     const parseNum = str => {
         if (!str) return 0;
         const numStr = str.toString().replace(/\s/g, '').replace(',', '.');
         const num = parseFloat(numStr);
         return isNaN(num) ? 0 : num;
     };
+    
     const getSelectedText = select => {
         if (!select) return '';
         if (select.selectedIndex >= 0 && select.options[select.selectedIndex]) {
@@ -134,6 +136,7 @@
         notExists: (value) => !value || String(value).trim() === '' || ['Не указано', 'Не указана'].includes(String(value).trim()),
         calc: (data, formula, expected, operator) => {
             try {
+                // Безопасное выполнение формулы с ограниченным контекстом
                 const ctx = {
                     req: parseNum(data?.stock?.req) || 0,
                     stock: parseNum(data?.stock?.stock) || 0,
@@ -142,9 +145,29 @@
                     summa: parseNum(data?.summa) || 0,
                     mass: parseNum(data?.mass) || 0
                 };
-                const result = new Function('ctx', `with(ctx) { return ${formula}; }`)(ctx);
+                
+                // Создаем безопасную функцию с явными параметрами
+                const safeEval = new Function('ctx', 'formula', `
+                    try {
+                        with(ctx) {
+                            return eval(formula);
+                        }
+                    } catch(e) {
+                        return NaN;
+                    }
+                `);
+                
+                const result = safeEval(ctx, formula);
+                if (isNaN(result)) return false;
+                
                 const exp = parseNum(expected);
-                const ops = { gt: r=>r>exp, gte: r=>r>=exp, lt: r=>r<exp, lte: r=>r<=exp, eq: r=>r===exp };
+                const ops = { 
+                    gt: r => r > exp, 
+                    gte: r => r >= exp, 
+                    lt: r => r < exp, 
+                    lte: r => r <= exp, 
+                    eq: r => r === exp 
+                };
                 return ops[operator]?.(result) ?? false;
             } catch (e) {
                 return false;
@@ -152,14 +175,20 @@
         },
         nestedStatus: (obj, path, expected) => {
             const val = path.split('.').reduce((o, k) => o?.[k], obj);
-            const map = { 'не начат': '❌ НЕ НАЧАТ', 'в работе': '⏳ В РАБОТЕ', 'готово': '✅ ГОТОВО', 'нет данных': 'Нет данных' };
+            const map = { 
+                'не начат': '❌ НЕ НАЧАТ', 
+                'в работе': '⏳ В РАБОТЕ', 
+                'готово': '✅ ГОТОВО', 
+                'нет данных': 'Нет данных' 
+            };
             return (val?.status || val) === (map[expected?.toLowerCase()] || expected);
         }
     };
 
     // === ПАРСИНГ ДАННЫХ ===
     function parseProductName() {
-        const input = document.querySelector('#Top > form > div > div > div > input') || document.querySelector('.ProductName.form-control');
+        const input = document.querySelector('#Top > form > div > div > div > input') || 
+                     document.querySelector('.ProductName.form-control');
         return input ? input.value.trim() : 'Не указано';
     }
 
@@ -207,6 +236,7 @@
     function parseProductInfo() {
         let client = 'Не указан', deliveryPoint = 'Не указана', address = 'Не указан';
 
+        // Клиент
         const clientTextRow = document.querySelector('#Summary > table > tbody > tr > td:nth-child(1) > table > tbody:nth-child(2) > tr:nth-child(2)');
         if (clientTextRow && clientTextRow.querySelector('td:first-child')?.textContent.includes('Контактное лицо')) {
             client = clean(clientTextRow.querySelector('td:nth-child(2)').textContent);
@@ -214,19 +244,22 @@
             const summaryCell = document.querySelector('#Summary > table > tbody > tr > td:nth-child(1) > table > tbody:nth-child(1) > tr:nth-child(2) > td:nth-child(2)');
             if (summaryCell) {
                 const chosenLink = summaryCell.querySelector('div > a.chosen-single span');
-                client = chosenLink ? clean(chosenLink.textContent) : (summaryCell.querySelector('select[name="ClientId"]') ? getSelectedText(summaryCell.querySelector('select[name="ClientId"]')) : clean(summaryCell.textContent));
+                client = chosenLink ? clean(chosenLink.textContent) : 
+                        (summaryCell.querySelector('select[name="ClientId"]') ? getSelectedText(summaryCell.querySelector('select[name="ClientId"]')) : clean(summaryCell.textContent));
             } else {
                 const sel = document.querySelector('select[name="ClientId"]');
                 if (sel) client = getSelectedText(sel);
             }
         }
 
+        // Точка выдачи
         const pointRow = document.querySelector('#Summary > table > tbody > tr > td:nth-child(1) > table > tbody:nth-child(3) > tr:nth-child(1)');
         if (pointRow && pointRow.querySelector('td:first-child')?.textContent.includes('Точка выдачи')) {
             const pointCell = pointRow.querySelector('td:nth-child(2)');
             if (pointCell) {
                 const chosenSpan = pointCell.querySelector('.chosen-single span');
-                deliveryPoint = chosenSpan ? clean(chosenSpan.textContent) : (pointCell.querySelector('select') ? getSelectedText(pointCell.querySelector('select')) : clean(pointCell.textContent));
+                deliveryPoint = chosenSpan ? clean(chosenSpan.textContent) : 
+                               (pointCell.querySelector('select') ? getSelectedText(pointCell.querySelector('select')) : clean(pointCell.textContent));
             }
         } else {
             const houseSpan = document.querySelector('.HouseTargetId + .chosen-container .chosen-single span');
@@ -237,6 +270,7 @@
             }
         }
 
+        // Адрес
         const addrRow = document.querySelector('#Summary > table > tbody > tr > td:nth-child(1) > table > tbody:nth-child(3) > tr:nth-child(2)');
         if (addrRow && addrRow.querySelector('td:first-child')?.textContent.includes('Адрес доставки')) {
             const addrCell = addrRow.querySelector('td:nth-child(2)');
@@ -245,7 +279,8 @@
                 if (addrInput?.value) address = clean(addrInput.value);
                 else {
                     const chosenSpan = addrCell.querySelector('.chosen-single span');
-                    address = chosenSpan ? clean(chosenSpan.textContent) : (addrCell.querySelector('select') ? getSelectedText(addrCell.querySelector('select')) : clean(addrCell.textContent));
+                    address = chosenSpan ? clean(chosenSpan.textContent) : 
+                             (addrCell.querySelector('select') ? getSelectedText(addrCell.querySelector('select')) : clean(addrCell.textContent));
                 }
             }
         } else {
@@ -253,7 +288,8 @@
             if (addrInput?.value) address = clean(addrInput.value);
             else {
                 const aSpan = document.querySelector('.AddressId + .chosen-container .chosen-single span');
-                address = aSpan ? clean(aSpan.textContent) : (document.querySelector('select.AddressId, select[name*="AddressId"]') ? getSelectedText(document.querySelector('select.AddressId, select[name*="AddressId"]')) : '');
+                address = aSpan ? clean(aSpan.textContent) : 
+                         (document.querySelector('select.AddressId, select[name*="AddressId"]') ? getSelectedText(document.querySelector('select.AddressId, select[name*="AddressId"]')) : '');
             }
         }
 
@@ -282,12 +318,15 @@
     function parseHistoryPrepress() {
         const hist = document.querySelector('#History');
         if (!hist) return null;
-        let check = { status: 'Нет данных', who: '', when: '' }, layout = { status: 'Нет данных', who: '', when: '' };
+        let check = { status: 'Нет данных', who: '', when: '' }, 
+            layout = { status: 'Нет данных', who: '', when: '' };
+        
         hist.querySelectorAll('tr').forEach(row => {
             const first = row.querySelector('td:first-child');
             if (!first) return;
             const text = clean(first.textContent);
             if (text.includes('Операция') || text.includes('Участок')) return;
+            
             if (text.includes('Препресс проверка')) {
                 check.who = row.querySelector('td:nth-child(3)')?.textContent.trim() || '';
                 check.when = row.querySelector('td:nth-child(4)')?.textContent.trim() || '';
@@ -304,15 +343,20 @@
 
     function parseGlobalPostpress() {
         const globals = [];
-        const orders = Array.from(document.querySelectorAll('.formblock')).filter(b => b.className.match(/Order(\d+)/) && b.offsetParent !== null);
+        const orders = Array.from(document.querySelectorAll('.formblock'))
+            .filter(b => b.className.match(/Order(\d+)/) && b.offsetParent !== null);
         if (orders.length === 0) return globals;
+        
         let next = orders[orders.length - 1].nextElementSibling;
         while (next) {
             const table = next.tagName === 'TABLE' ? next : next.querySelector('table.table-condensed');
             if (table) {
                 table.querySelectorAll('tr[class^="PostpressPrice"]').forEach(r => {
                     const b = r.querySelector('b');
-                    if (b) { const n = clean(b.textContent); if (n && !globals.includes(n)) globals.push(n); }
+                    if (b) { 
+                        const n = clean(b.textContent); 
+                        if (n && !globals.includes(n)) globals.push(n); 
+                    }
                 });
                 if (globals.length > 0) break;
             }
@@ -327,22 +371,42 @@
             const m = block.className.match(/Order(\d+)/);
             if (!m || block.offsetParent === null) return;
             const id = m[1];
+            
             const nameEl = block.querySelector('.OrderName');
             const name = nameEl ? (nameEl.value || clean(nameEl.textContent)) : 'Без названия';
+            
             let printInfo = '', colorInfo = '', paperInfo = '';
+            
+            // Информация о печати
             const header = block.querySelector('td[align="right"] h4, td[align="right"] nobr h4');
             if (header) {
                 const clone = header.cloneNode(true);
                 clone.querySelectorAll('script, button, .glyphicon, .label, .hide, .btn, .PrepressControllerOrder').forEach(e => e.remove());
                 printInfo = clean(clone.textContent);
             }
-            const cRow = [...block.querySelectorAll('tr')].find(tr => { const f = tr.querySelector('td.fieldname'); return f && clean(f.textContent) === 'Цветность'; });
-            if (cRow) { const s = cRow.querySelector('td.center span'); colorInfo = s ? clean(s.textContent) : 'N/A'; }
+            
+            // Цветность
+            const cRow = [...block.querySelectorAll('tr')].find(tr => {
+                const f = tr.querySelector('td.fieldname');
+                return f && clean(f.textContent) === 'Цветность';
+            });
+            if (cRow) {
+                const s = cRow.querySelector('td.center span');
+                colorInfo = s ? clean(s.textContent) : 'N/A';
+            }
+            
+            // Бумага
             const pLabel = [...block.querySelectorAll('td.fieldname')].find(td => clean(td.textContent) === 'Бумага');
             if (pLabel) {
                 const v = pLabel.nextElementSibling;
-                if (v) { const cl = v.cloneNode(true); cl.querySelectorAll('span, div, script, button, .glyphicon, .MaterialCommentForm').forEach(e => e.remove()); paperInfo = clean(cl.textContent); }
+                if (v) {
+                    const cl = v.cloneNode(true);
+                    cl.querySelectorAll('span, div, script, button, .glyphicon, .MaterialCommentForm').forEach(e => e.remove());
+                    paperInfo = clean(cl.textContent);
+                }
             }
+            
+            // Склад
             let stock = { req: '-', res: '-', stock: '-', others: '-' };
             const sklad = block.querySelector('td.SkladBlock');
             if (sklad) {
@@ -357,8 +421,14 @@
                     }
                 });
             }
+            
+            // Локальные постпечатные операции
             const localPP = [];
-            block.querySelectorAll('table.table-condensed tr[class^="PostpressPrice"], table.inner tr[class^="PostpressPrice"]').forEach(r => { const b = r.querySelector('b'); if (b) localPP.push(clean(b.textContent)); });
+            block.querySelectorAll('table.table-condensed tr[class^="PostpressPrice"], table.inner tr[class^="PostpressPrice"]').forEach(r => {
+                const b = r.querySelector('b');
+                if (b) localPP.push(clean(b.textContent));
+            });
+            
             orders.push({ id, name, printInfo, colorInfo, paperInfo, stock, localPP });
         });
         return orders;
@@ -373,6 +443,8 @@
         const { field, operator, value, options, formula, expectedOperator, source, failMessage } = condition;
 
         let context = data;
+        
+        // Обработка источника данных 'orders'
         if (source === 'orders' && data.orders?.length) {
             const orders = condition.checkAll ? data.orders : [data.orders[0]];
             const results = orders.map(ord => {
@@ -380,6 +452,7 @@
                 const fieldValue = field ? getNestedValue(ctx, field) : ctx;
                 return runValidator(operator, fieldValue, value, options, ctx, formula, expectedOperator);
             });
+            
             const passed = condition.any ? results.some(r => r.passed) : results.every(r => r.passed);
             return {
                 passed,
@@ -389,6 +462,7 @@
 
         const fieldValue = field ? getNestedValue(context, field) : context;
         const result = runValidator(operator, fieldValue, value, options, context, formula, expectedOperator);
+        
         return {
             passed: result,
             message: result ? null : (failMessage || '⚠️ Проверка не пройдена')
@@ -419,7 +493,7 @@
                 passed: failed.length === 0,
                 messages: failed.map(r => r.message).filter(Boolean)
             };
-        } else {
+        } else { // OR
             const passed = results.some(r => r.passed);
             return {
                 passed,
@@ -433,6 +507,7 @@
         const allFailedMessages = [];
 
         for (const rule of validationRules.rules) {
+            // Проверка триггеров
             if (rule.triggers?.length) {
                 const match = rule.triggers.some(t => {
                     const val = getNestedValue(data, t.field);
@@ -456,118 +531,116 @@
         return { passed: allFailedMessages.length === 0, messages: allFailedMessages };
     }
 
-// === ПЕРЕХВАТ КНОПОК ЧЕРЕЗ ОВЕРЛЕЙ — ИСПРАВЛЕННАЯ ВЕРСИЯ ===
-function interceptButtons() {
-    VALIDATION_BUTTONS.forEach(btnConfig => {
-        const originalBtn = document.querySelector(btnConfig.selector);
-        if (!originalBtn) return;
-        
-        // ✅ ИСПОЛЬЗУЕМ setAttribute вместо dataset для ключей с дефисами
-        const overlayAttr = `${UNIQUE_PREFIX}has-overlay`;
-        if (originalBtn.getAttribute(overlayAttr) === 'true') return;
+    // === ПЕРЕХВАТ КНОПОК ЧЕРЕЗ ОВЕРЛЕЙ ===
+    function interceptButtons() {
+        VALIDATION_BUTTONS.forEach(btnConfig => {
+            const originalBtn = document.querySelector(btnConfig.selector);
+            if (!originalBtn) return;
+            
+            const overlayAttr = `${UNIQUE_PREFIX}has-overlay`;
+            if (originalBtn.getAttribute(overlayAttr) === 'true') return;
 
-        // Создаём прозрачный оверлей
-        const overlay = document.createElement('div');
-        overlay.className = `${UNIQUE_PREFIX}overlay`;
-        overlay.style.cssText = `
-            position: absolute;
-            top: 0; left: 0;
-            width: 100%; height: 100%;
-            background: ${DEBUG_OVERLAY ? 'rgba(255,0,0,0.15)' : 'transparent'};
-            border: ${DEBUG_OVERLAY ? '1px dashed red' : 'none'};
-            cursor: pointer;
-            z-index: 1;
-            pointer-events: auto;
-            border-radius: inherit;
-            box-sizing: border-box;
-        `;
-        
-        // ✅ Помечаем оригинал через setAttribute
-        originalBtn.setAttribute(overlayAttr, 'true');
-        
-        // Гарантируем позиционирование: кнопка должна быть relative/absolute/fixed
-        const computedStyle = window.getComputedStyle(originalBtn);
-        if (computedStyle.position === 'static') {
-            originalBtn.style.position = 'relative';
-        }
-        // Гарантируем, что кнопка — контекст позиционирования для оверлея
-        if (computedStyle.zIndex === 'auto') {
-            originalBtn.style.zIndex = '0';
-        }
-
-        // Вставляем оверлей первым дочерним элементом
-        if (originalBtn.firstChild) {
-            originalBtn.insertBefore(overlay, originalBtn.firstChild);
-        } else {
-            originalBtn.appendChild(overlay);
-        }
-
-        // Обработчик клика по оверлею
-        overlay.addEventListener('click', async (e) => {
-            e.preventDefault();
-            e.stopPropagation();
-
-            // Сбор данных для валидации
-            const productName = parseProductName();
-            const mass = parseProductMass();
-            const summaData = parseProductSumma();
-            const invoiceInfo = parseInvoiceInfo();
-            const productInfo = parseProductInfo();
-            const designData = parseDesignBlock();
-            const prepress = parseHistoryPrepress();
-            const globalPP = parseGlobalPostpress();
-            const orders = parseOrders();
-
-            const validationData = {
-                productName,
-                summa: summaData.total,
-                rawSumma: summaData.rawSumma,
-                mass,
-                invoice: invoiceInfo.hasInvoice,
-                invoiceNumber: invoiceInfo.invoiceNumber,
-                client: productInfo.client,
-                deliveryPoint: productInfo.deliveryPoint,
-                address: productInfo.address,
-                prepress,
-                globalPP,
-                orders: orders.map(o => ({
-                    id: o.id, name: o.name, paperInfo: o.paperInfo,
-                    stock: o.stock, localPP: o.localPP
-                })),
-                stock: orders[0]?.stock,
-                design: designData?.map(d => d.desc).join(' | ') || ''
-            };
-
-            await fetchValidationRules();
-            const result = runValidation(validationData);
-
-            if (!result.passed) {
-                if (api?.showCenterMessage) {
-                    const formattedErrors = result.messages
-                        .map((msg, idx) => `${idx + 1}. ${msg}`)
-                        .join('<br><br>');
-                    api.showCenterMessage({
-                        message: formattedErrors,
-                        buttonText: 'Понятно',
-                        duration: 0
-                    });
-                }
-                return;
+            // Создаём прозрачный оверлей
+            const overlay = document.createElement('div');
+            overlay.className = `${UNIQUE_PREFIX}overlay`;
+            overlay.style.cssText = `
+                position: absolute;
+                top: 0; left: 0;
+                width: 100%; height: 100%;
+                background: ${DEBUG_OVERLAY ? 'rgba(255,0,0,0.15)' : 'transparent'};
+                border: ${DEBUG_OVERLAY ? '1px dashed red' : 'none'};
+                cursor: pointer;
+                z-index: 1;
+                pointer-events: auto;
+                border-radius: inherit;
+                box-sizing: border-box;
+            `;
+            
+            // Помечаем оригинал
+            originalBtn.setAttribute(overlayAttr, 'true');
+            
+            // Гарантируем позиционирование
+            const computedStyle = window.getComputedStyle(originalBtn);
+            if (computedStyle.position === 'static') {
+                originalBtn.style.position = 'relative';
+            }
+            if (computedStyle.zIndex === 'auto') {
+                originalBtn.style.zIndex = '0';
             }
 
-            // ✅ Валидация пройдена — клик по оригиналу
-            setTimeout(() => {
-                originalBtn.dispatchEvent(new MouseEvent('click', {
-                    bubbles: true,
-                    cancelable: true,
-                    view: window
-                }));
-            }, 10);
-        });
+            // Вставляем оверлей
+            if (originalBtn.firstChild) {
+                originalBtn.insertBefore(overlay, originalBtn.firstChild);
+            } else {
+                originalBtn.appendChild(overlay);
+            }
 
-        overlayButtons.push({ original: originalBtn, overlay, config: btnConfig });
-    });
-}
+            // Обработчик клика
+            overlay.addEventListener('click', async (e) => {
+                e.preventDefault();
+                e.stopPropagation();
+
+                // Сбор данных
+                const productName = parseProductName();
+                const mass = parseProductMass();
+                const summaData = parseProductSumma();
+                const invoiceInfo = parseInvoiceInfo();
+                const productInfo = parseProductInfo();
+                const designData = parseDesignBlock();
+                const prepress = parseHistoryPrepress();
+                const globalPP = parseGlobalPostpress();
+                const orders = parseOrders();
+
+                const validationData = {
+                    productName,
+                    summa: summaData.total,
+                    rawSumma: summaData.rawSumma,
+                    mass,
+                    invoice: invoiceInfo.hasInvoice,
+                    invoiceNumber: invoiceInfo.invoiceNumber,
+                    client: productInfo.client,
+                    deliveryPoint: productInfo.deliveryPoint,
+                    address: productInfo.address,
+                    prepress,
+                    globalPP,
+                    orders: orders.map(o => ({
+                        id: o.id, name: o.name, paperInfo: o.paperInfo,
+                        stock: o.stock, localPP: o.localPP
+                    })),
+                    stock: orders[0]?.stock,
+                    design: designData?.map(d => d.desc).join(' | ') || ''
+                };
+
+                await fetchValidationRules();
+                const result = runValidation(validationData);
+
+                if (!result.passed) {
+                    if (api?.showCenterMessage) {
+                        const formattedErrors = result.messages
+                            .map((msg, idx) => `${idx + 1}. ${msg}`)
+                            .join('<br><br>');
+                        api.showCenterMessage({
+                            message: formattedErrors,
+                            buttonText: 'Понятно',
+                            duration: 0
+                        });
+                    }
+                    return;
+                }
+
+                // Валидация пройдена — клик по оригиналу
+                setTimeout(() => {
+                    originalBtn.dispatchEvent(new MouseEvent('click', {
+                        bubbles: true,
+                        cancelable: true,
+                        view: window
+                    }));
+                }, 10);
+            });
+
+            overlayButtons.push({ original: originalBtn, overlay, config: btnConfig });
+        });
+    }
 
     // === ПАРСЕР ===
     function runParser() {
@@ -607,11 +680,9 @@ function interceptButtons() {
         });
         domObserver.observe(document.body, { childList: true, subtree: true });
 
-        // Observer для ресайза — пересчитываем позицию оверлеев если кнопка не содержит оверлей
         if ('ResizeObserver' in window) {
             resizeObserver = new ResizeObserver(() => {
                 overlayButtons.forEach(({ overlay, original }) => {
-                    // Если оверлей не внутри кнопки (редкий кейс), корректируем размер
                     if (overlay && !original.contains(overlay) && overlay.style.width) {
                         const rect = original.getBoundingClientRect();
                         overlay.style.width = `${rect.width}px`;
@@ -647,36 +718,33 @@ function interceptButtons() {
         fetchValidationRules();
     }
 
-// === ОБНОВЛЁННЫЙ CLEANUP ===
-function cleanup() {
-    if (!active) return;
-    active = false;
+    function cleanup() {
+        if (!active) return;
+        active = false;
 
-    if (domObserver) {
-        domObserver.disconnect();
-        domObserver = null;
-    }
-    if (resizeObserver) {
-        resizeObserver.disconnect();
-        resizeObserver = null;
-    }
-    clearTimeout(debounceTimer);
+        if (domObserver) {
+            domObserver.disconnect();
+            domObserver = null;
+        }
+        if (resizeObserver) {
+            resizeObserver.disconnect();
+            resizeObserver = null;
+        }
+        clearTimeout(debounceTimer);
 
-    // Удаляем оверлеи и сбрасываем атрибуты
-    const overlayAttr = `${UNIQUE_PREFIX}has-overlay`;
-    overlayButtons.forEach(({ original, overlay }) => {
-        if (overlay?.parentNode) {
-            overlay.remove();
-        }
-        if (original) {
-            original.removeAttribute(overlayAttr);
-            // Не сбрасываем position/zIndex — они могли быть заданы до нас
-        }
-    });
-    overlayButtons = [];
-    lastStateHash = '';
-    isRunning = false;
-}
+        const overlayAttr = `${UNIQUE_PREFIX}has-overlay`;
+        overlayButtons.forEach(({ original, overlay }) => {
+            if (overlay?.parentNode) {
+                overlay.remove();
+            }
+            if (original) {
+                original.removeAttribute(overlayAttr);
+            }
+        });
+        overlayButtons = [];
+        lastStateHash = '';
+        isRunning = false;
+    }
 
     function toggle() {
         active ? cleanup() : init();
