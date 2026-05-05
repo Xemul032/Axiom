@@ -1,4 +1,4 @@
-// 12axiomValidator.js — модуль валидации заказа перед отправкой
+// 13axiomValidator.js — модуль валидации заказа перед отправкой
 // Загружается динамически из config.json через Axiom Status Indicator
 // Возвращает API управления: { init, cleanup, toggle, isActive }
 // ✅ Версия с оверлеем вместо клонирования кнопок
@@ -456,113 +456,118 @@
         return { passed: allFailedMessages.length === 0, messages: allFailedMessages };
     }
 
-    // === ПЕРЕХВАТ КНОПОК ЧЕРЕЗ ОВЕРЛЕЙ ===
-    function interceptButtons() {
-        VALIDATION_BUTTONS.forEach(btnConfig => {
-            const originalBtn = document.querySelector(btnConfig.selector);
-            if (!originalBtn) return;
-            
-            const overlayKey = `${UNIQUE_PREFIX}hasOverlay`;
-            if (originalBtn.dataset[overlayKey] === 'true') return;
+// === ПЕРЕХВАТ КНОПОК ЧЕРЕЗ ОВЕРЛЕЙ — ИСПРАВЛЕННАЯ ВЕРСИЯ ===
+function interceptButtons() {
+    VALIDATION_BUTTONS.forEach(btnConfig => {
+        const originalBtn = document.querySelector(btnConfig.selector);
+        if (!originalBtn) return;
+        
+        // ✅ ИСПОЛЬЗУЕМ setAttribute вместо dataset для ключей с дефисами
+        const overlayAttr = `${UNIQUE_PREFIX}has-overlay`;
+        if (originalBtn.getAttribute(overlayAttr) === 'true') return;
 
-            // Создаём прозрачный оверлей
-            const overlay = document.createElement('div');
-            overlay.className = `${UNIQUE_PREFIX}overlay`;
-            overlay.style.cssText = `
-                position: absolute;
-                top: 0; left: 0;
-                width: 100%; height: 100%;
-                background: ${DEBUG_OVERLAY ? 'rgba(255,0,0,0.15)' : 'transparent'};
-                border: ${DEBUG_OVERLAY ? '1px dashed red' : 'none'};
-                cursor: pointer;
-                z-index: 9999;
-                pointer-events: auto;
-                border-radius: inherit;
-            `;
-            
-            // Помечаем оригинал
-            originalBtn.dataset[overlayKey] = 'true';
-            
-            // Гарантируем, что кнопка имеет position: relative для позиционирования оверлея
-            const originalPosition = window.getComputedStyle(originalBtn).position;
-            if (originalPosition === 'static') {
-                originalBtn.style.position = 'relative';
-            }
-            
-            // Вставляем оверлей первым дочерним элементом
-            if (originalBtn.firstChild) {
-                originalBtn.insertBefore(overlay, originalBtn.firstChild);
-            } else {
-                originalBtn.appendChild(overlay);
-            }
+        // Создаём прозрачный оверлей
+        const overlay = document.createElement('div');
+        overlay.className = `${UNIQUE_PREFIX}overlay`;
+        overlay.style.cssText = `
+            position: absolute;
+            top: 0; left: 0;
+            width: 100%; height: 100%;
+            background: ${DEBUG_OVERLAY ? 'rgba(255,0,0,0.15)' : 'transparent'};
+            border: ${DEBUG_OVERLAY ? '1px dashed red' : 'none'};
+            cursor: pointer;
+            z-index: 1;
+            pointer-events: auto;
+            border-radius: inherit;
+            box-sizing: border-box;
+        `;
+        
+        // ✅ Помечаем оригинал через setAttribute
+        originalBtn.setAttribute(overlayAttr, 'true');
+        
+        // Гарантируем позиционирование: кнопка должна быть relative/absolute/fixed
+        const computedStyle = window.getComputedStyle(originalBtn);
+        if (computedStyle.position === 'static') {
+            originalBtn.style.position = 'relative';
+        }
+        // Гарантируем, что кнопка — контекст позиционирования для оверлея
+        if (computedStyle.zIndex === 'auto') {
+            originalBtn.style.zIndex = '0';
+        }
 
-            // Обработчик клика по оверлею
-            overlay.addEventListener('click', async (e) => {
-                e.preventDefault();
-                e.stopPropagation();
+        // Вставляем оверлей первым дочерним элементом
+        if (originalBtn.firstChild) {
+            originalBtn.insertBefore(overlay, originalBtn.firstChild);
+        } else {
+            originalBtn.appendChild(overlay);
+        }
 
-                // Сбор данных для валидации
-                const productName = parseProductName();
-                const mass = parseProductMass();
-                const summaData = parseProductSumma();
-                const invoiceInfo = parseInvoiceInfo();
-                const productInfo = parseProductInfo();
-                const designData = parseDesignBlock();
-                const prepress = parseHistoryPrepress();
-                const globalPP = parseGlobalPostpress();
-                const orders = parseOrders();
+        // Обработчик клика по оверлею
+        overlay.addEventListener('click', async (e) => {
+            e.preventDefault();
+            e.stopPropagation();
 
-                const validationData = {
-                    productName,
-                    summa: summaData.total,
-                    rawSumma: summaData.rawSumma,
-                    mass,
-                    invoice: invoiceInfo.hasInvoice,
-                    invoiceNumber: invoiceInfo.invoiceNumber,
-                    client: productInfo.client,
-                    deliveryPoint: productInfo.deliveryPoint,
-                    address: productInfo.address,
-                    prepress,
-                    globalPP,
-                    orders: orders.map(o => ({
-                        id: o.id, name: o.name, paperInfo: o.paperInfo,
-                        stock: o.stock, localPP: o.localPP
-                    })),
-                    stock: orders[0]?.stock,
-                    design: designData?.map(d => d.desc).join(' | ') || ''
-                };
+            // Сбор данных для валидации
+            const productName = parseProductName();
+            const mass = parseProductMass();
+            const summaData = parseProductSumma();
+            const invoiceInfo = parseInvoiceInfo();
+            const productInfo = parseProductInfo();
+            const designData = parseDesignBlock();
+            const prepress = parseHistoryPrepress();
+            const globalPP = parseGlobalPostpress();
+            const orders = parseOrders();
 
-                await fetchValidationRules();
-                const result = runValidation(validationData);
+            const validationData = {
+                productName,
+                summa: summaData.total,
+                rawSumma: summaData.rawSumma,
+                mass,
+                invoice: invoiceInfo.hasInvoice,
+                invoiceNumber: invoiceInfo.invoiceNumber,
+                client: productInfo.client,
+                deliveryPoint: productInfo.deliveryPoint,
+                address: productInfo.address,
+                prepress,
+                globalPP,
+                orders: orders.map(o => ({
+                    id: o.id, name: o.name, paperInfo: o.paperInfo,
+                    stock: o.stock, localPP: o.localPP
+                })),
+                stock: orders[0]?.stock,
+                design: designData?.map(d => d.desc).join(' | ') || ''
+            };
 
-                if (!result.passed) {
-                    if (api?.showCenterMessage) {
-                        const formattedErrors = result.messages
-                            .map((msg, idx) => `${idx + 1}. ${msg}`)
-                            .join('<br><br>');
-                        api.showCenterMessage({
-                            message: formattedErrors,
-                            buttonText: 'Понятно',
-                            duration: 0
-                        });
-                    }
-                    return; // Блокируем действие при ошибке
+            await fetchValidationRules();
+            const result = runValidation(validationData);
+
+            if (!result.passed) {
+                if (api?.showCenterMessage) {
+                    const formattedErrors = result.messages
+                        .map((msg, idx) => `${idx + 1}. ${msg}`)
+                        .join('<br><br>');
+                    api.showCenterMessage({
+                        message: formattedErrors,
+                        buttonText: 'Понятно',
+                        duration: 0
+                    });
                 }
+                return;
+            }
 
-                // ✅ Валидация пройдена — эмулируем клик по оригинальной кнопке
-                // Используем MouseEvent для максимальной совместимости с обработчиками
-                setTimeout(() => {
-                    originalBtn.dispatchEvent(new MouseEvent('click', {
-                        bubbles: true,
-                        cancelable: true,
-                        view: window
-                    }));
-                }, 10);
-            });
-
-            overlayButtons.push({ original: originalBtn, overlay, config: btnConfig });
+            // ✅ Валидация пройдена — клик по оригиналу
+            setTimeout(() => {
+                originalBtn.dispatchEvent(new MouseEvent('click', {
+                    bubbles: true,
+                    cancelable: true,
+                    view: window
+                }));
+            }, 10);
         });
-    }
+
+        overlayButtons.push({ original: originalBtn, overlay, config: btnConfig });
+    });
+}
 
     // === ПАРСЕР ===
     function runParser() {
@@ -642,33 +647,36 @@
         fetchValidationRules();
     }
 
-    function cleanup() {
-        if (!active) return;
-        active = false;
+// === ОБНОВЛЁННЫЙ CLEANUP ===
+function cleanup() {
+    if (!active) return;
+    active = false;
 
-        if (domObserver) {
-            domObserver.disconnect();
-            domObserver = null;
-        }
-        if (resizeObserver) {
-            resizeObserver.disconnect();
-            resizeObserver = null;
-        }
-        clearTimeout(debounceTimer);
-
-        // Удаляем оверлеи и сбрасываем метки
-        overlayButtons.forEach(({ original, overlay }) => {
-            if (overlay?.parentNode) {
-                overlay.remove();
-            }
-            if (original) {
-                delete original.dataset[`${UNIQUE_PREFIX}hasOverlay`];
-            }
-        });
-        overlayButtons = [];
-        lastStateHash = '';
-        isRunning = false;
+    if (domObserver) {
+        domObserver.disconnect();
+        domObserver = null;
     }
+    if (resizeObserver) {
+        resizeObserver.disconnect();
+        resizeObserver = null;
+    }
+    clearTimeout(debounceTimer);
+
+    // Удаляем оверлеи и сбрасываем атрибуты
+    const overlayAttr = `${UNIQUE_PREFIX}has-overlay`;
+    overlayButtons.forEach(({ original, overlay }) => {
+        if (overlay?.parentNode) {
+            overlay.remove();
+        }
+        if (original) {
+            original.removeAttribute(overlayAttr);
+            // Не сбрасываем position/zIndex — они могли быть заданы до нас
+        }
+    });
+    overlayButtons = [];
+    lastStateHash = '';
+    isRunning = false;
+}
 
     function toggle() {
         active ? cleanup() : init();
