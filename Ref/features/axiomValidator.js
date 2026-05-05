@@ -1,11 +1,10 @@
-// axiomValidator.js — модуль валидации заказа перед отправкой
-// Загружается динамически из config.json через Axiom Status Indicator
-// Возвращает API управления: { init, cleanup, toggle, isActive }
+// a2xiomValidator.js — модуль валидации заказа перед отправкой
+// Версия: 2.1 (Fix calc logic + Advanced Debugging)
 
 (function(config, GM, utils, api) {
     'use strict';
 
-    // 🔥 Конфигурация из config.json
+    // 🔥 Конфигурация
     const UNIQUE_PREFIX = config?.uniquePrefix || 'axiom-val-';
     const RULES_URL = config?.rulesUrl || 'https://raw.githubusercontent.com/Xemul032/Axiom/refs/heads/main/Ref/test_rules.json';
     const RULES_CACHE_TIME = config?.rulesCacheTime || 5 * 60 * 1000;
@@ -20,14 +19,16 @@
         }
     ];
 
-    // 🔥 Логгер модуля
+    // 🔥 Система логирования
     const log = {
-        prefix: `[AxiomValidator]`,
+        prefix: '[AxiomValidator]',
         info: (...args) => console.log(log.prefix, 'ℹ️', ...args),
         warn: (...args) => console.warn(log.prefix, '⚠️', ...args),
         error: (...args) => console.error(log.prefix, '❌', ...args),
         debug: (...args) => {
-            if (config?.debug) console.log(log.prefix, '🔍', ...args);
+            if (config?.debug === true) {
+                console.log(log.prefix, '🔍', ...args);
+            }
         }
     };
 
@@ -45,12 +46,15 @@
     // 🔥 Утилиты
     // ─────────────────────────────────────────────
     const clean = t => t ? t.replace(/\s+/g, ' ').replace(/&nbsp;/g, ' ').trim() : '';
+    
     const parseNum = str => {
         if (!str) return 0;
-        const numStr = str.toString().replace(/\s/g, '').replace(',', '.');
+        // Убираем пробелы, заменяем запятую на точку (для 1 695 -> 1695.0)
+        const numStr = String(str).replace(/\s/g, '').replace(',', '.');
         const num = parseFloat(numStr);
         return isNaN(num) ? 0 : num;
     };
+
     const getSelectedText = select => {
         if (!select) return '';
         if (select.selectedIndex >= 0 && select.options[select.selectedIndex]) {
@@ -59,76 +63,63 @@
         return clean(select.value);
     };
 
-    // ─────────────────────────────────────────────
-    // 🔥 Загрузка правил
+    // ────────────────────────────────────────────
+    //  Загрузка правил
     // ─────────────────────────────────────────────
     async function fetchValidationRules() {
-        log.debug('fetchValidationRules: start');
+        log.debug('Fetching rules...');
         const now = Date.now();
         
+        // Проверка кэша в памяти
         if (validationRules && (now - rulesLastFetch) < RULES_CACHE_TIME) {
-            log.debug('fetchValidationRules: using cached rules');
+            log.debug('Using cached rules from memory.');
             return validationRules;
         }
 
-        log.info('fetchValidationRules: loading from', RULES_URL);
-
         return new Promise((resolve) => {
+            const successHandler = (responseText) => {
+                try {
+                    validationRules = JSON.parse(responseText);
+                    rulesLastFetch = now;
+                    log.info('Rules loaded successfully. Count:', validationRules.rules?.length || 0);
+                    
+                    // Сохраняем в GM Storage
+                    if (typeof GM_setValue !== 'undefined') {
+                        GM_setValue(`${UNIQUE_PREFIX}rules`, responseText);
+                        GM_setValue(`${UNIQUE_PREFIX}rules_time`, now);
+                    }
+                    resolve(validationRules);
+                } catch (e) {
+                    log.warn('JSON parse error:', e.message);
+                    resolve(loadCachedRules());
+                }
+            };
+
+            const failHandler = (reason) => {
+                log.warn('Fetch failed, loading cache. Reason:', reason);
+                resolve(loadCachedRules());
+            };
+
             if (typeof GM_xmlhttpRequest !== 'undefined') {
-                log.debug('fetchValidationRules: using GM_xmlhttpRequest');
                 GM_xmlhttpRequest({
                     method: 'GET',
                     url: RULES_URL,
                     onload: (response) => {
-                        log.debug('fetchValidationRules: response status', response.status);
-                        if (response.status === 200) {
-                            try {
-                                validationRules = JSON.parse(response.responseText);
-                                rulesLastFetch = now;
-                                log.info('fetchValidationRules: rules loaded successfully, count:', validationRules.rules?.length || 0);
-                                if (typeof GM_setValue !== 'undefined') {
-                                    GM_setValue(`${UNIQUE_PREFIX}rules`, response.responseText);
-                                    GM_setValue(`${UNIQUE_PREFIX}rules_time`, now);
-                                    log.debug('fetchValidationRules: rules cached in GM storage');
-                                }
-                                resolve(validationRules);
-                            } catch (e) {
-                                log.warn('fetchValidationRules: JSON parse error', e.message);
-                                resolve(loadCachedRules());
-                            }
-                        } else {
-                            log.warn('fetchValidationRules: HTTP error', response.status);
-                            resolve(loadCachedRules());
-                        }
+                        if (response.status === 200) successHandler(response.responseText);
+                        else failHandler(`HTTP ${response.status}`);
                     },
-                    onerror: (err) => {
-                        log.warn('fetchValidationRules: network error', err);
-                        resolve(loadCachedRules());
-                    }
+                    onerror: (err) => failHandler(err)
                 });
             } else {
-                log.debug('fetchValidationRules: using native fetch');
                 fetch(RULES_URL)
-                    .then(r => {
-                        log.debug('fetchValidationRules: fetch response status', r.status);
-                        return r.json();
-                    })
-                    .then(data => {
-                        validationRules = data;
-                        rulesLastFetch = now;
-                        log.info('fetchValidationRules: rules loaded via fetch, count:', validationRules.rules?.length || 0);
-                        resolve(validationRules);
-                    })
-                    .catch(err => {
-                        log.warn('fetchValidationRules: fetch error', err.message);
-                        resolve(loadCachedRules());
-                    });
+                    .then(r => r.ok ? r.text() : Promise.reject(r.status))
+                    .then(successHandler)
+                    .catch(failHandler);
             }
         });
     }
 
     function loadCachedRules() {
-        log.debug('loadCachedRules: attempting to load from cache');
         if (typeof GM_getValue !== 'undefined') {
             const cached = GM_getValue(`${UNIQUE_PREFIX}rules`);
             const cachedTime = GM_getValue(`${UNIQUE_PREFIX}rules_time`);
@@ -136,16 +127,12 @@
                 try {
                     validationRules = JSON.parse(cached);
                     rulesLastFetch = cachedTime;
-                    log.info('loadCachedRules: loaded from cache, age:', Math.round((Date.now() - cachedTime) / 1000), 'sec');
+                    log.info('Loaded rules from GM cache.');
                     return validationRules;
-                } catch (e) {
-                    log.warn('loadCachedRules: cache parse error', e.message);
-                }
-            } else {
-                log.debug('loadCachedRules: no cache found');
+                } catch (e) { /* ignore */ }
             }
         }
-        log.info('loadCachedRules: using empty default rules');
+        log.info('No cache found, using empty defaults.');
         validationRules = { rules: [], defaults: { failMessage: '⚠️ Проверка не пройдена' } };
         return validationRules;
     }
@@ -175,9 +162,10 @@
         exists: (value) => value && String(value).trim() !== '' && !['Не указано', 'Не указана'].includes(String(value).trim()),
         notExists: (value) => !value || String(value).trim() === '' || ['Не указано', 'Не указана'].includes(String(value).trim()),
         
-        // 🔥 БЕЗОПАСНЫЙ calc: переменные передаются как аргументы функции
+        // 🔥 ИСПРАВЛЕННЫЙ CALC
         calc: (data, formula, expected, operator) => {
             try {
+                // 1. Подготовка контекста переменных
                 const ctx = {
                     req: parseNum(data?.stock?.req) || 0,
                     stock: parseNum(data?.stock?.stock) || 0,
@@ -186,18 +174,23 @@
                     summa: parseNum(data?.summa) || 0,
                     mass: parseNum(data?.mass) || 0
                 };
-                
+
+                // 2. Безопасная формула (удаляем опасные символы)
                 const safeFormula = String(formula).replace(/[^\w\s+\-*/().,<>=!&|?:]/g, '');
                 
+                // 3. Создание функции
+                // Переменные передаются как аргументы, чтобы избежать подмены строк
                 const evaluator = new Function(
                     'req', 'stock', 'others', 'res', 'summa', 'mass',
                     '"use strict"; return (' + safeFormula + ')'
                 );
                 
+                // 4. Вычисление
                 const result = evaluator(
                     ctx.req, ctx.stock, ctx.others, ctx.res, ctx.summa, ctx.mass
                 );
                 
+                // 5. Сравнение результата
                 const exp = parseNum(expected);
                 const ops = { 
                     gt: r => r > exp, 
@@ -207,9 +200,21 @@
                     eq: r => r === exp,
                     ne: r => r !== exp 
                 };
-                return ops[operator]?.(result) ?? false;
+                
+                const isPassed = ops[operator]?.(result) ?? false;
+
+                // 🔍 ДЕТАЛЬНОЕ ЛОГГИРОВАНИЕ (Включается через config.debug = true)
+                log.debug('CALC CHECK:', {
+                    formula: safeFormula,
+                    inputs: { req: ctx.req, stock: ctx.stock }, // Показывает, что парсер нашел
+                    rawResult: result,
+                    check: `${result} ${operator} ${exp}`,
+                    final: isPassed
+                });
+
+                return isPassed;
             } catch (e) {
-                log.warn('calc validator error:', e.message, { formula, data });
+                log.error('Calc execution error:', e.message, { formula });
                 return false;
             }
         },
@@ -222,7 +227,7 @@
     };
 
     // ─────────────────────────────────────────────
-    // 🔥 Парсинг данных
+    // 🔥 Парсинг данных из DOM
     // ─────────────────────────────────────────────
     function parseProductName() {
         const input = document.querySelector('#Top > form > div > div > div > input') || document.querySelector('.ProductName.form-control');
@@ -273,6 +278,7 @@
     function parseProductInfo() {
         let client = 'Не указан', deliveryPoint = 'Не указана', address = 'Не указан';
 
+        // Поиск клиента
         const clientTextRow = document.querySelector('#Summary > table > tbody > tr > td:nth-child(1) > table > tbody:nth-child(2) > tr:nth-child(2)');
         if (clientTextRow && clientTextRow.querySelector('td:first-child')?.textContent.includes('Контактное лицо')) {
             client = clean(clientTextRow.querySelector('td:nth-child(2)').textContent);
@@ -287,6 +293,7 @@
             }
         }
 
+        // Поиск точки выдачи
         const pointRow = document.querySelector('#Summary > table > tbody > tr > td:nth-child(1) > table > tbody:nth-child(3) > tr:nth-child(1)');
         if (pointRow && pointRow.querySelector('td:first-child')?.textContent.includes('Точка выдачи')) {
             const pointCell = pointRow.querySelector('td:nth-child(2)');
@@ -303,6 +310,7 @@
             }
         }
 
+        // Поиск адреса
         const addrRow = document.querySelector('#Summary > table > tbody > tr > td:nth-child(1) > table > tbody:nth-child(3) > tr:nth-child(2)');
         if (addrRow && addrRow.querySelector('td:first-child')?.textContent.includes('Адрес доставки')) {
             const addrCell = addrRow.querySelector('td:nth-child(2)');
@@ -362,7 +370,7 @@
             if (text.includes('Препресс монтаж')) {
                 layout.who = row.querySelector('td:nth-child(3)')?.textContent.trim() || '';
                 layout.when = row.querySelector('td:nth-child(4)')?.textContent.trim() || '';
-                layout.status = (layout.who && layout.when) ? '✅ ГОТОВО' : (layout.who ? '⏳ В РАБОТЕ' : '❌ НЕ НАЧАТ');
+                layout.status = (layout.who && layout.when) ? '✅ ГОТОВО' : (layout.who ? ' В РАБОТЕ' : '❌ НЕ НАЧАТ');
             }
         });
         return { check, layout };
@@ -387,14 +395,17 @@
         return globals;
     }
 
+    // 🔥 Парсинг списка ордеров (включая складские остатки)
     function parseOrders() {
         const orders = [];
         document.querySelectorAll('.formblock').forEach(block => {
             const m = block.className.match(/Order(\d+)/);
             if (!m || block.offsetParent === null) return;
+            
             const id = m[1];
             const nameEl = block.querySelector('.OrderName');
             const name = nameEl ? (nameEl.value || clean(nameEl.textContent)) : 'Без названия';
+            
             let printInfo = '', colorInfo = '', paperInfo = '';
             const header = block.querySelector('td[align="right"] h4, td[align="right"] nobr h4');
             if (header) {
@@ -402,20 +413,25 @@
                 clone.querySelectorAll('script, button, .glyphicon, .label, .hide, .btn, .PrepressControllerOrder').forEach(e => e.remove());
                 printInfo = clean(clone.textContent);
             }
+            
             const cRow = [...block.querySelectorAll('tr')].find(tr => { const f = tr.querySelector('td.fieldname'); return f && clean(f.textContent) === 'Цветность'; });
             if (cRow) { const s = cRow.querySelector('td.center span'); colorInfo = s ? clean(s.textContent) : 'N/A'; }
+            
             const pLabel = [...block.querySelectorAll('td.fieldname')].find(td => clean(td.textContent) === 'Бумага');
             if (pLabel) {
                 const v = pLabel.nextElementSibling;
                 if (v) { const cl = v.cloneNode(true); cl.querySelectorAll('span, div, script, button, .glyphicon, .MaterialCommentForm').forEach(e => e.remove()); paperInfo = clean(cl.textContent); }
             }
+            
+            //  Считываем данные склада
             let stock = { req: '-', res: '-', stock: '-', others: '-' };
             const sklad = block.querySelector('td.SkladBlock');
             if (sklad) {
                 sklad.querySelectorAll('tr').forEach(tr => {
                     const [k, v] = tr.querySelectorAll('td');
                     if (k && v) {
-                        const key = clean(k.textContent), val = clean(v.textContent) || '-';
+                        const key = clean(k.textContent);
+                        const val = clean(v.textContent) || '-';
                         if (key.includes('Требуется')) stock.req = val;
                         else if (key.includes('Использовано') || key.includes('зарезервировано')) stock.res = val;
                         else if (key.includes('На складе')) stock.stock = val;
@@ -423,8 +439,10 @@
                     }
                 });
             }
+            
             const localPP = [];
             block.querySelectorAll('table.table-condensed tr[class^="PostpressPrice"], table.inner tr[class^="PostpressPrice"]').forEach(r => { const b = r.querySelector('b'); if (b) localPP.push(clean(b.textContent)); });
+            
             orders.push({ id, name, printInfo, colorInfo, paperInfo, stock, localPP });
         });
         return orders;
@@ -441,20 +459,26 @@
         const { field, operator, value, options, formula, expectedOperator, source, failMessage } = condition;
 
         let context = data;
+        
+        // Если проверяем массив ордеров (source: orders)
         if (source === 'orders' && data.orders?.length) {
             const orders = condition.checkAll ? data.orders : [data.orders[0]];
             const results = orders.map(ord => {
+                // Сливаем данные ордера с общими данными
                 const ctx = { ...data, ...ord, stock: ord.stock };
                 const fieldValue = field ? getNestedValue(ctx, field) : ctx;
                 return runValidator(operator, fieldValue, value, options, ctx, formula, expectedOperator);
             });
-            const passed = condition.any ? results.some(r => r.passed) : results.every(r => r.passed);
+            
+            // Логика объединения результатов (any/all)
+            const passed = condition.any ? results.some(r => r) : results.every(r => r);
             return {
                 passed,
-                message: passed ? null : (failMessage || results.find(r => !r.passed)?.message || '⚠️ Проверка не пройдена')
+                message: passed ? null : (failMessage || '⚠️ Проверка не пройдена')
             };
         }
 
+        // Обычная проверка одного поля
         const fieldValue = field ? getNestedValue(context, field) : context;
         const result = runValidator(operator, fieldValue, value, options, context, formula, expectedOperator);
         return {
@@ -472,7 +496,7 @@
         }
         const validator = validators[operator];
         if (!validator) {
-            log.warn('runValidator: unknown operator', operator);
+            log.warn('Unknown operator:', operator);
             return false;
         }
         return validator(fieldValue, value, options);
@@ -490,7 +514,7 @@
                 passed: failed.length === 0,
                 messages: failed.map(r => r.message).filter(Boolean)
             };
-        } else {
+        } else { // OR
             const passed = results.some(r => r.passed);
             return {
                 passed,
@@ -500,16 +524,17 @@
     }
 
     function runValidation(data) {
-        log.debug('runValidation: start, rules count:', validationRules?.rules?.length || 0);
+        log.info(' Running validation checks...');
         
         if (!validationRules?.rules?.length) {
-            log.debug('runValidation: no rules, passing');
+            log.debug('No rules defined, skipping validation.');
             return { passed: true, messages: [] };
         }
         
         const allFailedMessages = [];
 
         for (const rule of validationRules.rules) {
+            // Проверка триггеров (когда правило вообще применять)
             if (rule.triggers?.length) {
                 const match = rule.triggers.some(t => {
                     const val = getNestedValue(data, t.field);
@@ -518,14 +543,16 @@
                     return validators[t.operator]?.(val, t.value, opts);
                 });
                 if (!match) {
-                    log.debug('runValidation: rule skipped (no trigger match)', rule.id || rule.name);
+                    log.debug(`Rule "${rule.name}" skipped (triggers not matched).`);
                     continue;
                 }
             }
 
+            log.debug(`Evaluating rule: ${rule.name}`);
             const ruleResult = evaluateRule(rule, data);
+            
             if (!ruleResult.passed) {
-                log.debug('runValidation: rule failed', rule.id || rule.name, ruleResult.messages);
+                log.warn(`Rule "${rule.name}" FAILED.`);
                 if (ruleResult.messages.length > 0) {
                     allFailedMessages.push(...ruleResult.messages.filter(Boolean));
                 } else if (rule.failMessage) {
@@ -533,58 +560,52 @@
                 } else {
                     allFailedMessages.push(validationRules.defaults?.failMessage || '⚠️ Проверка не пройдена');
                 }
+            } else {
+                log.debug(`Rule "${rule.name}" passed.`);
             }
         }
         
-        log.debug('runValidation: result', { passed: allFailedMessages.length === 0, errors: allFailedMessages.length });
+        log.info('Validation result:', allFailedMessages.length === 0 ? '✅ PASSED' : '❌ FAILED');
         return { passed: allFailedMessages.length === 0, messages: allFailedMessages };
     }
 
-    // ─────────────────────────────────────────────
-    // 🔥 Перехват кнопок
+    // ────────────────────────────────────────────
+    //  Перехват кнопок
     // ─────────────────────────────────────────────
     function interceptButtons() {
-        log.info('interceptButtons: start, buttons to intercept:', VALIDATION_BUTTONS.length);
+        log.debug('Attempting to intercept buttons...');
         
         VALIDATION_BUTTONS.forEach((btnConfig, idx) => {
-            log.debug(`interceptButtons: processing button #${idx + 1}`, btnConfig.selector);
-            
             const originalBtn = document.querySelector(btnConfig.selector);
             if (!originalBtn) {
-                log.warn(`interceptButtons: button NOT FOUND`, btnConfig.selector);
-                return;
-            }
-            log.debug(`interceptButtons: button found`, originalBtn);
-
-            if (originalBtn.getAttribute(`data-${UNIQUE_PREFIX}wrapped`) === 'true') {
-                log.debug('interceptButtons: button already wrapped, skipping');
+                log.debug(`Button #${idx + 1} not found: ${btnConfig.selector}`);
                 return;
             }
 
+            // Защита от дублирования
+            if (originalBtn.getAttribute(`data-${UNIQUE_PREFIX}wrapped`) === 'true') return;
+
+            // Скрываем оригинал
             const origDisplay = originalBtn.style.display || '';
-            const origVisibility = originalBtn.style.visibility || '';
-
             originalBtn.style.display = 'none';
             originalBtn.setAttribute(`data-${UNIQUE_PREFIX}wrapped`, 'true');
             originalBtn.setAttribute(`data-${UNIQUE_PREFIX}display`, origDisplay);
-            originalBtn.setAttribute(`data-${UNIQUE_PREFIX}visibility`, origVisibility);
 
             originalButtons.push({ original: originalBtn, config: btnConfig });
 
-            const newBtn = originalBtn.cloneNode(true);
-            newBtn.removeAttribute(`data-${UNIQUE_PREFIX}wrapped`);
-            newBtn.style.display = origDisplay || 'inline-block';
-            newBtn.style.visibility = origVisibility || 'visible';
-            newBtn.style.opacity = '1';
+            // Создаем клон
+            const clone = originalBtn.cloneNode(true);
+            clone.removeAttribute(`data-${UNIQUE_PREFIX}wrapped`);
+            clone.style.display = origDisplay || 'inline-block';
+            clone.onclick = null; // Сброс старых событий
 
-            const clone = newBtn.cloneNode(true);
-            clone.onclick = null;
-
+            // 🔥 НОВЫЙ ОБРАБОТЧИК
             clone.addEventListener('click', async (e) => {
-                log.info('interceptButtons: button clicked, starting validation');
                 e.preventDefault();
                 e.stopPropagation();
+                log.info('🖱️ Button clicked! Starting validation sequence...');
 
+                // Сбор данных
                 const productName = parseProductName();
                 const mass = parseProductMass();
                 const summaData = parseProductSumma();
@@ -595,6 +616,9 @@
                 const globalPP = parseGlobalPostpress();
                 const orders = parseOrders();
 
+                log.debug('Parsed Data:', { productName, client: productInfo.client, ordersCount: orders.length });
+
+                // Формируем объект для валидации
                 const validationData = {
                     productName,
                     summa: summaData.total,
@@ -611,19 +635,16 @@
                         id: o.id, name: o.name, paperInfo: o.paperInfo,
                         stock: o.stock, localPP: o.localPP
                     })),
-                    stock: orders[0]?.stock,
+                    stock: orders[0]?.stock, // Для глобальных проверок берем первый ордер
                     design: designData?.map(d => d.desc).join(' | ') || ''
                 };
 
-                log.debug('interceptButtons: validation data prepared', { 
-                    productName, hasInvoice: invoiceInfo.hasInvoice, ordersCount: orders.length 
-                });
-
+                // Загружаем правила (если не кэшированы)
                 await fetchValidationRules();
                 const result = runValidation(validationData);
 
                 if (!result.passed) {
-                    log.warn('interceptButtons: validation FAILED', result.messages);
+                    log.warn('Validation FAILED. Errors:', result.messages);
                     if (api?.showCenterMessage) {
                         const formattedErrors = result.messages.map((msg, idx) => `${idx + 1}. ${msg}`).join('<br><br>');
                         api.showCenterMessage({
@@ -635,235 +656,117 @@
                     return false;
                 }
 
-                log.info('interceptButtons: validation PASSED, clicking original button');
+                log.info('✅ Validation PASSED. Clicking original button...');
+                // Если все ок — жмем настоящую кнопку
                 originalBtn.click();
             });
 
             originalBtn.parentNode?.insertBefore(clone, originalBtn.nextSibling);
-            log.debug(`interceptButtons: button #${idx + 1} wrapped successfully`);
+            log.debug(`Button #${idx + 1} intercepted successfully.`);
         });
-        
-        log.info('interceptButtons: complete');
     }
 
     // ─────────────────────────────────────────────
-    // 🔥 Парсер для запуска
+    // 🔥 Парсер состояния (Debounce)
     // ─────────────────────────────────────────────
     function runParser() {
-        log.debug('runParser: start');
-        
-        if (isRunning) {
-            log.debug('runParser: already running, skipping');
-            return;
-        }
+        if (isRunning) return;
         isRunning = true;
 
-        try {
-            const productName = parseProductName();
-            const mass = parseProductMass();
-            const summaData = parseProductSumma();
-            const invoiceInfo = parseInvoiceInfo();
-            const productInfo = parseProductInfo();
-            const designData = parseDesignBlock();
-            const prepress = parseHistoryPrepress();
-            const globalPP = parseGlobalPostpress();
-            const orders = parseOrders();
+        // Грубый хэш состояния для предотвращения лишних проверок
+        const productName = parseProductName();
+        const orders = parseOrders(); // Считаем количество ордеров
+        
+        const currentState = JSON.stringify({
+            n: productName,
+            o: orders.length
+        });
 
-            log.debug('runParser: parsed data', {
-                productName,
-                mass,
-                summa: summaData.total,
-                hasInvoice: invoiceInfo.hasInvoice,
-                ordersCount: orders.length,
-                client: productInfo.client
-            });
-
-            const currentState = JSON.stringify({
-                n: productName, m: mass, s: summaData, inv: invoiceInfo,
-                p: productInfo, d: designData, pp: prepress,
-                gpp: globalPP?.sort?.(),
-                o: orders.map(o => ({ id: o.id, name: o.name, ppCount: o.localPP?.length }))
-            });
-
-            if (currentState === lastStateHash) { 
-                log.debug('runParser: state unchanged, skipping intercept');
-                isRunning = false; 
-                return; 
-            }
-            log.debug('runParser: state changed, scheduling interceptButtons');
-            lastStateHash = currentState;
-
-            setTimeout(() => {
-                try {
-                    interceptButtons();
-                } catch (e) {
-                    log.error('runParser: interceptButtons error', e);
-                }
-            }, 300);
-        } catch (e) {
-            log.error('runParser: parsing error', e);
-        } finally {
-            isRunning = false;
+        if (currentState === lastStateHash) { 
+            isRunning = false; 
+            return; 
         }
+        lastStateHash = currentState;
+        
+        log.debug('DOM state changed. Running parser...');
+        setTimeout(() => {
+            try {
+                interceptButtons();
+            } catch (err) {
+                log.error('Error in interceptButtons:', err);
+            }
+            isRunning = false;
+        }, 300);
     }
 
     // ─────────────────────────────────────────────
-    // 🔥 Настройка observer'ов
+    // 🔥 Observer & Lifecycle
     // ─────────────────────────────────────────────
     function setupObserver() {
-        log.info('setupObserver: initializing MutationObserver');
-        
-        if (domObserver) {
-            log.debug('setupObserver: disconnecting existing observer');
-            domObserver.disconnect();
-        }
+        if (domObserver) domObserver.disconnect();
 
-        domObserver = new MutationObserver((mutations) => {
-            log.debug('setupObserver: DOM mutation detected, scheduling runParser');
+        domObserver = new MutationObserver(() => {
             clearTimeout(debounceTimer);
-            debounceTimer = setTimeout(runParser, 400);
+            debounceTimer = setTimeout(runParser, 500);
         });
 
         domObserver.observe(document.body, { childList: true, subtree: true });
-        log.info('setupObserver: observer active on document.body');
+        log.info('MutationObserver started.');
     }
 
-    // ─────────────────────────────────────────────
-    // 🔥 API модуля
-    // ─────────────────────────────────────────────
     function init() {
-        log.info('🚀 init: module initialization started');
-        
-        if (active) {
-            log.warn('init: module already active, skipping');
-            return;
-        }
+        if (active) return;
         active = true;
-        log.debug('init: config', { 
-            uniquePrefix: UNIQUE_PREFIX, 
-            rulesUrl: RULES_URL, 
-            cacheTime: RULES_CACHE_TIME,
-            buttonsCount: VALIDATION_BUTTONS.length,
-            debug: config?.debug 
-        });
+        log.info(' Module initialized.');
 
-        try {
-            setupObserver();
-            log.debug('init: observer setup complete');
-        } catch (e) {
-            log.error('init: setupObserver failed', e);
-        }
-
-        setTimeout(() => {
-            try {
-                runParser();
-                log.debug('init: initial runParser scheduled');
-            } catch (e) {
-                log.error('init: runParser failed', e);
-            }
-        }, 600);
-        
-        fetchValidationRules().then(rules => {
-            log.info('init: rules loaded, ready to validate');
-        }).catch(e => {
-            log.error('init: fetchValidationRules failed', e);
-        });
-        
-        log.info('✅ init: module initialization complete');
+        setupObserver();
+        setTimeout(runParser, 600);
+        fetchValidationRules();
     }
 
     function cleanup() {
-        log.info('🧹 cleanup: module cleanup started');
-        
-        if (!active) {
-            log.warn('cleanup: module not active, skipping');
-            return;
-        }
+        if (!active) return;
         active = false;
+        log.info('🔴 Module cleanup.');
 
         if (domObserver) {
             domObserver.disconnect();
             domObserver = null;
-            log.debug('cleanup: observer disconnected');
         }
         clearTimeout(debounceTimer);
-        log.debug('cleanup: debounce timer cleared');
 
-        originalButtons.forEach(({ original }, idx) => {
+        // Восстанавливаем кнопки
+        originalButtons.forEach(({ original }) => {
             if (original && original.parentNode) {
-                const origDisplay = original.getAttribute(`data-${UNIQUE_PREFIX}display`) || '';
-                const origVisibility = original.getAttribute(`data-${UNIQUE_PREFIX}visibility`) || '';
-                original.style.display = origDisplay;
-                original.style.visibility = origVisibility;
-
+                original.style.display = original.getAttribute(`data-${UNIQUE_PREFIX}display`) || '';
                 original.removeAttribute(`data-${UNIQUE_PREFIX}wrapped`);
                 original.removeAttribute(`data-${UNIQUE_PREFIX}display`);
-                original.removeAttribute(`data-${UNIQUE_PREFIX}visibility`);
-
+                
+                // Удаляем клон
                 const clone = original.nextElementSibling;
                 if (clone && clone.getAttribute(`data-${UNIQUE_PREFIX}wrapped`) !== 'true') {
                     clone.remove();
-                    log.debug(`cleanup: cloned button #${idx + 1} removed`);
                 }
             }
         });
         originalButtons = [];
-        log.debug('cleanup: original buttons restored');
-
-        lastStateHash = '';
-        isRunning = false;
-        
-        log.info('✅ cleanup: module cleanup complete');
     }
 
     function toggle() {
-        log.info('🔄 toggle: called, current active:', active);
         active ? cleanup() : init();
     }
 
-    function isActive() {
-        return active;
-    }
+    function isActive() { return active; }
 
-    function forceValidate() {
-        log.info('⚡ forceValidate: manual validation triggered');
-        runParser();
-    }
-
-    function reloadRules() {
-        log.info('🔄 reloadRules: forcing rules reload');
-        rulesLastFetch = 0;
-        return fetchValidationRules();
-    }
-
-    // 🔥 Авто-запуск
+    // Автозапуск
     if (config?.autoInit !== false) {
-        log.info('📦 axiomValidator module loaded, autoInit enabled');
         if (document.readyState === 'loading') {
-            log.debug('autoInit: waiting for DOMContentLoaded');
-            document.addEventListener('DOMContentLoaded', () => {
-                log.debug('autoInit: DOMContentLoaded fired, calling init');
-                init();
-            });
+            document.addEventListener('DOMContentLoaded', init);
         } else {
-            log.debug('autoInit: DOM already loaded, scheduling init');
             setTimeout(init, 100);
         }
-    } else {
-        log.info('📦 axiomValidator module loaded, autoInit disabled');
     }
 
-    // 🔥 Экспорт API
-    return {
-        init,
-        cleanup,
-        toggle,
-        isActive,
-        forceValidate,
-        reloadRules,
-        runValidation,
-        parseOrders,
-        fetchValidationRules
-    };
+    return { init, cleanup, toggle, isActive, reloadRules: () => { rulesLastFetch = 0; return fetchValidationRules(); } };
 
 })(config, GM, utils, api);
