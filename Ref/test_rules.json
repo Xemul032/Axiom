@@ -1,35 +1,21 @@
 {
   "defaults": {
-    "failMessage": "️ Проверка не пройдена"
+    "failMessage": "⚠️ Проверка не пройдена"
   },
   "rules": [
     {
-      "name": "Проверка 1: Достаточно ли бумаги",
-      "description": "Блокирует, если (На складе - Требуется) < 0",
+      "name": "Новое правило",
+      "logic": "AND",
       "conditions": [
         {
-          "source": "orders",
-          "checkAll": true,
-          "operator": "calc",
-          "formula": "stock - req",
-          "expectedOperator": "gte",
-          "expected": "0",
-          "failMessage": "❌ НЕ ХВАТАЕТ БУМАГИ!"
-        }
-      ]
-    },
-    {
-      "name": "Проверка 2: Специальный заказчик",
-      "description": "Блокирует, если в имени заказчика есть 'ЛИНК'",
-      "conditions": [
-        {
-          "field": "client",
-          "operator": "contains",
-          "value": "ЛИНК",
+          "field": "mass",
+          "operator": "gt",
+          "value": "15",
           "caseSensitive": false,
-          "failMessage": "⚠️ Заказчик содержит 'ЛИНК' — требуется согласование!"
+          "failMessage": "Мне тяжело, памагити"
         }
-      ]
+      ],
+      "failMessage": ""
     }
   ]
 }
