@@ -18,6 +18,12 @@
       "runAt": "document-idle",
       "config": {}
     },
+   "groupZapusk": {
+      "enabled": true,
+      "url": "https://raw.githubusercontent.com/Xemul032/Axiom/refs/heads/main/Ref/features/groupZapusk.js",
+      "runAt": "document-idle",
+      "config": {}
+    },    
    "lockPerezakaz": {
       "enabled": true,
       "url": "https://raw.githubusercontent.com/Xemul032/Axiom/refs/heads/main/Ref/features/lockPerezakaz.js",
