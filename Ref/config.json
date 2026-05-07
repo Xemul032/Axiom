@@ -18,6 +18,12 @@
       "runAt": "document-idle",
       "config": {}
     },
+   "outsourceCheck": {
+      "enabled": true,
+      "url": "https://raw.githubusercontent.com/Xemul032/Axiom/refs/heads/main/Ref/features/outsourceCheck.js",
+      "runAt": "document-idle",
+      "config": {}
+    },    
    "closeOldBill": {
       "enabled": true,
       "url": "https://raw.githubusercontent.com/Xemul032/Axiom/refs/heads/main/Ref/features/closeOldBill.js",
