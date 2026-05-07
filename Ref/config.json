@@ -18,6 +18,12 @@
       "runAt": "document-idle",
       "config": {}
     },
+   "closeOldBill": {
+      "enabled": true,
+      "url": "https://raw.githubusercontent.com/Xemul032/Axiom/refs/heads/main/Ref/features/closeOldBill.js",
+      "runAt": "document-idle",
+      "config": {}
+    },    
    "buhToolTip": {
       "enabled": true,
       "url": "https://raw.githubusercontent.com/Xemul032/Axiom/refs/heads/main/Ref/features/buhToolTip.js",
