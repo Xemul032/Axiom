@@ -23,7 +23,8 @@
     };
     const CLASSES = {
         dropdownOpen: config?.classes?.dropdownOpen || 'open',
-        animateClass: config?.classes?.animateClass || 'animate'
+        animateClass: config?.classes?.animateClass || 'animate',
+        scopeClass: `${UNIQUE_PREFIX}scoped` // Класс для изоляции стилей
     };
     const ANIMATION = {
         duration: config?.animation?.duration || 300,
@@ -39,7 +40,7 @@
     let processedItems = new Set();
 
     // ─────────────────────────────────────────────
-    // 🔥 Внедрение стилей
+    // 🔥 Внедрение изолированных стилей
     // ─────────────────────────────────────────────
     function injectStyles() {
         if (styleEl) return;
@@ -47,7 +48,8 @@
         styleEl = document.createElement('style');
         styleEl.id = `${UNIQUE_PREFIX}styles`;
         styleEl.textContent = `
-            ${SELECTORS.dropdownMenu} {
+            /* Стили применяются только к нашему dropdown */
+            .${CLASSES.scopeClass} > ${SELECTORS.dropdownMenu.split(' > ').pop()} {
                 display: block !important;
                 opacity: 0 !important;
                 transform: scaleY(0.95) !important;
@@ -63,7 +65,7 @@
                 pointer-events: none !important;
             }
 
-            ${SELECTORS.dropdownMenu}.${CLASSES.animateClass} {
+            .${CLASSES.scopeClass}.${CLASSES.dropdownOpen} > ${SELECTORS.dropdownMenu.split(' > ').pop()}.${CLASSES.animateClass} {
                 opacity: 1 !important;
                 transform: scaleY(1) !important;
                 pointer-events: auto !important;
@@ -72,6 +74,7 @@
             [data-${UNIQUE_PREFIX}blocked] {
                 opacity: 0.6 !important;
                 cursor: not-allowed !important;
+                pointer-events: none !important;
             }
         `;
         document.head.appendChild(styleEl);
@@ -125,7 +128,7 @@
     // ─────────────────────────────────────────────
     // 🔥 Обработка меню
     // ─────────────────────────────────────────────
-    function processDropdownMenu() {
+    function processDropdownMenu(dropdownEl) {
         const invoiceList = document.querySelector(SELECTORS.invoiceList);
         const clientChosen = document.querySelector(SELECTORS.clientChosen);
 
@@ -168,6 +171,7 @@
             upduItem.setAttribute(`data-${UNIQUE_PREFIX}blocked`, 'true');
             upduItem.setAttribute(`data-${UNIQUE_PREFIX}tooltip-added`, 'true');
             
+            // Сохраняем ссылки для очистки
             upduItem._buhTooltipHandlers = { mouseEnter, mouseMove, clickBlocker };
             
             processedItems.add('updu');
@@ -184,19 +188,21 @@
         const menu = dropdown.querySelector('ul');
         if (!menu) return;
 
+        // Добавляем класс-скоуп для изоляции стилей
+        dropdown.classList.add(CLASSES.scopeClass);
         dropdown.classList.add(CLASSES.dropdownOpen);
 
         menu.classList.remove(CLASSES.animateClass);
-        void menu.offsetWidth;
+        void menu.offsetWidth; // trigger reflow
 
-        processDropdownMenu();
+        processDropdownMenu(dropdown);
 
         setTimeout(() => {
             menu.classList.add(CLASSES.animateClass);
         }, ANIMATION.delay);
 
         if (!dropdown.hasAttribute(`data-${UNIQUE_PREFIX}outsideClickSet`)) {
-            setupOutsideClickHandler(menu);
+            setupOutsideClickHandler(menu, dropdown);
             dropdown.setAttribute(`data-${UNIQUE_PREFIX}outsideClickSet`, 'true');
         }
     }
@@ -204,17 +210,16 @@
     // ─────────────────────────────────────────────
     // 🔥 Закрытие меню при клике вне
     // ─────────────────────────────────────────────
-    function setupOutsideClickHandler(menuElement) {
+    function setupOutsideClickHandler(menuElement, dropdownEl) {
         if (outsideClickHandler) {
             document.removeEventListener('click', outsideClickHandler);
         }
         
         outsideClickHandler = function(e) {
-            const dropdown = menuElement?.closest?.('.dropdown');
             const dLabel = document.querySelector(SELECTORS.dLabel);
             
-            if (!dropdown?.contains(e.target) && e.target !== dLabel) {
-                dropdown?.classList?.remove(CLASSES.dropdownOpen);
+            if (!dropdownEl?.contains(e.target) && e.target !== dLabel) {
+                dropdownEl?.classList?.remove(CLASSES.dropdownOpen);
                 menuElement?.classList?.remove(CLASSES.animateClass);
             }
         };
@@ -268,26 +273,31 @@
         if (!active) return;
         active = false;
         
+        // 1. Удаляем стили
         if (styleEl?.parentNode) {
             styleEl.parentNode.removeChild(styleEl);
             styleEl = null;
         }
         
+        // 2. Удаляем tooltip
         if (tooltipEl?.parentNode) {
             tooltipEl.parentNode.removeChild(tooltipEl);
             tooltipEl = null;
         }
         
+        // 3. Отключаем observer
         if (observer) {
             observer.disconnect();
             observer = null;
         }
         
+        // 4. Отключаем обработчик клика вне
         if (outsideClickHandler) {
             document.removeEventListener('click', outsideClickHandler);
             outsideClickHandler = null;
         }
         
+        // 5. Восстанавливаем элементы
         document.querySelectorAll(`[data-${UNIQUE_PREFIX}hidden]`).forEach(el => {
             el.style.removeProperty('display');
             el.removeAttribute(`data-${UNIQUE_PREFIX}hidden`);
@@ -296,6 +306,7 @@
         document.querySelectorAll(`[data-${UNIQUE_PREFIX}blocked]`).forEach(el => {
             el.style.removeProperty('opacity');
             el.style.removeProperty('cursor');
+            el.style.removeProperty('pointer-events');
             el.removeAttribute(`data-${UNIQUE_PREFIX}blocked`);
             
             if (el._buhTooltipHandlers) {
@@ -308,8 +319,11 @@
             el.removeAttribute(`data-${UNIQUE_PREFIX}tooltip-added`);
         });
         
+        // 6. Сбрасываем флаги и классы
         processedItems.clear();
-        
+        document.querySelectorAll(`.${CLASSES.scopeClass}`).forEach(el => {
+            el.classList.remove(CLASSES.scopeClass);
+        });
         document.querySelectorAll(`[data-${UNIQUE_PREFIX}outsideClickSet]`).forEach(el => {
             el.removeAttribute(`data-${UNIQUE_PREFIX}outsideClickSet`);
         });
@@ -342,6 +356,7 @@
         processedItems.clear();
     }
 
+    // 🔥 Авто-запуск
     if (config?.autoInit !== false) {
         if (document.readyState === 'loading') {
             document.addEventListener('DOMContentLoaded', init);
@@ -350,6 +365,7 @@
         }
     }
 
+    // 🔥 Экспорт API
     return {
         init,
         cleanup,
