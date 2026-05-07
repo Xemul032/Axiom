@@ -1,4 +1,4 @@
-// buhToolTip.js — модуль tooltip и блокировки пунктов меню для бухгалтерии
+// 1buhToolTip.js — модуль tooltip и блокировки пунктов меню для бухгалтерии
 // Загружается динамически из config.json через Axiom Status Indicator
 // Возвращает API управления: { init, cleanup, toggle, isActive }
 
