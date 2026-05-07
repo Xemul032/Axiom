@@ -36,7 +36,7 @@
     let styleEl = null;
     let observer = null;
     let outsideClickHandler = null;
-    let processedItems = new Set(); // Для отслеживания обработанных элементов
+    let processedItems = new Set();
 
     // ─────────────────────────────────────────────
     // 🔥 Внедрение стилей
@@ -47,7 +47,6 @@
         styleEl = document.createElement('style');
         styleEl.id = `${UNIQUE_PREFIX}styles`;
         styleEl.textContent = `
-            /* Прячем выпадающее меню по умолчанию */
             ${SELECTORS.dropdownMenu} {
                 display: block !important;
                 opacity: 0 !important;
@@ -64,14 +63,12 @@
                 pointer-events: none !important;
             }
 
-            /* Класс для анимации появления */
             ${SELECTORS.dropdownMenu}.${CLASSES.animateClass} {
                 opacity: 1 !important;
                 transform: scaleY(1) !important;
                 pointer-events: auto !important;
             }
             
-            /* Визуальные подсказки для заблокированных пунктов */
             [data-${UNIQUE_PREFIX}blocked] {
                 opacity: 0.6 !important;
                 cursor: not-allowed !important;
@@ -146,7 +143,6 @@
 
         // Обработка "УПД"
         if (upduItem && clientChosen && !processedItems.has('updu')) {
-            // Tooltip handlers
             const mouseEnter = (e) => showTooltip(e.pageX, e.pageY);
             const mouseMove = (e) => showTooltip(e.pageX, e.pageY);
             
@@ -154,14 +150,12 @@
             upduItem.addEventListener('mouseleave', hideTooltip);
             upduItem.addEventListener('mousemove', mouseMove);
 
-            // Блокировка клика
             const clickBlocker = (e) => {
                 e.stopPropagation();
                 e.preventDefault();
             };
             upduItem.addEventListener('click', clickBlocker);
 
-            // Блокировка подменю
             const subMenu = upduItem.querySelector('ul.dropdown-menu');
             if (subMenu) {
                 subMenu.style.setProperty('display', 'none', 'important');
@@ -171,11 +165,9 @@
                 }
             }
 
-            // Визуальная подсказка
             upduItem.setAttribute(`data-${UNIQUE_PREFIX}blocked`, 'true');
             upduItem.setAttribute(`data-${UNIQUE_PREFIX}tooltip-added`, 'true');
             
-            // Сохраняем обработчики для удаления в cleanup
             upduItem._buhTooltipHandlers = { mouseEnter, mouseMove, clickBlocker };
             
             processedItems.add('updu');
@@ -192,25 +184,20 @@
         const menu = dropdown.querySelector('ul');
         if (!menu) return;
 
-        // Открытие меню
         dropdown.classList.add(CLASSES.dropdownOpen);
 
-        // Сброс анимации
         menu.classList.remove(CLASSES.animateClass);
-        void menu.offsetWidth; // trigger reflow
+        void menu.offsetWidth;
 
-        // Обработка пунктов
         processDropdownMenu();
 
-        // Анимация появления
         setTimeout(() => {
             menu.classList.add(CLASSES.animateClass);
         }, ANIMATION.delay);
 
-        // Обработчик клика вне меню
-        if (!dropdown.dataset?.[`${UNIQUE_PREFIX}outsideClickSet`]) {
+        if (!dropdown.hasAttribute(`data-${UNIQUE_PREFIX}outsideClickSet`)) {
             setupOutsideClickHandler(menu);
-            dropdown.dataset[`${UNIQUE_PREFIX}outsideClickSet`] = 'true';
+            dropdown.setAttribute(`data-${UNIQUE_PREFIX}outsideClickSet`, 'true');
         }
     }
 
@@ -243,11 +230,11 @@
         
         observer = new MutationObserver(() => {
             const dLabel = document.querySelector(SELECTORS.dLabel);
-            if (dLabel && !dLabel.dataset?.[`${UNIQUE_PREFIX}listenerAdded`]) {
+            if (dLabel && !dLabel.hasAttribute(`data-${UNIQUE_PREFIX}listenerAdded`)) {
                 dLabel.addEventListener('click', () => {
                     setTimeout(waitForDropdownAndProcess, 0);
                 });
-                dLabel.dataset[`${UNIQUE_PREFIX}listenerAdded`] = 'true';
+                dLabel.setAttribute(`data-${UNIQUE_PREFIX}listenerAdded`, 'true');
             }
         });
         
@@ -255,14 +242,13 @@
     }
 
     // ─────────────────────────────────────────────
-    // 🔥 Применение изменений к существующим элементам
+    // 🔥 Применение изменений
     // ─────────────────────────────────────────────
     function applyChanges() {
         injectStyles();
         createTooltip();
         observeDLabel();
         
-        // Первичная проверка
         const dLabel = document.querySelector(SELECTORS.dLabel);
         if (dLabel) {
             waitForDropdownAndProcess();
@@ -282,44 +268,36 @@
         if (!active) return;
         active = false;
         
-        // Удаляем стили
         if (styleEl?.parentNode) {
             styleEl.parentNode.removeChild(styleEl);
             styleEl = null;
         }
         
-        // Удаляем tooltip
         if (tooltipEl?.parentNode) {
             tooltipEl.parentNode.removeChild(tooltipEl);
             tooltipEl = null;
         }
         
-        // Отключаем observer
         if (observer) {
             observer.disconnect();
             observer = null;
         }
         
-        // Отключаем обработчик клика вне
         if (outsideClickHandler) {
             document.removeEventListener('click', outsideClickHandler);
             outsideClickHandler = null;
         }
         
-        // 🔥 Восстанавливаем обработанные элементы
-        // "Акт"
         document.querySelectorAll(`[data-${UNIQUE_PREFIX}hidden]`).forEach(el => {
             el.style.removeProperty('display');
             el.removeAttribute(`data-${UNIQUE_PREFIX}hidden`);
         });
         
-        // "УПД" — убираем блокировку и обработчики
         document.querySelectorAll(`[data-${UNIQUE_PREFIX}blocked]`).forEach(el => {
             el.style.removeProperty('opacity');
             el.style.removeProperty('cursor');
             el.removeAttribute(`data-${UNIQUE_PREFIX}blocked`);
             
-            // Удаляем обработчики событий
             if (el._buhTooltipHandlers) {
                 el.removeEventListener('mouseenter', el._buhTooltipHandlers.mouseEnter);
                 el.removeEventListener('mouseleave', hideTooltip);
@@ -330,10 +308,8 @@
             el.removeAttribute(`data-${UNIQUE_PREFIX}tooltip-added`);
         });
         
-        // Сбрасываем флаги
         processedItems.clear();
         
-        // Сбрасываем дата-атрибуты на dropdown
         document.querySelectorAll(`[data-${UNIQUE_PREFIX}outsideClickSet]`).forEach(el => {
             el.removeAttribute(`data-${UNIQUE_PREFIX}outsideClickSet`);
         });
@@ -350,7 +326,6 @@
         return active;
     }
 
-    // 🔥 Публичные методы для внешнего управления
     function refresh() {
         applyChanges();
     }
@@ -367,7 +342,6 @@
         processedItems.clear();
     }
 
-    // 🔥 Авто-запуск
     if (config?.autoInit !== false) {
         if (document.readyState === 'loading') {
             document.addEventListener('DOMContentLoaded', init);
@@ -376,7 +350,6 @@
         }
     }
 
-    // 🔥 Экспорт API
     return {
         init,
         cleanup,
