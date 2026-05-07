@@ -18,6 +18,12 @@
       "runAt": "document-idle",
       "config": {}
     },
+   "hideLogs": {
+      "enabled": true,
+      "url": "https://raw.githubusercontent.com/Xemul032/Axiom/refs/heads/main/Ref/features/hideLogs.js",
+      "runAt": "document-idle",
+      "config": {}
+    },    
    "hideInfoPage": {
       "enabled": true,
       "url": "https://raw.githubusercontent.com/Xemul032/Axiom/refs/heads/main/Ref/features/hideInfoPage.js",
