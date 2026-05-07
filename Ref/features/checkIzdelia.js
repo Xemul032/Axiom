@@ -106,7 +106,7 @@
             if (!warningElement) {
                 warningElement = document.createElement('div');
                 warningElement.textContent = '❌Не все параметры выбраны! Расчёт невозможен!❌';
-                warningElement.style.color = 'blue';
+                warningElement.style.color = 'red';
                 warningElement.style.marginTop = '8px';
                 warningElement.style.fontSize = '14px';
                 calcButton.parentNode.insertBefore(warningElement, calcButton.nextSibling);
