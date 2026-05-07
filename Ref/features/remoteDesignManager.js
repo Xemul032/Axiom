@@ -1,4 +1,4 @@
-// remoteDesignManager.js — модуль управления удалённым дизайном
+// 1remoteDesignManager.js — модуль управления удалённым дизайном
 // Загружается динамически из config.json через Axiom Status Indicator
 // Возвращает API управления: { init, cleanup, toggle, isActive }
 
@@ -9,7 +9,7 @@
     const UNIQUE_PREFIX = config?.uniquePrefix || 'rdm-';
     
     // 🔥 Google API настройки (можно переопределить в конфиге)
-    const API_KEY = config?.apiKey || 'AIzaSyD-gPXmq0YOL3WXjQ8jub9g5_xyx2PfOZU';
+    const API_KEY = config?.apiKey || 'AIzaSyALpfvbkX3xaWS70uInPbtfl-m8EBxNBN8';
     const SPREADSHEET_ID = config?.spreadsheetId || '1Luf6pGAkIRBZ46HNa95NvoqkffKEZAiFuxBKUwlMSHY';
     const LIST_SHEET_NAME = config?.listSheetName || 'List';
     const DESIGN_SHEET_NAME = config?.designSheetName || 'Design';
