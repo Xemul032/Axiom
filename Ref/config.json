@@ -18,6 +18,12 @@
       "runAt": "document-idle",
       "config": {}
     },
+   "buhToolTip": {
+      "enabled": true,
+      "url": "https://raw.githubusercontent.com/Xemul032/Axiom/refs/heads/main/Ref/features/buhToolTip.js",
+      "runAt": "document-idle",
+      "config": {}
+    },    
    "hideFin": {
       "enabled": true,
       "url": "https://raw.githubusercontent.com/Xemul032/Axiom/refs/heads/main/Ref/features/hideFin.js",
