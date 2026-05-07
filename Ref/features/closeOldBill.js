@@ -1,4 +1,4 @@
-// closeOldBill.js — модуль блокировки документов за закрытый квартал
+// 1closeOldBill.js — модуль блокировки документов за закрытый квартал
 // Загружается динамически из config.json через Axiom Status Indicator
 // Возвращает API управления: { init, cleanup, toggle, isActive }
 
@@ -29,7 +29,7 @@
     };
     const STYLES = {
         notice: config?.styles?.notice || {
-            color: 'red',
+            color: 'blue',
             fontSize: '16px',
             fontWeight: 'bold',
             textTransform: 'uppercase',
