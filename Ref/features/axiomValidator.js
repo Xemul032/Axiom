@@ -1,4 +1,4 @@
-// 6axiomFullValidator.js — модуль полной валидации заказа и проверки бумаги
+// 7axiomFullValidator.js — модуль полной валидации заказа и проверки бумаги
 // Загружается динамически из config.json через Axiom Status Indicator
 // Возвращает API управления: { init, cleanup, toggle, isActive }
 
@@ -393,9 +393,16 @@
                     if (!res.passed || paperErrors.length > 0) {
                         e.stopImmediatePropagation(); e.preventDefault();
                         const allErrors = [];
-                        if (res.messages.length) { allErrors.push('📋 Ошибки из правил:'); res.messages.forEach(m => allErrors.push('• ' + m)); }
-                        if (paperErrors.length) { if (allErrors.length) allErrors.push(''); allErrors.push('📦 Ошибки по бумаге:'); paperErrors.forEach(m => allErrors.push('• ' + m)); }
-                        const alertMsg = '⛔ Проверка не пройдена!\n\n' + allErrors.join('\n');
+                        if (res.messages.length) { 
+                            allErrors.push('<b>📋 Ошибки из правил:</b>'); 
+                            res.messages.forEach(m => allErrors.push('• ' + m)); 
+                        }
+                        if (paperErrors.length) { 
+                            if (allErrors.length) allErrors.push('<br>'); 
+                            allErrors.push('<b>📦 Ошибки по бумаге:</b>'); 
+                            paperErrors.forEach(m => allErrors.push('• ' + m)); 
+                        }
+                        const alertMsg = '<b>⛔ Проверка не пройдена!</b><br><br>' + allErrors.join('<br>');
                         if (api?.showCenterMessage) {
                             api.showCenterMessage({ message: alertMsg, buttonText: 'Понятно', duration: 0 });
                         }
@@ -407,7 +414,7 @@
                     const paperErrors = runPaperCheck(pData);
                     if (paperErrors.length > 0) {
                         e.stopImmediatePropagation(); e.preventDefault();
-                        const alertMsg = '⛔ Бумаги не хватает!\n\n' + paperErrors.join('\n');
+                        const alertMsg = '<b>⛔ Бумаги не хватает!</b><br><br>' + paperErrors.map(e => '• ' + e).join('<br>');
                         if (api?.showCenterMessage) {
                             api.showCenterMessage({ message: alertMsg, buttonText: 'Понятно', duration: 0 });
                         }
@@ -418,7 +425,9 @@
                 else if (handlerType === 'warningOnly') {
                     const paperErrors = runPaperCheck(pData);
                     if (paperErrors.length > 0) {
-                        const alertMsg = '⚠️ ВНИМАНИЕ: Бумаги не хватает!\n\n' + paperErrors.join('\n') + '\n\n🔸 Действие всё равно будет выполнено.';
+                        const alertMsg = '<b>⚠️ ВНИМАНИЕ: Бумаги не хватает!</b><br><br>' + 
+                                        paperErrors.map(e => '• ' + e).join('<br>') + 
+                                        '<br><br>🔸 Действие всё равно будет выполнено.';
                         if (api?.showCenterMessage) {
                             api.showCenterMessage({ message: alertMsg, buttonText: 'Понятно', duration: 5000 });
                         }
