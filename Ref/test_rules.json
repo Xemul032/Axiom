@@ -4,18 +4,134 @@
   },
   "rules": [
     {
-      "name": "Новое правило",
+      "name": "Имя заказа",
+      "logic": "OR",
+      "conditions": [
+        {
+          "field": "productName",
+          "operator": "contains",
+          "value": "пробн",
+          "caseSensitive": false
+        },
+        {
+          "field": "productName",
+          "operator": "contains",
+          "value": "тест",
+          "caseSensitive": false
+        },
+        {
+          "field": "productName",
+          "operator": "contains",
+          "value": "образ",
+          "caseSensitive": false
+        }
+      ],
+      "failMessage": "Имя заказа работает"
+    },
+    {
+      "name": "Цена заказа",
+      "logic": "AND",
+      "conditions": [
+        {
+          "field": "rawSumma",
+          "operator": "gt",
+          "value": "10000",
+          "caseSensitive": false
+        }
+      ],
+      "failMessage": "Цена заказа работает"
+    },
+    {
+      "name": "Масса заказа",
       "logic": "AND",
       "conditions": [
         {
           "field": "mass",
           "operator": "gt",
           "value": "15",
-          "caseSensitive": false,
-          "failMessage": "Мне тяжело, памагити"
+          "caseSensitive": false
         }
       ],
-      "failMessage": ""
+      "failMessage": "Масса заказа работает"
+    },
+    {
+      "name": "Заказчик",
+      "logic": "AND",
+      "conditions": [
+        {
+          "field": "client",
+          "operator": "contains",
+          "value": "линк",
+          "caseSensitive": false
+        }
+      ],
+      "failMessage": "Имя заказчика работает"
+    },
+    {
+      "name": "Точка выдачи",
+      "logic": "AND",
+      "conditions": [
+        {
+          "field": "deliveryPoint",
+          "operator": "notContains",
+          "value": "тасма",
+          "caseSensitive": false
+        }
+      ],
+      "failMessage": "Точка выдачи работает"
+    },
+    {
+      "name": "Адрес доставки",
+      "logic": "AND",
+      "conditions": [
+        {
+          "field": "address",
+          "operator": "contains",
+          "value": "самовывоз",
+          "caseSensitive": false
+        }
+      ],
+      "failMessage": "Адрес доставки работает"
+    },
+    {
+      "name": "Дизайн",
+      "logic": "OR",
+      "conditions": [
+        {
+          "field": "design",
+          "operator": "contains",
+          "value": "MGI",
+          "caseSensitive": false
+        }
+      ],
+      "failMessage": "Дизайн работает"
+    },
+    {
+      "name": "Постпечати продакта",
+      "logic": "AND",
+      "conditions": [
+        {
+          "field": "globalPP",
+          "operator": "contains",
+          "value": "zk",
+          "caseSensitive": false
+        }
+      ],
+      "failMessage": "Постпечати продакта работают"
+    },
+    {
+      "name": "Постпечать ордера",
+      "logic": "AND",
+      "conditions": [
+{
+      "field": "orders",
+      "operator": "ordersArrayContain",
+      "value": "МГИ",
+      "subField": "localPP",
+      "caseSensitive": false
+    }
+      ],
+      "failMessage": "Постпечать ордера работает"
     }
   ]
 }
