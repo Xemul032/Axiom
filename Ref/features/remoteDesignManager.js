@@ -1,4 +1,4 @@
-// 4remoteDesignManager.js — модуль управления удалённым дизайном
+// 5remoteDesignManager.js — модуль управления удалённым дизайном
 // Загружается динамически из config.json через Axiom Status Indicator
 // Возвращает API управления: { init, cleanup, toggle, isActive }
 
@@ -104,23 +104,26 @@
             
             /* 🔥 Стили кнопок */
             .${UNIQUE_PREFIX}btn {
-                display: inline-block !important;
-                padding: 4px 24px 4px 12px !important; /* Правый отступ больше для спиннера */
-                margin: 0 5px 0 0 !important;
-                border: 1px solid #ced4da !important;
-                border-radius: 4px !important;
-                font-size: 12px !important;
-                font-weight: 500 !important;
-                cursor: pointer !important;
-                background: #f8f9fa !important;
-                color: #495057 !important;
-                transition: all 0.2s ease !important;
-                text-align: center !important;
-                line-height: 1.5 !important;
-                min-width: 115px !important; /* Фиксируем минимальную ширину */
-                position: relative !important;
-                box-sizing: border-box !important;
-            }
+            display: inline-flex !important; /* Используем flex для центрирования */
+            align-items: center !important; /* Вертикальное центрирование */
+            justify-content: center !important; /* Горизонтальное центрирование */
+            padding: 0 18px !important; /* Убираем вертикальный padding, центрирование через flex */
+            margin: 0 5px 0 0 !important;
+            border: 1px solid #ced4da !important;
+            border-radius: 4px !important;
+            font-size: 12px !important;
+            font-weight: 500 !important;
+            cursor: pointer !important;
+            background: #f8f9fa !important;
+            color: #495057 !important;
+            transition: all 0.2s ease !important;
+            text-align: center !important;
+            line-height: 1.2 !important; /* Нормальная высота строки */
+            min-width: 115px !important;
+            min-height: 28px !important; /* Фиксируем минимальную высоту */
+            position: relative !important;
+            box-sizing: border-box !important;
+}
             
             .${UNIQUE_PREFIX}btn:hover {
                 background: #e2e6ea !important;
