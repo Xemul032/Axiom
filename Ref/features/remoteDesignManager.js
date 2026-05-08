@@ -1,4 +1,4 @@
-// 1remoteDesignManager.js — модуль управления удалённым дизайном
+// 2remoteDesignManager.js — модуль управления удалённым дизайном
 // Загружается динамически из config.json через Axiom Status Indicator
 // Возвращает API управления: { init, cleanup, toggle, isActive }
 
@@ -82,6 +82,76 @@
                 user-select: none !important;
                 opacity: 0.6 !important;
             }
+            
+            /* 🔥 СТИЛИ ДЛЯ КНОПОК */
+            .${UNIQUE_PREFIX}btn {
+                display: inline-block !important;
+                padding: 8px 16px !important;
+                margin: 5px 5px 5px 0 !important;
+                border: none !important;
+                border-radius: 4px !important;
+                font-size: 13px !important;
+                font-weight: 600 !important;
+                cursor: pointer !important;
+                transition: all 0.2s ease !important;
+                text-align: center !important;
+                text-decoration: none !important;
+                box-shadow: 0 2px 4px rgba(0,0,0,0.1) !important;
+            }
+            
+            .${UNIQUE_PREFIX}btn:hover {
+                transform: translateY(-1px) !important;
+                box-shadow: 0 4px 8px rgba(0,0,0,0.15) !important;
+            }
+            
+            .${UNIQUE_PREFIX}btn:active {
+                transform: translateY(0) !important;
+                box-shadow: 0 1px 2px rgba(0,0,0,0.1) !important;
+            }
+            
+            .${UNIQUE_PREFIX}btn-primary {
+                background: linear-gradient(135deg, #667eea 0%, #764ba2 100%) !important;
+                color: #fff !important;
+            }
+            
+            .${UNIQUE_PREFIX}btn-primary:hover {
+                background: linear-gradient(135deg, #5568d3 0%, #6a3f8f 100%) !important;
+            }
+            
+            .${UNIQUE_PREFIX}btn-success {
+                background: linear-gradient(135deg, #11998e 0%, #38ef7d 100%) !important;
+                color: #fff !important;
+            }
+            
+            .${UNIQUE_PREFIX}btn-success:hover {
+                background: linear-gradient(135deg, #0e8b7f 0%, #2ed573 100%) !important;
+            }
+            
+            .${UNIQUE_PREFIX}btn-info {
+                background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%) !important;
+                color: #fff !important;
+            }
+            
+            .${UNIQUE_PREFIX}btn-info:hover {
+                background: linear-gradient(135deg, #3d9be0 0%, #00d9e0 100%) !important;
+            }
+            
+            .${UNIQUE_PREFIX}btn:disabled {
+                opacity: 0.6 !important;
+                cursor: not-allowed !important;
+                transform: none !important;
+            }
+            
+            /* Иконки для кнопок */
+            .${UNIQUE_PREFIX}btn::before {
+                margin-right: 6px !important;
+                font-size: 14px !important;
+            }
+            
+            .${UNIQUE_PREFIX}btn-fill::before { content: '✏️' !important; }
+            .${UNIQUE_PREFIX}btn-check::before { content: '✓' !important; }
+            .${UNIQUE_PREFIX}btn-remote::before { content: '🌐' !important; }
+            
             .${UNIQUE_PREFIX}popup {
                 position: fixed !important; top: 50% !important; left: 50% !important; transform: translate(-50%, -50%) !important;
                 padding: 20px !important; background-color: #fff !important; border: 1px solid #ccc !important;
@@ -377,8 +447,8 @@
     // ─────────────────────────────────────────────
     function createRemoteDesignButton(textarea) {
         const btn = document.createElement('button');
+        btn.className = `${UNIQUE_PREFIX}btn ${UNIQUE_PREFIX}btn-primary ${UNIQUE_PREFIX}btn-remote`;
         btn.innerText = 'Удалённый дизайн';
-        btn.style.marginRight = '5px';
         textarea.parentElement.appendChild(btn);
 
         btn.addEventListener('click', async () => {
@@ -396,7 +466,7 @@
             setTimeout(async () => {
                 try {
                     const exists = await checkProductInSheet(productId);
-                    textarea.parentElement.querySelectorAll('button:not(:first-child)').forEach(b => b.remove());
+                    textarea.parentElement.querySelectorAll(`button:not(.${UNIQUE_PREFIX}btn-remote)`).forEach(b => b.remove());
                     if (exists) createCheckButton(textarea);
                     else createFillButton(textarea);
                 } catch (e) {
@@ -413,8 +483,8 @@
 
     function createCheckButton(textarea) {
         const btn = document.createElement('button');
+        btn.className = `${UNIQUE_PREFIX}btn ${UNIQUE_PREFIX}btn-info ${UNIQUE_PREFIX}btn-check`;
         btn.innerText = 'Проверить данные';
-        btn.style.marginRight = '5px';
         textarea.parentElement.appendChild(btn);
         let infoShown = false;
 
@@ -455,8 +525,8 @@
 
     function createFillButton(textarea) {
         const btn = document.createElement('button');
+        btn.className = `${UNIQUE_PREFIX}btn ${UNIQUE_PREFIX}btn-success ${UNIQUE_PREFIX}btn-fill`;
         btn.innerText = 'Заполнить';
-        btn.style.marginRight = '5px';
         textarea.parentElement.appendChild(btn);
         btn.addEventListener('click', showPopup);
     }
