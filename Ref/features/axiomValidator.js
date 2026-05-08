@@ -1,4 +1,4 @@
-// 4axiomFullValidator.js — модуль полной валидации заказа и проверки бумаги
+// 5axiomFullValidator.js — модуль полной валидации заказа и проверки бумаги
 // Загружается динамически из config.json через Axiom Status Indicator
 // Возвращает API управления: { init, cleanup, toggle, isActive }
 
@@ -7,7 +7,7 @@
 
     // 🔥 Конфигурация из config.json
     const UNIQUE_PREFIX = config?.uniquePrefix || 'axiom-full-val-';
-    const RULES_URL = config?.rulesUrl || 'https://gitverse.ru/api/repos/xemul032/Axiom/raw/branch/main/Ref%2Ftest_rules.json';
+    const RULES_URL = config?.rulesUrl || 'https://raw.githubusercontent.com/Xemul032/Axiom/refs/heads/main/Ref/test_rules.json';
     const RULES_BACKUP_URL = config?.rulesBackupUrl || 'https://raw.githubusercontent.com/Xemul032/Axiom/refs/heads/main/Ref/test_rules.json';
     const RULES_CACHE_TIME = config?.rulesCacheTime || 5 * 60 * 1000;
     const SELECTORS = {
