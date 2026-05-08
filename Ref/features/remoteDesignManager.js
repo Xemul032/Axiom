@@ -1,4 +1,4 @@
-// 5remoteDesignManager.js — модуль управления удалённым дизайном
+// 6remoteDesignManager.js — модуль управления удалённым дизайном
 // Загружается динамически из config.json через Axiom Status Indicator
 // Возвращает API управления: { init, cleanup, toggle, isActive }
 
@@ -65,7 +65,7 @@
             .${UNIQUE_PREFIX}loading::after {
                 content: '';
                 position: absolute;
-                right: 8px;
+                right: 10px;
                 top: 50%;
                 transform: translateY(-50%);
                 width: 12px;
@@ -104,26 +104,26 @@
             
             /* 🔥 Стили кнопок */
             .${UNIQUE_PREFIX}btn {
-            display: inline-flex !important; /* Используем flex для центрирования */
-            align-items: center !important; /* Вертикальное центрирование */
-            justify-content: center !important; /* Горизонтальное центрирование */
-            padding: 0 18px !important; /* Убираем вертикальный padding, центрирование через flex */
-            margin: 0 5px 0 0 !important;
-            border: 1px solid #ced4da !important;
-            border-radius: 4px !important;
-            font-size: 12px !important;
-            font-weight: 500 !important;
-            cursor: pointer !important;
-            background: #f8f9fa !important;
-            color: #495057 !important;
-            transition: all 0.2s ease !important;
-            text-align: center !important;
-            line-height: 1.2 !important; /* Нормальная высота строки */
-            min-width: 115px !important;
-            min-height: 28px !important; /* Фиксируем минимальную высоту */
-            position: relative !important;
-            box-sizing: border-box !important;
-}
+                display: inline-flex !important;
+                align-items: center !important;
+                justify-content: center !important;
+                padding: 0 32px 0 12px !important; /* Увеличен правый padding для спиннера */
+                margin: 0 5px 0 0 !important;
+                border: 1px solid #ced4da !important;
+                border-radius: 4px !important;
+                font-size: 12px !important;
+                font-weight: 500 !important;
+                cursor: pointer !important;
+                background: #f8f9fa !important;
+                color: #495057 !important;
+                transition: all 0.2s ease !important;
+                text-align: center !important;
+                line-height: 1.2 !important;
+                min-width: 130px !important; /* Увеличена минимальная ширина */
+                min-height: 28px !important;
+                position: relative !important;
+                box-sizing: border-box !important;
+            }
             
             .${UNIQUE_PREFIX}btn:hover {
                 background: #e2e6ea !important;
@@ -439,7 +439,7 @@
             } catch (e) {
                 const err = createEl('div', { marginTop:'10px' }, popup);
                 err.className = `${UNIQUE_PREFIX}error`;
-                err.innerText = ' Ошибка соединения';
+                err.innerText = 'Ошибка соединения';
                 sendBtn.disabled = false; sendBtn.innerText = 'Отправить';
             }
         });
