@@ -1,4 +1,4 @@
-// 1axiomFullValidator.js — модуль полной валидации заказа и проверки бумаги
+// 2axiomFullValidator.js — модуль полной валидации заказа и проверки бумаги
 // Загружается динамически из config.json через Axiom Status Indicator
 // Возвращает API управления: { init, cleanup, toggle, isActive }
 
@@ -58,72 +58,99 @@
     // ─────────────────────────────────────────────
     // 🔥 Загрузка правил
     // ─────────────────────────────────────────────
-    async function fetchValidationRules() {
-        const now = Date.now();
-        if (validationRules && (now - rulesLastFetch) < RULES_CACHE_TIME) {
-            return validationRules;
-        }
-        const urls = [RULES_URL, RULES_BACKUP_URL].filter(Boolean);
-        for (const url of urls) {
-            try {
-                const data = await new Promise((resolve) => {
-                    const loadFromCache = () => resolve(loadCachedRules());
-                    if (typeof GM_xmlhttpRequest !== 'undefined') {
-                        GM_xmlhttpRequest({
-                            method: 'GET', url: url, timeout: 10000,
-                            onload: (r) => {
-                                if (r.status === 200) {
-                                    try {
-                                        const parsed = JSON.parse(r.responseText);
-                                        if (Array.isArray(parsed.rules)) {
-                                            parsed.rules = parsed.rules.map(rule => {
-                                                if (!rule.failMessage && (rule.message || rule.error || rule.text)) {
-                                                    rule.failMessage = rule.message || rule.error || rule.text;
-                                                }
-                                                return rule;
-                                            });
-                                        }
-                                        resolve(parsed);
-                                        if (typeof GM_setValue !== 'undefined') {
-                                            GM_setValue(`${UNIQUE_PREFIX}rules`, r.responseText);
-                                            GM_setValue(`${UNIQUE_PREFIX}rules_time`, now);
-                                        }
-                                    } catch { loadFromCache(); }
-                                } else { loadFromCache(); }
-                            },
-                            onerror: loadFromCache,
-                            ontimeout: loadFromCache
-                        });
-                    } else {
-                        fetch(url, { signal: AbortSignal.timeout(10000) })
-                            .then(r => r.ok ? r.json() : Promise.reject())
-                            .then(parsed => {
-                                if (Array.isArray(parsed.rules)) {
-                                    parsed.rules = parsed.rules.map(rule => {
-                                        if (!rule.failMessage && (rule.message || rule.error || rule.text)) {
-                                            rule.failMessage = rule.message || rule.error || rule.text;
-                                        }
-                                        return rule;
-                                    });
-                                }
-                                resolve(parsed);
-                                if (typeof GM_setValue !== 'undefined') {
-                                    GM_setValue(`${UNIQUE_PREFIX}rules`, JSON.stringify(parsed));
-                                    GM_setValue(`${UNIQUE_PREFIX}rules_time`, now);
-                                }
-                            })
-                            .catch(loadFromCache);
-                    }
-                });
-                validationRules = data;
-                rulesLastFetch = now;
-                return data;
-            } catch { /* try next URL */ }
-        }
-        validationRules = loadCachedRules();
-        rulesLastFetch = now;
+async function fetchValidationRules() {
+    const now = Date.now();
+    if (validationRules && (now - rulesLastFetch) < CONFIG.rulesCacheTime) {
         return validationRules;
     }
+
+    const urls = [CONFIG.rulesUrl, CONFIG.rulesBackupUrl].filter(Boolean);
+    
+    for (const url of urls) {
+        try {
+            const data = await new Promise((resolve, reject) => {
+                // Пробуем GM_xmlhttpRequest (для Tampermonkey)
+                if (typeof GM_xmlhttpRequest !== 'undefined') {
+                    GM_xmlhttpRequest({
+                        method: 'GET',
+                        url: url,
+                        timeout: 10000,
+                        onload: (response) => {
+                            if (response.status === 200) {
+                                try {
+                                    const parsed = JSON.parse(response.responseText);
+                                    resolve(parsed);
+                                } catch (e) {
+                                    reject(e);
+                                }
+                            } else {
+                                reject(new Error(`HTTP ${response.status}`));
+                            }
+                        },
+                        onerror: reject,
+                        ontimeout: () => reject(new Error('Timeout'))
+                    });
+                } else {
+                    // Обычный fetch с обработкой CORS
+                    fetch(url, { 
+                        method: 'GET',
+                        signal: AbortSignal.timeout(10000)
+                    })
+                    .then(r => {
+                        if (!r.ok) throw new Error(`HTTP ${r.status}`);
+                        return r.json();
+                    })
+                    .then(resolve)
+                    .catch(reject);
+                }
+            });
+            
+            validationRules = data;
+            rulesLastFetch = now;
+            
+            // Кэшируем в GM_setValue или localStorage
+            if (typeof GM_setValue !== 'undefined') {
+                GM_setValue('axiom_rules', JSON.stringify(data));
+                GM_setValue('axiom_rules_time', now);
+            } else {
+                localStorage.setItem('axiom_rules', JSON.stringify(data));
+                localStorage.setItem('axiom_rules_time', now);
+            }
+            
+            return data;
+            
+        } catch (err) {
+            console.warn(`⚠️ Не удалось загрузить правила с ${url}:`, err.message);
+            // Пробуем следующий URL
+        }
+    }
+    
+    // Если все URL не сработали, загружаем из кэша
+    console.error('❌ Не удалось загрузить правила, используем кэш');
+    validationRules = loadCachedRules();
+    rulesLastFetch = now;
+    return validationRules;
+}
+
+function loadCachedRules() {
+    try {
+        let cached = null;
+        if (typeof GM_getValue !== 'undefined') {
+            cached = GM_getValue('axiom_rules');
+        } else {
+            cached = localStorage.getItem('axiom_rules');
+        }
+        
+        if (cached) {
+            return JSON.parse(cached);
+        }
+    } catch (e) {
+        console.error('❌ Ошибка загрузки кэша:', e);
+    }
+    
+    // Дефолтные правила
+    return { rules: [], defaults: { failMessage: '⚠️ Проверка не пройдена' } };
+}
 
     function loadCachedRules() {
         try {
