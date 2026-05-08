@@ -1,14 +1,9 @@
-// 6remoteDesignManager.js — модуль управления удалённым дизайном
-// Загружается динамически из config.json через Axiom Status Indicator
-// Возвращает API управления: { init, cleanup, toggle, isActive }
+// 7remoteDesignManager.js — модуль управления удалённым дизайном
 
 (function(config, GM, utils, api) {
     'use strict';
 
-    // 🔥 Конфигурация из config.json
     const UNIQUE_PREFIX = config?.uniquePrefix || 'rdm-';
-    
-    // 🔥 Google API настройки
     const API_KEY = config?.apiKey || 'AIzaSyALpfvbkX3xaWS70uInPbtfl-m8EBxNBN8';
     const SPREADSHEET_ID = config?.spreadsheetId || '1Luf6pGAkIRBZ46HNa95NvoqkffKEZAiFuxBKUwlMSHY';
     const LIST_SHEET_NAME = config?.listSheetName || 'List';
@@ -16,7 +11,6 @@
     const TEST_SHEET_NAME = config?.testSheetName || 'test';
     const SCRIPT_URL = config?.scriptUrl || 'https://script.google.com/macros/s/AKfycbyH_R0_8JIlAq3TW8Fq_hmN6dSJ2c-u7F9lnwTMm8jOzHNnXBw7DjX4uUMRRTNlzxDw/exec';
     
-    // 🔥 Селекторы
     const SELECTORS = {
         productId: config?.selectors?.productId || '#ProductId',
         userName: config?.selectors?.userName || 'body > ul > div > li:nth-child(1) > a.topmenu-a',
@@ -31,60 +25,54 @@
         loader: config?.selectors?.loader || '#Doc'
     };
     
-    // 🔥 Пороги и коэффициенты
     const PRICING = {
         minPriceToShowButton: config?.pricing?.minPriceToShowButton || 101,
         designerMarkup: config?.pricing?.designerMarkup || 1.75,
         maxDesignerRatio: config?.pricing?.maxDesignerRatio || 1.80
     };
     
-    // 🔥 Тексты для поиска
     const TEXTS = {
         remoteDesign: config?.texts?.remoteDesign || 'Дизайнеры на удаленке (вписываем в таблицу СРАЗУ!)',
         designerRegina: config?.texts?.designerRegina || 'Дизайн Регина',
         designerReseda: config?.texts?.designerReseda || 'Дизайн Резеда'
     };
 
-    // 🔥 Внутреннее состояние
     let active = false;
     let observers = [];
     let buttonAdded = false;
     let dropdownInterval = null;
 
-    // ────────────────────────────────────────────
-    //  СТИЛИ модуля
-    // ─────────────────────────────────────────────
     function injectStyles() {
         if (document.getElementById(`${UNIQUE_PREFIX}styles`)) return;
         
         const style = document.createElement('style');
         style.id = `${UNIQUE_PREFIX}styles`;
         style.textContent = `
-            /* Анимация спиннера (без изменения размера кнопки) */
-            .${UNIQUE_PREFIX}loading { position: relative; }
-            .${UNIQUE_PREFIX}loading::after {
-                content: '';
-                position: absolute;
-                right: 10px;
-                top: 50%;
-                transform: translateY(-50%);
+            /* Спиннер как отдельный элемент */
+            .${UNIQUE_PREFIX}spinner {
+                display: none;
                 width: 12px;
                 height: 12px;
                 border: 2px solid rgba(255,255,255, 0.3);
                 border-top: 2px solid #fff;
                 border-radius: 50%;
                 animation: ${UNIQUE_PREFIX}spin 0.8s linear infinite;
-                pointer-events: none;
+                margin-left: 6px;
+                flex-shrink: 0;
             }
-            /* Для серой кнопки спиннер темный */
-            .${UNIQUE_PREFIX}btn-primary.${UNIQUE_PREFIX}loading::after {
+            
+            .${UNIQUE_PREFIX}btn-primary .${UNIQUE_PREFIX}spinner {
                 border: 2px solid rgba(0,0,0, 0.1);
                 border-top: 2px solid #495057;
             }
             
+            .${UNIQUE_PREFIX}loading .${UNIQUE_PREFIX}spinner {
+                display: inline-block;
+            }
+            
             @keyframes ${UNIQUE_PREFIX}spin {
-                0% { transform: translateY(-50%) rotate(0deg); }
-                100% { transform: translateY(-50%) rotate(360deg); }
+                0% { transform: rotate(0deg); }
+                100% { transform: rotate(360deg); }
             }
             
             .${UNIQUE_PREFIX}locked {
@@ -102,12 +90,12 @@
                 opacity: 0.6 !important;
             }
             
-            /* 🔥 Стили кнопок */
+            /* 🔥 Кнопка с flexbox для идеального центрирования */
             .${UNIQUE_PREFIX}btn {
                 display: inline-flex !important;
                 align-items: center !important;
                 justify-content: center !important;
-                padding: 0 32px 0 12px !important; /* Увеличен правый padding для спиннера */
+                padding: 4px 16px !important;
                 margin: 0 5px 0 0 !important;
                 border: 1px solid #ced4da !important;
                 border-radius: 4px !important;
@@ -117,12 +105,19 @@
                 background: #f8f9fa !important;
                 color: #495057 !important;
                 transition: all 0.2s ease !important;
-                text-align: center !important;
                 line-height: 1.2 !important;
-                min-width: 130px !important; /* Увеличена минимальная ширина */
+                min-width: 140px !important;
                 min-height: 28px !important;
                 position: relative !important;
                 box-sizing: border-box !important;
+                gap: 6px !important; /* Расстояние между текстом и спиннером */
+            }
+            
+            .${UNIQUE_PREFIX}btn-text {
+                flex-shrink: 1;
+                white-space: nowrap;
+                overflow: hidden;
+                text-overflow: ellipsis;
             }
             
             .${UNIQUE_PREFIX}btn:hover {
@@ -165,7 +160,6 @@
                 cursor: wait !important;
             }
             
-            /* Попап */
             .${UNIQUE_PREFIX}popup {
                 position: fixed !important; top: 50% !important; left: 50% !important; transform: translate(-50%, -50%) !important;
                 padding: 20px !important; background-color: #fff !important; border: 1px solid #ccc !important;
@@ -192,9 +186,6 @@
         document.head.appendChild(style);
     }
 
-    // ─────────────────────────────────────────────
-    // 🔥 Вспомогательные функции
-    // ─────────────────────────────────────────────
     function getEl(selector) {
         return document.querySelector(selector);
     }
@@ -249,9 +240,6 @@
         return loader?.classList.contains('LoadingContent');
     }
 
-    // ─────────────────────────────────────────────
-    // 🔥 Работа с Google Sheets
-    // ─────────────────────────────────────────────
     async function fetchGoogleSheetData(range) {
         const url = `https://sheets.googleapis.com/v4/spreadsheets/${SPREADSHEET_ID}/values/${encodeURIComponent(range)}?key=${API_KEY}`;
         try {
@@ -281,9 +269,6 @@
         }
     }
 
-    // ─────────────────────────────────────────────
-    // 🔥 Логика dropdown
-    // ─────────────────────────────────────────────
     function shouldRemoveRemoteOption() {
         const cell = document.querySelector('#DesignList > tr > td:nth-child(1)');
         if (!cell) return false;
@@ -302,9 +287,6 @@
         });
     }
 
-    // ─────────────────────────────────────────────
-    // 🔥 Блокировка строки "Удалённый дизайн"
-    // ─────────────────────────────────────────────
     function checkAndBlockRemoteDesignRow() {
         const container = getEl(SELECTORS.designList);
         if (!container) return;
@@ -340,9 +322,6 @@
         row.classList.remove(`${UNIQUE_PREFIX}locked`);
     }
 
-    // ─────────────────────────────────────────────
-    // 🔥 Попап для ввода данных
-    // ────────────────────────────────────────────
     function showPopup() {
         const old = document.querySelector(`.${UNIQUE_PREFIX}popup`);
         if (old) old.remove();
@@ -414,13 +393,12 @@
                         
                         setTimeout(() => {
                             popup.remove();
-                            // После успешной отправки сбрасываем кнопку в начальное состояние
                             const btn = document.querySelector(`.${UNIQUE_PREFIX}btn`);
                             if (btn) {
                                 btn.className = `${UNIQUE_PREFIX}btn ${UNIQUE_PREFIX}btn-primary`;
-                                btn.innerText = 'Удалённый дизайн';
+                                setButtonText(btn, 'Удалённый дизайн');
                                 btn.onclick = null;
-                                btn.addEventListener('click', handleMainButtonClick); // Re-bind original logic
+                                btn.addEventListener('click', handleMainButtonClick);
                             }
                         }, 2000);
                     } else {
@@ -455,19 +433,16 @@
         priceInput.focus();
     }
 
-    // ─────────────────────────────────────────────
-    // 🔥 Показать информацию при проверке
-    // ─────────────────────────────────────────────
     function showCheckInfo() {
         const btn = document.querySelector(`.${UNIQUE_PREFIX}btn-info`);
         if (!btn) return;
         
-        // Проверяем, не показана ли уже информация
         if (btn.parentElement.querySelector(`.${UNIQUE_PREFIX}info-box`)) return;
         
         const productId = getProductId();
         
-        btn.innerText = 'Загрузка...';
+        const originalText = getButtonText(btn);
+        setButtonText(btn, 'Загрузка...');
         btn.disabled = true;
 
         Promise.all([
@@ -477,7 +452,7 @@
             const designData = designVals.find(r => r[0] === productId.toString());
             const testData = testVals.find(r => r[0] === productId.toString());
 
-            btn.innerText = 'Проверить';
+            setButtonText(btn, originalText);
             btn.disabled = false;
 
             if (designData && testData) {
@@ -504,9 +479,21 @@
         });
     }
 
-    // ─────────────────────────────────────────────
-    //  Обработчик клика по главной кнопке
-    // ─────────────────────────────────────────────
+    // Вспомогательные функции для работы с текстом кнопки
+    function setButtonText(btn, text) {
+        const textSpan = btn.querySelector(`.${UNIQUE_PREFIX}btn-text`);
+        if (textSpan) {
+            textSpan.innerText = text;
+        } else {
+            btn.innerText = text;
+        }
+    }
+
+    function getButtonText(btn) {
+        const textSpan = btn.querySelector(`.${UNIQUE_PREFIX}btn-text`);
+        return textSpan ? textSpan.innerText : btn.innerText;
+    }
+
     async function handleMainButtonClick(e) {
         const btn = e.currentTarget;
         const productId = getProductId();
@@ -518,7 +505,7 @@
             return;
         }
 
-        // Включаем спиннер, текст не меняем
+        // Добавляем класс loading - покажет спиннер
         btn.classList.add(`${UNIQUE_PREFIX}loading`);
         btn.disabled = true;
 
@@ -526,19 +513,17 @@
             try {
                 const exists = await checkProductInSheet(productId);
                 
-                // Убираем спиннер
                 btn.classList.remove(`${UNIQUE_PREFIX}loading`);
                 
-                // Меняем стиль и текст
                 if (exists) {
                     btn.className = `${UNIQUE_PREFIX}btn ${UNIQUE_PREFIX}btn-info`;
-                    btn.innerText = 'Проверить';
-                    btn.onclick = null; // Удаляем старый обработчик
+                    setButtonText(btn, 'Проверить');
+                    btn.onclick = null;
                     btn.addEventListener('click', showCheckInfo);
                 } else {
                     btn.className = `${UNIQUE_PREFIX}btn ${UNIQUE_PREFIX}btn-success`;
-                    btn.innerText = 'Заполнить';
-                    btn.onclick = null; // Удаляем старый обработчик
+                    setButtonText(btn, 'Заполнить');
+                    btn.onclick = null;
                     btn.addEventListener('click', showPopup);
                 }
                 btn.disabled = false;
@@ -552,22 +537,25 @@
         }, 1200);
     }
 
-    // ─────────────────────────────────────────────
-    // 🔥 Создание кнопки
-    // ─────────────────────────────────────────────
     function createRemoteDesignButton(textarea) {
         const btn = document.createElement('button');
         btn.className = `${UNIQUE_PREFIX}btn ${UNIQUE_PREFIX}btn-primary`;
-        btn.innerText = 'Удалённый дизайн';
+        
+        // Создаем структуру: текст + спиннер
+        const textSpan = document.createElement('span');
+        textSpan.className = `${UNIQUE_PREFIX}btn-text`;
+        textSpan.innerText = 'Удалённый дизайн';
+        
+        const spinner = document.createElement('span');
+        spinner.className = `${UNIQUE_PREFIX}spinner`;
+        
+        btn.appendChild(textSpan);
+        btn.appendChild(spinner);
         textarea.parentElement.appendChild(btn);
 
-        // Привязываем логику
         btn.addEventListener('click', handleMainButtonClick);
     }
 
-    // ─────────────────────────────────────────────
-    // 🔥 Проверка низкой стоимости
-    // ─────────────────────────────────────────────
     function checkLowCost() {
         const cell = document.querySelector('#DesignList > tr > td:nth-child(1)');
         if (!cell) return;
@@ -582,9 +570,6 @@
         }
     }
 
-    // ─────────────────────────────────────────────
-    // 🔥 Наблюдатели DOM
-    // ─────────────────────────────────────────────
     function setupMainObserver() {
         const observer = new MutationObserver(() => {
             const textarea = getEl(SELECTORS.designBlockSummary);
@@ -655,9 +640,6 @@
         return handler;
     }
 
-    // ─────────────────────────────────────────────
-    // 🔥 API модуля
-    // ─────────────────────────────────────────────
     let clickHandler = null;
     
     function init() {
