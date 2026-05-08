@@ -1,4 +1,4 @@
-// 3remoteDesignManager.js — модуль управления удалённым дизайном
+// 4remoteDesignManager.js — модуль управления удалённым дизайном
 // Загружается динамически из config.json через Axiom Status Indicator
 // Возвращает API управления: { init, cleanup, toggle, isActive }
 
@@ -8,7 +8,7 @@
     // 🔥 Конфигурация из config.json
     const UNIQUE_PREFIX = config?.uniquePrefix || 'rdm-';
     
-    // 🔥 Google API настройки (можно переопределить в конфиге)
+    // 🔥 Google API настройки
     const API_KEY = config?.apiKey || 'AIzaSyALpfvbkX3xaWS70uInPbtfl-m8EBxNBN8';
     const SPREADSHEET_ID = config?.spreadsheetId || '1Luf6pGAkIRBZ46HNa95NvoqkffKEZAiFuxBKUwlMSHY';
     const LIST_SHEET_NAME = config?.listSheetName || 'List';
@@ -16,7 +16,7 @@
     const TEST_SHEET_NAME = config?.testSheetName || 'test';
     const SCRIPT_URL = config?.scriptUrl || 'https://script.google.com/macros/s/AKfycbyH_R0_8JIlAq3TW8Fq_hmN6dSJ2c-u7F9lnwTMm8jOzHNnXBw7DjX4uUMRRTNlzxDw/exec';
     
-    // 🔥 Селекторы (можно переопределить в конфиге)
+    // 🔥 Селекторы
     const SELECTORS = {
         productId: config?.selectors?.productId || '#ProductId',
         userName: config?.selectors?.userName || 'body > ul > div > li:nth-child(1) > a.topmenu-a',
@@ -51,8 +51,8 @@
     let buttonAdded = false;
     let dropdownInterval = null;
 
-    // ─────────────────────────────────────────────
-    // 🔥 СТИЛИ модуля
+    // ────────────────────────────────────────────
+    //  СТИЛИ модуля
     // ─────────────────────────────────────────────
     function injectStyles() {
         if (document.getElementById(`${UNIQUE_PREFIX}styles`)) return;
@@ -60,18 +60,37 @@
         const style = document.createElement('style');
         style.id = `${UNIQUE_PREFIX}styles`;
         style.textContent = `
-            .${UNIQUE_PREFIX}loading { position: relative; display: inline-block; }
+            /* Анимация спиннера (без изменения размера кнопки) */
+            .${UNIQUE_PREFIX}loading { position: relative; }
             .${UNIQUE_PREFIX}loading::after {
-                content: ''; display: inline-block; animation: ${UNIQUE_PREFIX}dots 2s infinite;
-                margin-left: 4px; vertical-align: middle;
+                content: '';
+                position: absolute;
+                right: 8px;
+                top: 50%;
+                transform: translateY(-50%);
+                width: 12px;
+                height: 12px;
+                border: 2px solid rgba(255,255,255, 0.3);
+                border-top: 2px solid #fff;
+                border-radius: 50%;
+                animation: ${UNIQUE_PREFIX}spin 0.8s linear infinite;
+                pointer-events: none;
             }
-            @keyframes ${UNIQUE_PREFIX}dots { 0% { content: '.'; } 33% { content: '..'; } 66% { content: '...'; } 100% { content: ''; } }
+            /* Для серой кнопки спиннер темный */
+            .${UNIQUE_PREFIX}btn-primary.${UNIQUE_PREFIX}loading::after {
+                border: 2px solid rgba(0,0,0, 0.1);
+                border-top: 2px solid #495057;
+            }
+            
+            @keyframes ${UNIQUE_PREFIX}spin {
+                0% { transform: translateY(-50%) rotate(0deg); }
+                100% { transform: translateY(-50%) rotate(360deg); }
+            }
             
             .${UNIQUE_PREFIX}locked {
                 background-color: #f8f9fa !important;
                 opacity: 0.65;
                 cursor: not-allowed !important;
-                position: relative;
             }
             .${UNIQUE_PREFIX}locked input, 
             .${UNIQUE_PREFIX}locked select, 
@@ -83,30 +102,29 @@
                 opacity: 0.6 !important;
             }
             
-            /* 🔥 Сдержанные компактные кнопки */
+            /* 🔥 Стили кнопок */
             .${UNIQUE_PREFIX}btn {
                 display: inline-block !important;
-                padding: 4px 10px !important;
-                margin: 0 3px 0 0 !important;
-                border: 1px solid #ddd !important;
-                border-radius: 3px !important;
+                padding: 4px 24px 4px 12px !important; /* Правый отступ больше для спиннера */
+                margin: 0 5px 0 0 !important;
+                border: 1px solid #ced4da !important;
+                border-radius: 4px !important;
                 font-size: 12px !important;
                 font-weight: 500 !important;
                 cursor: pointer !important;
                 background: #f8f9fa !important;
                 color: #495057 !important;
-                transition: all 0.15s ease !important;
+                transition: all 0.2s ease !important;
                 text-align: center !important;
-                line-height: 1.4 !important;
+                line-height: 1.5 !important;
+                min-width: 115px !important; /* Фиксируем минимальную ширину */
+                position: relative !important;
+                box-sizing: border-box !important;
             }
             
             .${UNIQUE_PREFIX}btn:hover {
-                background: #e9ecef !important;
+                background: #e2e6ea !important;
                 border-color: #adb5bd !important;
-            }
-            
-            .${UNIQUE_PREFIX}btn:active {
-                background: #dee2e6 !important;
             }
             
             .${UNIQUE_PREFIX}btn-primary {
@@ -114,7 +132,6 @@
                 color: #fff !important;
                 border-color: #6c757d !important;
             }
-            
             .${UNIQUE_PREFIX}btn-primary:hover {
                 background: #5a6268 !important;
                 border-color: #545b62 !important;
@@ -125,7 +142,6 @@
                 color: #fff !important;
                 border-color: #28a745 !important;
             }
-            
             .${UNIQUE_PREFIX}btn-success:hover {
                 background: #218838 !important;
                 border-color: #1e7e34 !important;
@@ -136,40 +152,39 @@
                 color: #fff !important;
                 border-color: #17a2b8 !important;
             }
-            
             .${UNIQUE_PREFIX}btn-info:hover {
                 background: #138496 !important;
                 border-color: #117a8b !important;
             }
             
             .${UNIQUE_PREFIX}btn:disabled {
-                opacity: 0.5 !important;
-                cursor: not-allowed !important;
+                opacity: 0.6 !important;
+                cursor: wait !important;
             }
             
+            /* Попап */
             .${UNIQUE_PREFIX}popup {
                 position: fixed !important; top: 50% !important; left: 50% !important; transform: translate(-50%, -50%) !important;
                 padding: 20px !important; background-color: #fff !important; border: 1px solid #ccc !important;
-                border-radius: 8px !important; box-shadow: 0 5px 15px rgba(0,0,0,0.25) !important;
-                z-index: 999999 !important; min-width: 320px !important; font-family: system-ui, sans-serif !important;
+                border-radius: 8px !important; box-shadow: 0 5px 20px rgba(0,0,0,0.2) !important;
+                z-index: 999999 !important; min-width: 300px !important; font-family: system-ui, sans-serif !important;
             }
             .${UNIQUE_PREFIX}error {
-                color: #d32f2f !important; background: #ffebee !important; padding: 8px !important;
-                border-radius: 4px !important; margin: 10px 0 !important; font-size: 13px !important;
-                font-weight: bold !important; text-align: center !important;
+                color: #721c24 !important; background: #f8d7da !important; padding: 8px !important;
+                border-radius: 4px !important; margin: 10px 0 !important; font-size: 12px !important; text-align: center !important;
             }
             .${UNIQUE_PREFIX}success {
-                color: #2e7d32 !important; background: #e8f5e9 !important; padding: 8px !important;
+                color: #155724 !important; background: #d4edda !important; padding: 8px !important;
                 border-radius: 4px !important; margin: 10px 0 !important; text-align: center !important; font-weight: bold !important;
             }
             .${UNIQUE_PREFIX}info-box {
-                color: #2e7d32 !important; margin-top: 10px !important; border: 1px solid #a5d6a7 !important;
-                padding: 10px !important; border-radius: 5px !important; background: #f1f8e4 !important;
-                font-size: 13px !important;
+                margin-top: 8px !important; border: 1px solid #c3e6cb !important;
+                padding: 8px !important; border-radius: 4px !important; background: #d4edda !important;
+                font-size: 12px !important; color: #155724 !important;
             }
             .${UNIQUE_PREFIX}info-table { width: 100% !important; border-collapse: collapse !important; }
-            .${UNIQUE_PREFIX}info-table td { padding: 3px 0 !important; }
-            .${UNIQUE_PREFIX}info-table td:first-child { font-weight: bold !important; }
+            .${UNIQUE_PREFIX}info-table td { padding: 2px 0 !important; vertical-align: top !important; }
+            .${UNIQUE_PREFIX}info-table td:first-child { font-weight: bold !important; padding-right: 8px !important; white-space: nowrap !important; }
         `;
         document.head.appendChild(style);
     }
@@ -324,7 +339,7 @@
 
     // ─────────────────────────────────────────────
     // 🔥 Попап для ввода данных
-    // ─────────────────────────────────────────────
+    // ────────────────────────────────────────────
     function showPopup() {
         const old = document.querySelector(`.${UNIQUE_PREFIX}popup`);
         if (old) old.remove();
@@ -339,16 +354,16 @@
             return el;
         };
 
-        createEl('label', { display:'block', marginBottom:'5px', fontWeight:'bold' }, popup).innerText = 'Сумма дизайнеру:';
-        const priceInput = createEl('input', { width:'100%', padding:'8px', margin:'10px 0', border:'1px solid #ccc', borderRadius:'4px', boxSizing:'border-box' }, popup);
+        createEl('label', { display:'block', marginBottom:'5px', fontWeight:'bold', fontSize:'13px' }, popup).innerText = 'Сумма дизайнеру:';
+        const priceInput = createEl('input', { width:'100%', padding:'6px', margin:'5px 0 10px', border:'1px solid #ced4da', borderRadius:'4px', boxSizing:'border-box', fontSize:'13px' }, popup);
         priceInput.placeholder = 'Сколько платим дизайнеру?';
         priceInput.addEventListener('input', () => {
             const err = popup.querySelector(`.${UNIQUE_PREFIX}error`);
             if (err) err.remove();
         });
 
-        createEl('label', { display:'block', marginBottom:'5px', fontWeight:'bold' }, popup).innerText = 'Дизайнер:';
-        const dropdown = createEl('select', { width:'100%', padding:'8px', marginBottom:'15px', border:'1px solid #ccc', borderRadius:'4px', boxSizing:'border-box' }, popup);
+        createEl('label', { display:'block', marginBottom:'5px', fontWeight:'bold', fontSize:'13px' }, popup).innerText = 'Дизайнер:';
+        const dropdown = createEl('select', { width:'100%', padding:'6px', marginBottom:'15px', border:'1px solid #ced4da', borderRadius:'4px', boxSizing:'border-box', fontSize:'13px' }, popup);
 
         fetchGoogleSheetData(`${LIST_SHEET_NAME}!A:A`).then(cats => {
             cats.forEach(c => {
@@ -358,13 +373,13 @@
             });
         });
 
-        const sendBtn = createEl('button', { width:'100%', padding:'10px', backgroundColor:'#4CAF50', color:'#fff', border:'none', borderRadius:'4px', cursor:'pointer', fontSize:'14px', fontWeight:'bold', marginBottom:'10px' }, popup);
+        const sendBtn = createEl('button', { width:'100%', padding:'8px', backgroundColor:'#28a745', color:'#fff', border:'none', borderRadius:'4px', cursor:'pointer', fontSize:'13px', fontWeight:'bold', marginBottom:'8px' }, popup);
         sendBtn.innerText = 'Отправить';
 
         sendBtn.addEventListener('click', async () => {
             if (sendBtn.disabled) return;
             sendBtn.disabled = true;
-            sendBtn.style.backgroundColor = '#45a049';
+            sendBtn.innerText = 'Отправка...';
 
             try {
                 const productId = getProductId();
@@ -376,59 +391,59 @@
                 const launchDate = getLaunchDate();
 
                 if (!launchDate) {
-                    if (!popup.querySelector(`.${UNIQUE_PREFIX}error`)) {
-                        const err = createEl('div', {}, popup);
-                        err.className = `${UNIQUE_PREFIX}error`;
-                        err.innerText = 'Отправка данных только по запущенным заказам.';
-                    }
-                    sendBtn.disabled = false; sendBtn.style.backgroundColor = '#4CAF50';
+                    const err = createEl('div', { marginTop:'10px' }, popup);
+                    err.className = `${UNIQUE_PREFIX}error`;
+                    err.innerText = 'Отправка данных только по запущенным заказам.';
+                    sendBtn.disabled = false; sendBtn.innerText = 'Отправить';
                     return;
                 }
 
                 if (axiomPrice && designerPrice * PRICING.designerMarkup <= axiomPrice) {
                     const success = await writeDataToSheet([productId, userName, productName, designerPrice, category, axiomPrice, launchDate]);
                     if (success) {
-                        const msg = createEl('div', {}, popup);
+                        const msg = createEl('div', { marginTop:'10px' }, popup);
                         msg.className = `${UNIQUE_PREFIX}success`;
-                        msg.innerText = 'Данные успешно загружены!';
+                        msg.innerText = '✅ Данные успешно загружены!';
                         
                         if (api?.showCenterMessage) {
                             api.showCenterMessage({ message: '✅ Данные успешно загружены!', buttonText: 'ОК', duration: 2000 });
                         }
                         
-                        setTimeout(() => popup.remove(), 2500);
-                        
-                        const ta = getEl(SELECTORS.designBlockSummary);
-                        if (ta) {
-                            ta.parentElement.querySelectorAll('button').forEach(b => b.remove());
-                            createRemoteDesignButton(ta);
-                        }
+                        setTimeout(() => {
+                            popup.remove();
+                            // После успешной отправки сбрасываем кнопку в начальное состояние
+                            const btn = document.querySelector(`.${UNIQUE_PREFIX}btn`);
+                            if (btn) {
+                                btn.className = `${UNIQUE_PREFIX}btn ${UNIQUE_PREFIX}btn-primary`;
+                                btn.innerText = 'Удалённый дизайн';
+                                btn.onclick = null;
+                                btn.addEventListener('click', handleMainButtonClick); // Re-bind original logic
+                            }
+                        }, 2000);
                     } else {
-                        sendBtn.disabled = false; sendBtn.style.backgroundColor = '#4CAF50';
-                        if (api?.showCenterMessage) {
-                            api.showCenterMessage({ message: '❌ Ошибка при отправке данных', buttonText: 'ОК', duration: 3000 });
-                        }
+                        const err = createEl('div', { marginTop:'10px' }, popup);
+                        err.className = `${UNIQUE_PREFIX}error`;
+                        err.innerText = '❌ Ошибка при отправке данных';
+                        sendBtn.disabled = false; sendBtn.innerText = 'Отправить';
                     }
                 } else {
-                    if (!popup.querySelector(`.${UNIQUE_PREFIX}error`)) {
-                        const maxVal = axiomPrice ? Math.round(axiomPrice / PRICING.maxDesignerRatio) : 0;
-                        const err = createEl('div', {}, popup);
-                        err.className = `${UNIQUE_PREFIX}error`;
-                        err.innerText = `Сумма дизайнеру не более ${maxVal} ₽`;
-                    }
-                    sendBtn.disabled = false; sendBtn.style.backgroundColor = '#4CAF50';
+                    const maxVal = axiomPrice ? Math.round(axiomPrice / PRICING.maxDesignerRatio) : 0;
+                    const err = createEl('div', { marginTop:'10px' }, popup);
+                    err.className = `${UNIQUE_PREFIX}error`;
+                    err.innerText = `Сумма дизайнеру не более ${maxVal} ₽`;
+                    sendBtn.disabled = false; sendBtn.innerText = 'Отправить';
                 }
             } catch (e) {
-                sendBtn.disabled = false; sendBtn.style.backgroundColor = '#4CAF50';
-                if (api?.showCenterMessage) {
-                    api.showCenterMessage({ message: '❌ Ошибка при отправке данных', buttonText: 'ОК', duration: 3000 });
-                }
+                const err = createEl('div', { marginTop:'10px' }, popup);
+                err.className = `${UNIQUE_PREFIX}error`;
+                err.innerText = ' Ошибка соединения';
+                sendBtn.disabled = false; sendBtn.innerText = 'Отправить';
             }
         });
 
         const closeBtn = createEl('button', {
-            width:'100%', padding:'10px', backgroundColor:'#f44336', color:'#fff',
-            border:'none', borderRadius:'4px', cursor:'pointer', fontSize:'14px', fontWeight:'bold'
+            width:'100%', padding:'8px', backgroundColor:'#6c757d', color:'#fff',
+            border:'none', borderRadius:'4px', cursor:'pointer', fontSize:'13px', fontWeight:'bold'
         }, popup);
         closeBtn.innerText = 'Закрыть';
         closeBtn.addEventListener('click', () => popup.remove());
@@ -449,12 +464,18 @@
         
         const productId = getProductId();
         
+        btn.innerText = 'Загрузка...';
+        btn.disabled = true;
+
         Promise.all([
             fetchGoogleSheetData(`${DESIGN_SHEET_NAME}!A:E`),
             fetchGoogleSheetData(`${TEST_SHEET_NAME}!A:H`)
         ]).then(([designVals, testVals]) => {
             const designData = designVals.find(r => r[0] === productId.toString());
             const testData = testVals.find(r => r[0] === productId.toString());
+
+            btn.innerText = 'Проверить';
+            btn.disabled = false;
 
             if (designData && testData) {
                 const info = document.createElement('div');
@@ -463,25 +484,73 @@
                 tbl.className = `${UNIQUE_PREFIX}info-table`;
                 const addRow = (lbl, val) => {
                     const r = tbl.insertRow();
-                    const l = r.insertCell(); l.style.fontWeight='bold'; l.style.padding='3px 0'; l.innerText=lbl;
-                    const v = r.insertCell(); v.style.padding='3px 0'; v.innerText=val;
+                    const l = r.insertCell(); l.innerText = lbl;
+                    const v = r.insertCell(); v.innerText = val;
                 };
-                addRow('Оплата дизайнеру:', `${designData[3]} ₽`);
+                addRow('Оплата:', `${designData[3]} ₽`);
                 addRow('Дизайнер:', designData[4]);
-                addRow('Статус оплаты:', testData[7] || 'Не оплачено');
+                addRow('Статус:', testData[7] || 'Не оплачено');
                 info.appendChild(tbl);
                 btn.parentElement.appendChild(info);
             } else {
                 const err = document.createElement('span');
-                err.style.cssText = 'color:#d32f2f;margin-left:10px;font-size:13px';
-                err.innerText = 'Информация не найдена';
+                err.style.cssText = 'color:#dc3545;margin-left:10px;font-size:12px;font-weight:bold';
+                err.innerText = '⚠ Данные не найдены';
                 btn.parentElement.appendChild(err);
             }
         });
     }
 
     // ─────────────────────────────────────────────
-    // 🔥 Кнопка интерфейса (одна, меняется)
+    //  Обработчик клика по главной кнопке
+    // ─────────────────────────────────────────────
+    async function handleMainButtonClick(e) {
+        const btn = e.currentTarget;
+        const productId = getProductId();
+        
+        if (!productId) {
+            if (api?.showCenterMessage) {
+                api.showCenterMessage({ message: '⚠️ Product ID не найден', buttonText: 'ОК', duration: 2000 });
+            }
+            return;
+        }
+
+        // Включаем спиннер, текст не меняем
+        btn.classList.add(`${UNIQUE_PREFIX}loading`);
+        btn.disabled = true;
+
+        setTimeout(async () => {
+            try {
+                const exists = await checkProductInSheet(productId);
+                
+                // Убираем спиннер
+                btn.classList.remove(`${UNIQUE_PREFIX}loading`);
+                
+                // Меняем стиль и текст
+                if (exists) {
+                    btn.className = `${UNIQUE_PREFIX}btn ${UNIQUE_PREFIX}btn-info`;
+                    btn.innerText = 'Проверить';
+                    btn.onclick = null; // Удаляем старый обработчик
+                    btn.addEventListener('click', showCheckInfo);
+                } else {
+                    btn.className = `${UNIQUE_PREFIX}btn ${UNIQUE_PREFIX}btn-success`;
+                    btn.innerText = 'Заполнить';
+                    btn.onclick = null; // Удаляем старый обработчик
+                    btn.addEventListener('click', showPopup);
+                }
+                btn.disabled = false;
+            } catch (e) {
+                btn.classList.remove(`${UNIQUE_PREFIX}loading`);
+                btn.disabled = false;
+                if (api?.showCenterMessage) {
+                    api.showCenterMessage({ message: '❌ Ошибка при проверке', buttonText: 'ОК', duration: 3000 });
+                }
+            }
+        }, 1200);
+    }
+
+    // ─────────────────────────────────────────────
+    // 🔥 Создание кнопки
     // ─────────────────────────────────────────────
     function createRemoteDesignButton(textarea) {
         const btn = document.createElement('button');
@@ -489,51 +558,8 @@
         btn.innerText = 'Удалённый дизайн';
         textarea.parentElement.appendChild(btn);
 
-        btn.addEventListener('click', async () => {
-            const productId = getProductId();
-            if (!productId) {
-                if (api?.showCenterMessage) {
-                    api.showCenterMessage({ message: '⚠️ Product ID не найден', buttonText: 'ОК', duration: 2000 });
-                }
-                return;
-            }
-
-            // Показываем состояние загрузки
-            btn.classList.add(`${UNIQUE_PREFIX}loading`);
-            btn.disabled = true;
-            const originalText = btn.innerText;
-            btn.innerText = 'Проверка...';
-
-            setTimeout(async () => {
-                try {
-                    const exists = await checkProductInSheet(productId);
-                    
-                    // Меняем кнопку в зависимости от результата
-                    btn.className = exists ? `${UNIQUE_PREFIX}btn ${UNIQUE_PREFIX}btn-info` : `${UNIQUE_PREFIX}btn ${UNIQUE_PREFIX}btn-success`;
-                    btn.innerText = exists ? 'Проверить' : 'Заполнить';
-                    btn.disabled = false;
-                    btn.classList.remove(`${UNIQUE_PREFIX}loading`);
-                    
-                    // Меняем обработчик события
-                    btn.onclick = null;
-                    if (exists) {
-                        btn.addEventListener('click', showCheckInfo);
-                    } else {
-                        btn.addEventListener('click', showPopup);
-                    }
-                } catch (e) {
-                    // Возвращаем кнопку в исходное состояние при ошибке
-                    btn.className = `${UNIQUE_PREFIX}btn ${UNIQUE_PREFIX}btn-primary`;
-                    btn.innerText = originalText;
-                    btn.disabled = false;
-                    btn.classList.remove(`${UNIQUE_PREFIX}loading`);
-                    
-                    if (api?.showCenterMessage) {
-                        api.showCenterMessage({ message: '❌ Ошибка при проверке данных', buttonText: 'ОК', duration: 3000 });
-                    }
-                }
-            }, 1500);
-        });
+        // Привязываем логику
+        btn.addEventListener('click', handleMainButtonClick);
     }
 
     // ─────────────────────────────────────────────
@@ -651,23 +677,19 @@
         if (!active) return;
         active = false;
         
-        // Отключаем все observers
         observers.forEach(obs => obs.disconnect());
         observers = [];
         
-        // Очищаем интервал
         if (dropdownInterval) {
             clearInterval(dropdownInterval);
             dropdownInterval = null;
         }
         
-        // Удаляем обработчик клика
         if (clickHandler) {
             document.removeEventListener('click', clickHandler);
             clickHandler = null;
         }
         
-        // Удаляем попапы и стили
         document.querySelectorAll(`.${UNIQUE_PREFIX}popup`).forEach(el => el.remove());
         buttonAdded = false;
     }
@@ -680,7 +702,6 @@
         return active;
     }
 
-    // 🔥 Публичные методы для внешнего управления
     function refresh() {
         checkLowCost();
         removeRemoteDesignOptionFromDropdown();
@@ -691,7 +712,6 @@
         showPopup();
     }
 
-    // 🔥 Авто-запуск
     if (config?.autoInit !== false) {
         if (document.readyState === 'loading') {
             document.addEventListener('DOMContentLoaded', init);
@@ -700,7 +720,6 @@
         }
     }
 
-    // 🔥 Экспорт API
     return {
         init,
         cleanup,
@@ -708,7 +727,6 @@
         isActive,
         refresh,
         forceShowPopup,
-        // Для отладки/расширения
         checkProductInSheet,
         writeDataToSheet
     };
