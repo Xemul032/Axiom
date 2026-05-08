@@ -1,4 +1,4 @@
-// 8axiomFullValidator.js — модуль полной валидации заказа и проверки бумаги
+// 9axiomFullValidator.js — модуль полной валидации заказа и проверки бумаги
 // Загружается динамически из config.json через Axiom Status Indicator
 // Возвращает API управления: { init, cleanup, toggle, isActive }
 
@@ -128,10 +128,15 @@
     }
 
     // ─────────────────────────────────────────────
-    // 🔥 Валидаторы
+    // 🔥 Валидаторы (исправленная версия)
     // ─────────────────────────────────────────────
     const validators = {
-        contains: (v, e, cs=false) => v ? (cs ? String(v) : String(v).toLowerCase()).includes(cs ? String(e) : String(e).toLowerCase()) : false,
+        contains: (v, e, cs=false) => {
+            if (!v) return false;
+            const val = cs ? String(v) : String(v).toLowerCase();
+            const exp = cs ? String(e) : String(e).toLowerCase();
+            return val.includes(exp);
+        },
         notContains: (v, e, cs=false) => !validators.contains(v, e, cs),
         gt: (v, e) => parseNum(v) > parseNum(e),
         gte: (v, e) => parseNum(v) >= parseNum(e),
@@ -142,11 +147,33 @@
         isFalse: v => v === false || v === 'false' || v === 0,
         filled: v => v !== undefined && v !== null && String(v).trim() !== '' && String(v).trim() !== 'Не указано' && String(v).trim() !== 'Не указана',
         empty: v => !validators.filled(v),
-        arrayContains: (arr, val, cs=false) => Array.isArray(arr) ? arr.some(item => validators.contains(item, val, cs)) : false,
-        arrayNotContains: (arr, val, cs=false) => Array.isArray(arr) ? !arr.some(item => validators.contains(item, val, cs)) : true,
-        ordersContain: (orders, field, val, cs=false) => Array.isArray(orders) ? orders.some(o => validators.contains(o[field], val, cs)) : false,
+        
+        // 🔥 Исправлено: поддержка массивов
+        arrayContains: (arr, val, cs=false) => {
+            if (!Array.isArray(arr)) return false;
+            return arr.some(item => validators.contains(item, val, cs));
+        },
+        arrayNotContains: (arr, val, cs=false) => !validators.arrayContains(arr, val, cs),
+        
+        // 🔥 Исправлено: поддержка массивов внутри полей ордера (localPP и др.)
+        ordersContain: (orders, field, val, cs=false) => {
+            if (!Array.isArray(orders)) return false;
+            return orders.some(o => {
+                const fieldValue = o[field];
+                if (Array.isArray(fieldValue)) {
+                    // Если поле — массив, проверяем каждый элемент
+                    return fieldValue.some(item => validators.contains(item, val, cs));
+                }
+                return validators.contains(fieldValue, val, cs);
+            });
+        },
         ordersNotContain: (orders, field, val, cs=false) => !validators.ordersContain(orders, field, val, cs),
-        ordersArrayContain: (orders, field, val, cs=false) => Array.isArray(orders) ? orders.some(o => Array.isArray(o[field]) && o[field].some(item => validators.contains(item, val, cs))) : false,
+        
+        // 🔥 Исправлено: поддержка массивов внутри полей ордера
+        ordersArrayContain: (orders, field, val, cs=false) => {
+            if (!Array.isArray(orders)) return false;
+            return orders.some(o => Array.isArray(o[field]) && o[field].some(item => validators.contains(item, val, cs)));
+        },
         ordersArrayNotContain: (orders, field, val, cs=false) => !validators.ordersArrayContain(orders, field, val, cs)
     };
 
