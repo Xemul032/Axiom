@@ -1,4 +1,4 @@
-// 9axiomFullValidator.js — модуль полной валидации заказа и проверки бумаги
+// 10axiomFullValidator.js — модуль полной валидации заказа и проверки бумаги
 // Загружается динамически из config.json через Axiom Status Indicator
 // Возвращает API управления: { init, cleanup, toggle, isActive }
 
@@ -20,7 +20,8 @@
         ],
         warningOnly: config?.selectors?.warningOnly || [
             '#Summary > table > tbody > tr > td:nth-child(1) > div.right > div > button:nth-child(1)'
-        ]
+        ],
+        skladBlock: config?.selectors?.skladBlock || '.SkladBlock' // 🔥 Селектор блока со складом
     };
 
     // 🔥 Внутреннее состояние
@@ -56,7 +57,7 @@
     };
 
     // ─────────────────────────────────────────────
-    // 🔥 Загрузка правил (исправленная версия)
+    // 🔥 Загрузка правил
     // ─────────────────────────────────────────────
     async function fetchValidationRules() {
         const now = Date.now();
@@ -111,7 +112,6 @@
             }
         }
         
-        // Если все не сработало — кэш
         validationRules = loadCachedRules();
         rulesLastFetch = now;
         return validationRules;
@@ -128,7 +128,7 @@
     }
 
     // ─────────────────────────────────────────────
-    // 🔥 Валидаторы (исправленная версия)
+    // 🔥 Валидаторы
     // ─────────────────────────────────────────────
     const validators = {
         contains: (v, e, cs=false) => {
@@ -148,20 +148,17 @@
         filled: v => v !== undefined && v !== null && String(v).trim() !== '' && String(v).trim() !== 'Не указано' && String(v).trim() !== 'Не указана',
         empty: v => !validators.filled(v),
         
-        // 🔥 Исправлено: поддержка массивов
         arrayContains: (arr, val, cs=false) => {
             if (!Array.isArray(arr)) return false;
             return arr.some(item => validators.contains(item, val, cs));
         },
         arrayNotContains: (arr, val, cs=false) => !validators.arrayContains(arr, val, cs),
         
-        // 🔥 Исправлено: поддержка массивов внутри полей ордера (localPP и др.)
         ordersContain: (orders, field, val, cs=false) => {
             if (!Array.isArray(orders)) return false;
             return orders.some(o => {
                 const fieldValue = o[field];
                 if (Array.isArray(fieldValue)) {
-                    // Если поле — массив, проверяем каждый элемент
                     return fieldValue.some(item => validators.contains(item, val, cs));
                 }
                 return validators.contains(fieldValue, val, cs);
@@ -169,7 +166,6 @@
         },
         ordersNotContain: (orders, field, val, cs=false) => !validators.ordersContain(orders, field, val, cs),
         
-        // 🔥 Исправлено: поддержка массивов внутри полей ордера
         ordersArrayContain: (orders, field, val, cs=false) => {
             if (!Array.isArray(orders)) return false;
             return orders.some(o => Array.isArray(o[field]) && o[field].some(item => validators.contains(item, val, cs)));
@@ -258,7 +254,7 @@
         return g;
     }
     function parseSkladInfo(orderBlock) {
-        const skladBlock = orderBlock.querySelector('.SkladBlock');
+        const skladBlock = orderBlock.querySelector(SELECTORS.skladBlock);
         if (!skladBlock) return null;
         const rows = skladBlock.querySelectorAll('tbody tr');
         const data = { required: null, inStock: null, otherOrders: null };
@@ -309,6 +305,24 @@
             os.push({id,name,printInfo:pi,colorInfo:ci,paperInfo:pap,localPP:lpp, sklad: skladInfo});
         });
         return os;
+    }
+
+    // ─────────────────────────────────────────────
+    // 🔥 🔥 НОВАЯ ФУНКЦИЯ: Проверка наличия данных о бумаге
+    // ─────────────────────────────────────────────
+    function hasPaperData() {
+        // 🔥 Проверяем наличие хотя бы одного блока .SkladBlock на странице
+        const skladBlocks = document.querySelectorAll(SELECTORS.skladBlock);
+        if (skladBlocks.length === 0) return false;
+        
+        // 🔥 Дополнительно: проверяем, есть ли в блоках числовые данные
+        for (const block of skladBlocks) {
+            const valueTd = block.querySelector('td.right.nobreak, td:nth-child(2)');
+            if (valueTd && parseNum(valueTd.textContent) > 0) {
+                return true;
+            }
+        }
+        return false;
     }
 
     // ─────────────────────────────────────────────
@@ -499,7 +513,15 @@
         }
     }
 
+    // ─────────────────────────────────────────────
+    // 🔥 🔥 ИСПРАВЛЕННАЯ ФУНКЦИЯ: перехват кнопок с проверкой бумаги
+    // ─────────────────────────────────────────────
     function interceptButtons() {
+        // 🔥 Если нет данных о бумаге — НЕ навешиваем обработчики
+        if (!hasPaperData()) {
+            return;
+        }
+        
         SELECTORS.fullValidation.forEach(selector => {
             document.querySelectorAll(selector).forEach(btn => { if (btn) attachHandler(btn, 'full'); });
         });
