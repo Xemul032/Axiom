@@ -1,4 +1,4 @@
-// 9axiomFullValidator.js — модуль полной валидации заказа и проверки бумаги
+// 13axiomFullValidator.js — модуль полной валидации заказа и проверки бумаги
 // Загружается динамически из config.json через Axiom Status Indicator
 // Возвращает API управления: { init, cleanup, toggle, isActive }
 
@@ -20,7 +20,8 @@
         ],
         warningOnly: config?.selectors?.warningOnly || [
             '#Summary > table > tbody > tr > td:nth-child(1) > div.right > div > button:nth-child(1)'
-        ]
+        ],
+        skladBlock: config?.selectors?.skladBlock || '.SkladBlock'
     };
 
     // 🔥 Внутреннее состояние
@@ -56,7 +57,7 @@
     };
 
     // ─────────────────────────────────────────────
-    // 🔥 Загрузка правил (исправленная версия)
+    // 🔥 Загрузка правил
     // ─────────────────────────────────────────────
     async function fetchValidationRules() {
         const now = Date.now();
@@ -111,7 +112,6 @@
             }
         }
         
-        // Если все не сработало — кэш
         validationRules = loadCachedRules();
         rulesLastFetch = now;
         return validationRules;
@@ -128,7 +128,7 @@
     }
 
     // ─────────────────────────────────────────────
-    // 🔥 Валидаторы (исправленная версия)
+    // 🔥 Валидаторы
     // ─────────────────────────────────────────────
     const validators = {
         contains: (v, e, cs=false) => {
@@ -148,20 +148,17 @@
         filled: v => v !== undefined && v !== null && String(v).trim() !== '' && String(v).trim() !== 'Не указано' && String(v).trim() !== 'Не указана',
         empty: v => !validators.filled(v),
         
-        // 🔥 Исправлено: поддержка массивов
         arrayContains: (arr, val, cs=false) => {
             if (!Array.isArray(arr)) return false;
             return arr.some(item => validators.contains(item, val, cs));
         },
         arrayNotContains: (arr, val, cs=false) => !validators.arrayContains(arr, val, cs),
         
-        // 🔥 Исправлено: поддержка массивов внутри полей ордера (localPP и др.)
         ordersContain: (orders, field, val, cs=false) => {
             if (!Array.isArray(orders)) return false;
             return orders.some(o => {
                 const fieldValue = o[field];
                 if (Array.isArray(fieldValue)) {
-                    // Если поле — массив, проверяем каждый элемент
                     return fieldValue.some(item => validators.contains(item, val, cs));
                 }
                 return validators.contains(fieldValue, val, cs);
@@ -169,7 +166,6 @@
         },
         ordersNotContain: (orders, field, val, cs=false) => !validators.ordersContain(orders, field, val, cs),
         
-        // 🔥 Исправлено: поддержка массивов внутри полей ордера
         ordersArrayContain: (orders, field, val, cs=false) => {
             if (!Array.isArray(orders)) return false;
             return orders.some(o => Array.isArray(o[field]) && o[field].some(item => validators.contains(item, val, cs)));
@@ -258,7 +254,7 @@
         return g;
     }
     function parseSkladInfo(orderBlock) {
-        const skladBlock = orderBlock.querySelector('.SkladBlock');
+        const skladBlock = orderBlock.querySelector(SELECTORS.skladBlock);
         if (!skladBlock) return null;
         const rows = skladBlock.querySelectorAll('tbody tr');
         const data = { required: null, inStock: null, otherOrders: null };
@@ -288,7 +284,7 @@
         if (needed <= available) {
             return { status: 'enough', needed, available, diff, message: `✅ Бумаги хватает (запас: ${diff} л.)` };
         } else {
-            return { status: 'notEnough', needed, available, diff: Math.abs(diff), message: `❌ Бумаги не хватает (дефицит: ${Math.abs(diff)} л.)` };
+            return { status: 'notEnough', needed, available, diff: Math.abs(diff), message: `❌ Бумаги не хватает! Замените бумагу или свяжитесь с ответственным за остатки бумаги для запуска заказа в работу` };
         }
     }
     function parseOrders() {
@@ -391,12 +387,13 @@
     }
 
     // ─────────────────────────────────────────────
-    // 🔥 Обработчик клика
+    // 🔥 Обработчик клика (исправленная версия)
     // ─────────────────────────────────────────────
     function createHandler(btn, handlerType, originalOnClick) {
         return async function(e) {
             if (isProcessingClick) return;
             isProcessingClick = true;
+            
             try {
                 const pData = {
                     productName: parseProductName(), mass: parseProductMass(), summaData: parseProductSumma(),
@@ -404,51 +401,56 @@
                     prepress: parseHistoryPrepress(), globalPP: parseGlobalPostpress(), orders: parseOrders()
                 };
 
-                if (handlerType === 'full') {
-                    const validationData = {
-                        productName: pData.productName,
-                        summa: pData.summaData.total, rawSumma: pData.summaData.rawSumma, mass: pData.mass,
-                        invoice: pData.invoiceInfo.hasInvoice, invoiceNumber: pData.invoiceInfo.invoiceNumber,
-                        client: pData.productInfo.client, deliveryPoint: pData.productInfo.deliveryPoint, address: pData.productInfo.address,
-                        prepress: pData.prepress, globalPP: pData.globalPP,
-                        orders: pData.orders.map(o => ({ id: o.id, name: o.name, printInfo: o.printInfo, colorInfo: o.colorInfo, paperInfo: o.paperInfo, localPP: o.localPP })),
-                        design: pData.designData?.map(d => d.desc).join(' | ') || ''
-                    };
-                    await fetchValidationRules();
-                    const res = runValidation(validationData);
+                // 🔥 Для fullValidation и paperOnly — ВСЕГДА проверяем бумагу
+                if (handlerType === 'full' || handlerType === 'paperOnly') {
                     const paperErrors = runPaperCheck(pData);
-                    if (!res.passed || paperErrors.length > 0) {
-                        e.stopImmediatePropagation(); e.preventDefault();
-                        const allErrors = [];
-                        if (res.messages.length) { 
-                            allErrors.push('<b>📋 Ошибки из правил:</b>'); 
-                            res.messages.forEach(m => allErrors.push('• ' + m)); 
+                    
+                    if (handlerType === 'full') {
+                        await fetchValidationRules();
+                        const validationData = {
+                            productName: pData.productName,
+                            summa: pData.summaData.total, rawSumma: pData.summaData.rawSumma, mass: pData.mass,
+                            invoice: pData.invoiceInfo.hasInvoice, invoiceNumber: pData.invoiceInfo.invoiceNumber,
+                            client: pData.productInfo.client, deliveryPoint: pData.productInfo.deliveryPoint, address: pData.productInfo.address,
+                            prepress: pData.prepress, globalPP: pData.globalPP,
+                            orders: pData.orders.map(o => ({ id: o.id, name: o.name, printInfo: o.printInfo, colorInfo: o.colorInfo, paperInfo: o.paperInfo, localPP: o.localPP })),
+                            design: pData.designData?.map(d => d.desc).join(' | ') || ''
+                        };
+                        const res = runValidation(validationData);
+                        
+                        if (!res.passed || paperErrors.length > 0) {
+                            e.stopImmediatePropagation(); e.preventDefault();
+                            const allErrors = [];
+                            if (res.messages.length) { 
+                                allErrors.push('<b>📋 Ошибки из правил:</b>'); 
+                                res.messages.forEach(m => allErrors.push('• ' + m)); 
+                            }
+                            if (paperErrors.length) { 
+                                if (allErrors.length) allErrors.push('<br>'); 
+                                allErrors.push('<b>📦 Не хватает бумаги!:</b>'); 
+                                paperErrors.forEach(m => allErrors.push('• ' + m)); 
+                            }
+                            const alertMsg = '<b>⛔ Проверка не пройдена!</b><br><br>' + allErrors.join('<br>');
+                            if (api?.showCenterMessage) {
+                                api.showCenterMessage({ message: alertMsg, buttonText: 'Понятно', duration: 0 });
+                            }
+                            isProcessingClick = false;
+                            return false;
                         }
-                        if (paperErrors.length) { 
-                            if (allErrors.length) allErrors.push('<br>'); 
-                            allErrors.push('<b>📦 Ошибки по бумаге:</b>'); 
-                            paperErrors.forEach(m => allErrors.push('• ' + m)); 
+                    }
+                    else if (handlerType === 'paperOnly') {
+                        if (paperErrors.length > 0) {
+                            e.stopImmediatePropagation(); e.preventDefault();
+                            const alertMsg = '<b>⛔ Бумаги не хватает!</b><br><br>' + paperErrors.map(e => '• ' + e).join('<br>');
+                            if (api?.showCenterMessage) {
+                                api.showCenterMessage({ message: alertMsg, buttonText: 'Понятно', duration: 0 });
+                            }
+                            isProcessingClick = false;
+                            return false;
                         }
-                        const alertMsg = '<b>⛔ Проверка не пройдена!</b><br><br>' + allErrors.join('<br>');
-                        if (api?.showCenterMessage) {
-                            api.showCenterMessage({ message: alertMsg, buttonText: 'Понятно', duration: 0 });
-                        }
-                        isProcessingClick = false;
-                        return false;
                     }
                 }
-                else if (handlerType === 'paperOnly') {
-                    const paperErrors = runPaperCheck(pData);
-                    if (paperErrors.length > 0) {
-                        e.stopImmediatePropagation(); e.preventDefault();
-                        const alertMsg = '<b>⛔ Бумаги не хватает!</b><br><br>' + paperErrors.map(e => '• ' + e).join('<br>');
-                        if (api?.showCenterMessage) {
-                            api.showCenterMessage({ message: alertMsg, buttonText: 'Понятно', duration: 0 });
-                        }
-                        isProcessingClick = false;
-                        return false;
-                    }
-                }
+                // 🔥 Для warningOnly — только предупреждение, не блокируем
                 else if (handlerType === 'warningOnly') {
                     const paperErrors = runPaperCheck(pData);
                     if (paperErrors.length > 0) {
@@ -461,6 +463,7 @@
                     }
                 }
 
+                // Выполняем оригинальное действие, если не было блокировки
                 if (originalOnClick && handlerType !== 'full') {
                     btn.onclick = null;
                     originalOnClick.call(btn, e);
@@ -499,7 +502,11 @@
         }
     }
 
+    // ─────────────────────────────────────────────
+    // 🔥 🔥 ИСПРАВЛЕННАЯ ФУНКЦИЯ: перехват кнопок (без hasPaperData)
+    // ─────────────────────────────────────────────
     function interceptButtons() {
+        // 🔥 Навешиваем обработчики на ВСЕ кнопки, проверка происходит внутри createHandler
         SELECTORS.fullValidation.forEach(selector => {
             document.querySelectorAll(selector).forEach(btn => { if (btn) attachHandler(btn, 'full'); });
         });
