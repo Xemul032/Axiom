@@ -1,4 +1,4 @@
-// 10axiomFullValidator.js — модуль полной валидации заказа и проверки бумаги
+// 11axiomFullValidator.js — модуль полной валидации заказа и проверки бумаги
 // Загружается динамически из config.json через Axiom Status Indicator
 // Возвращает API управления: { init, cleanup, toggle, isActive }
 
@@ -284,7 +284,7 @@
         if (needed <= available) {
             return { status: 'enough', needed, available, diff, message: `✅ Бумаги хватает (запас: ${diff} л.)` };
         } else {
-            return { status: 'notEnough', needed, available, diff: Math.abs(diff), message: `❌ Бумаги не хватает (дефицит: ${Math.abs(diff)} л.)` };
+            return { status: 'notEnough', needed, available, diff: Math.abs(diff), message: `❌ Бумаги не хватает! Замените бумагу или свяжитесь с ответственным за остатки бумаги для запуска заказа в работу` };
         }
     }
     function parseOrders() {
@@ -440,7 +440,7 @@
                         }
                         if (paperErrors.length) { 
                             if (allErrors.length) allErrors.push('<br>'); 
-                            allErrors.push('<b>📦 Ошибки по бумаге:</b>'); 
+                            allErrors.push('<b>📦 Не хватает бумаги!:</b>'); 
                             paperErrors.forEach(m => allErrors.push('• ' + m)); 
                         }
                         const alertMsg = '<b>⛔ Проверка не пройдена!</b><br><br>' + allErrors.join('<br>');
