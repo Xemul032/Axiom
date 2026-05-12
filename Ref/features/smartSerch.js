@@ -3,10 +3,8 @@
 
     // 🔥 Проверка зависимостей (сразу в начале)
     if (!GM || !GM.xmlhttpRequest) {
-        console.error('[SmartSearch] ❌ GM API не передан. Модуль не может работать.');
         return;
     }
-    console.log('[SmartSearch] 🚀 Модуль запущен');
 
     // Допуски по типу изделия
     const TOLERANCES = {
@@ -292,7 +290,6 @@
         }
     `;
     document.head.appendChild(style);
-    console.log('[SmartSearch] ✅ Стили добавлены');
 
     let allData = [];
     let currentProductType = null;
@@ -361,7 +358,6 @@
                 openProductSelector();
             });
             tagsH4.appendChild(button);
-            console.log('[SmartSearch] ✅ Кнопка "Умный поиск" добавлена');
         }
     }
 
@@ -392,7 +388,6 @@
                     });
 
                     sessionStorage.setItem('stampPreviews', JSON.stringify(previewMap));
-                    console.log('[SmartSearch] ✅ Кэш превью сохранён:', previewMap.length, 'штук');
                 }
             });
         });
@@ -461,9 +456,7 @@
 
     function fetchData(productType) {
         const sheet = SHEETS[productType];
-        console.log('[SmartSearch] 📡 Загрузка данных:', sheet.title);
         
-        // 🔥 Используем GM.xmlhttpRequest вместо глобального GM_xmlhttpRequest
         GM.xmlhttpRequest({
             method: "GET",
             url: sheet.url,
@@ -512,10 +505,8 @@
                         alert(`В таблице ${sheet.title} нет корректных данных`);
                         return;
                     }
-                    console.log('[SmartSearch] ✅ Данные загружены:', allData.length, 'записей');
                     openModal(productType);
                 } catch (error) {
-                    console.error("[SmartSearch] ❌ Ошибка при получении данных:", error);
                     alert(
                         `Ошибка при получении данных для "${sheet.title}": ${error.message}
 Проверьте:
@@ -527,7 +518,6 @@
                 }
             },
             onerror: function (error) {
-                console.error("[SmartSearch] ❌ Ошибка сети:", error);
                 alert(`Ошибка сети при получении данных для ${sheet.title}`);
             }
         });
@@ -801,7 +791,6 @@
     }
 
     function init() {
-        console.log('[SmartSearch] 🔍 Инициализация модуля...');
         checkAndAddButton();
         const observer = new MutationObserver((mutations) => {
             mutations.forEach((mutation) => {
@@ -810,7 +799,6 @@
         });
         observer.observe(document.body, { childList: true, subtree: true });
         initRubricatorPreviewCache();
-        console.log('[SmartSearch] ✅ Модуль инициализирован, наблюдатель запущен');
     }
 
     // ─────────────────────────────────────────────
@@ -823,7 +811,6 @@
     }
 
 })(
-    // Аргументы подставит загрузчик основного userscript
     typeof config !== 'undefined' ? config : {},
     typeof GM !== 'undefined' ? GM : {},
     typeof utils !== 'undefined' ? utils : {}
