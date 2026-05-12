@@ -25,13 +25,8 @@
     // Проверка зависимостей (сразу в начале)
     // ─────────────────────────────────────────────
     if (!GM || !GM.xmlhttpRequest) {
-        console.error('[FinStop] ❌ GM API не передан. Модуль не может работать.');
         return;
     }
-    if (!utils || !utils.$) {
-        console.warn('[FinStop] ⚠️ jQuery не передан, некоторые функции могут не работать');
-    }
-    console.log('[FinStop] 🚀 Модуль запущен, зависимости получены');
 
     // ─────────────────────────────────────────────
     // Отслеживание состояния загрузки страницы
@@ -46,10 +41,8 @@
         const nowLoading = checkLoadingState();
         if (nowLoading && !isPageLoading) {
             isPageLoading = true;
-            console.log('[FinStop] Страница начала обновляться');
         } else if (!nowLoading && isPageLoading) {
             isPageLoading = false;
-            console.log('[FinStop] Страница загрузилась, перезапуск проверки');
             setTimeout(() => {
                 resetFinStopState();
                 checkPayIcon();
@@ -281,7 +274,7 @@
         const okBtn = document.createElement('button');
         okBtn.className = 'modal-btn btn-ok';
         okBtn.textContent = 'Ок';
-        okBtn.addEventListener('click', handleOk); // ← handleOk использует замыкание на GM, utils
+        okBtn.addEventListener('click', handleOk);
         buttons.appendChild(cancelBtn); buttons.appendChild(okBtn);
         box.appendChild(icon); box.appendChild(title); box.appendChild(text); box.appendChild(buttons);
         showModal(overlay);
@@ -444,12 +437,10 @@
                         const found = names.includes(username.toLowerCase());
                         resolve(found);
                     } catch (e) {
-                        console.error('FinStop blacklist parse error:', e);
                         reject(e);
                     }
                 },
                 onerror: function (err) {
-                    console.error('FinStop blacklist request error:', err);
                     reject(err);
                 }
             });
@@ -470,16 +461,13 @@
                         if (result.status === 'ok') {
                             resolve();
                         } else {
-                            console.warn('FinStop write unexpected response:', result);
                             reject(new Error(result.message || 'Unexpected response'));
                         }
                     } catch (e) {
-                        console.error('FinStop write parse error:', e, response.responseText);
                         reject(e);
                     }
                 },
                 onerror: function (err) {
-                    console.error('FinStop write request error:', err);
                     reject(err);
                 }
             });
@@ -496,10 +484,8 @@
             select.value = "3";
             select.dispatchEvent(new Event('change', { bubbles: true }));
             select.dispatchEvent(new Event('input', { bubbles: true }));
-            console.log('[FinStop] Схема оплаты изменена на "Кредит"');
             return true;
         }
-        console.warn('[FinStop] Не удалось найти select схемы оплаты');
         return false;
     }
 
@@ -526,12 +512,11 @@
             showLoadingModal('Сохранение данных...');
             setProgress(30, 'Отправка данных...');
             await writeToSheet(productId, username);
-            changePaySchemaToCredit(); // ← utils.$ не нужен, используем нативный JS
+            changePaySchemaToCredit();
             setProgress(100, 'Готово!');
             await new Promise(r => setTimeout(r, 500));
             showSuccessModal();
         } catch (err) {
-            console.error('FinStop error:', err);
             showErrorModal('Произошла ошибка при обработке запроса. Попробуйте позже.');
         }
     }
@@ -655,7 +640,6 @@
     // ─────────────────────────────────────────────
     startObserver();
     checkPayIcon();
-    console.log('[FinStop] ✅ Наблюдатель запущен, проверка иконки выполнена');
 
 })(
     // Эти аргументы подставит загрузчик из основного userscript
