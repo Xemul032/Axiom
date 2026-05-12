@@ -1,7 +1,7 @@
 [
   {
     "id": "mgi_soft",
-    "message": "МГИ без софттача не катит",
+    "message": "МГИ нанесение делается только с софттач ламинацией!",
     "conditions": [
       {
         "scope": "order",
@@ -19,7 +19,7 @@
   },
   {
     "id": "skvorzaya",
-    "message": "Вылет три миллиметра сделал, быстро блядь!",
+    "message": "На сквозную резку указываем вылет в 3мм!",
     "conditions": [
       {
         "scope": "order",
@@ -36,69 +36,141 @@
     ]
   },
   {
-    "id": "karty",
-    "message": "Ты куда с картами лезешь!?",
+    "id": "Карты",
+    "message": "Карты нужно раскладывать каждый вид на отдельный лист",
     "conditions": [
-      {
-        "scope": "order",
-        "field": "cifra_layout",
-        "op": "not_contains",
-        "value": "Каждый"
-      },
       {
         "scope": "order",
         "field": "postpress_text",
         "op": "contains",
         "value": "колод"
-      }
-    ]
-  },
-  {
-    "id": "probnik1",
-    "message": "Пробников две штуки давай!",
-    "conditions": [
-      {
-        "scope": "global",
-        "field": "prod_name",
-        "op": "contains",
-        "value": "Пробник"
       },
       {
         "scope": "order",
-        "field": "tirazh",
-        "op": "lt",
-        "value": "2"
+        "field": "cifra_layout",
+        "op": "not_contains",
+        "value": "отдельный"
       }
     ]
   },
   {
-    "id": "nadsechka",
-    "message": "КУДА, БЛЯДЬ, С НАДСЕЧКОЙ!?!?!",
+    "id": "Оборот МГИ без Лица",
+    "message": "ОБОРОТ МГИ выбран неверно! Вместо него укажите ЛИЦО МГИ!",
     "conditions": [
       {
         "scope": "order",
-        "field": "paper",
+        "field": "postpress_text",
         "op": "contains",
-        "value": "с надсечками"
+        "value": "оборот"
+      },
+      {
+        "scope": "order",
+        "field": "postpress_text",
+        "op": "not_contains",
+        "value": "лицо"
+      }
+    ]
+  },
+  {
+    "id": "КБС+ламинация",
+    "message": "Двухстороняя ламинация недоступна при термопереплете! Выберете одностороннюю!",
+    "conditions": [
+      {
+        "scope": "order",
+        "field": "postpress_text",
+        "op": "contains",
+        "value": "1+1"
+      },
+      {
+        "scope": "global",
+        "field": "postpress_text",
+        "op": "eq",
+        "value": "Термопереплет"
+      }
+    ]
+  },
+  {
+    "id": "Тигель+отверстие",
+    "message": "Сверление отверстий невозможно после вырубки на тигеле! Если сверление отверстий необходимо и возможно - обратитесь за помощью к Александру Щ.",
+    "conditions": [
+      {
+        "scope": "order",
+        "field": "postpress_text",
+        "op": "contains",
+        "value": "тигеле"
       },
       {
         "scope": "order",
         "field": "postpress_text",
         "op": "contains",
-        "value": "МГИ"
+        "value": "отверстие"
       }
     ]
   },
   {
-    "id": "vidov",
-    "message": "Чёт не то...",
+    "id": "Биговка+пакетная ламинация",
+    "message": "Биговку можно выполнить только по тонкой ламинации!",
     "conditions": [
       {
-        "scope": "global",
+        "scope": "order",
+        "field": "postpress_text",
+        "op": "contains",
+        "value": "пакетная"
+      },
+      {
+        "scope": "order",
+        "field": "postpress_text",
+        "op": "contains",
+        "value": "биговка"
+      }
+    ]
+  },
+  {
+    "id": "Люверс<1",
+    "message": "Люверс указан неверно! Перенесите люверс в нижнюю постпечать!",
+    "conditions": [
+      {
+        "scope": "order",
         "field": "postpress_qty",
-        "op": "eq",
+        "op": "lt",
         "value": "1",
-        "target_op": "Счет листов"
+        "target_op": "Люверс"
+      }
+    ]
+  },
+  {
+    "id": "Контурная + ламинация",
+    "message": "Вместо обычной контурной резки выберите операцию \"Плоттерная (контурная) резка ламинированных наклеек ПРОСТАЯ - ПОЛИГРАФИЯ\"!",
+    "conditions": [
+      {
+        "scope": "order",
+        "field": "postpress_text",
+        "op": "contains",
+        "value": "ламинация"
+      },
+      {
+        "scope": "order",
+        "field": "postpress_text",
+        "op": "contains",
+        "value": "резка наклеек"
+      }
+    ]
+  },
+  {
+    "id": "Фольгирование+софттач",
+    "message": "Фольгирование делается только по софттач ламинации",
+    "conditions": [
+      {
+        "scope": "order",
+        "field": "postpress_text",
+        "op": "contains",
+        "value": "фольгирование"
+      },
+      {
+        "scope": "order",
+        "field": "postpress_text",
+        "op": "not_contains",
+        "value": "софттач"
       }
     ]
   }
