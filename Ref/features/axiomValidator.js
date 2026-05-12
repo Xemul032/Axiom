@@ -1,4 +1,4 @@
-// 17axiomFullValidator.js — модуль полной валидации заказа и проверки бумаги
+// 18axiomFullValidator.js — модуль полной валидации заказа и проверки бумаги
 // Загружается динамически из config.json через Axiom Status Indicator
 // Возвращает API управления: { init, cleanup, toggle, isActive }
 
@@ -21,7 +21,7 @@
         warningOnly: config?.selectors?.warningOnly || [
             '#Summary > table > tbody > tr > td:nth-child(1) > div.right > div > button:nth-child(1)'
         ],
-        regButton: config?.selectors?.regButton || '#RegButton',
+        docElement: config?.selectors?.docElement || '#Doc',
         skladBlock: config?.selectors?.skladBlock || '.SkladBlock'
     };
 
@@ -33,7 +33,7 @@
     let validationRules = null;
     let rulesLastFetch = 0;
     let observer = null;
-    let regButtonObserver = null; // 🔥 Отдельный observer для RegButton
+    let loadingObserver = null; // 🔥 Отдельный observer для #Doc.LoadingContent
     let isProcessingClick = false;
     const originalHandlers = new WeakMap();
     const attachedHandlers = new WeakMap();
@@ -526,40 +526,34 @@
     }
 
     // ─────────────────────────────────────────────
-    // 🔥 🔥 НОВЫЙ OBSERVER: отслеживаем RegButton
+    // 🔥 🔥 НОВЫЙ OBSERVER: отслеживаем #Doc.LoadingContent
     // ─────────────────────────────────────────────
-    function setupRegButtonObserver() {
-        if (regButtonObserver) regButtonObserver.disconnect();
+    function setupLoadingObserver() {
+        if (loadingObserver) loadingObserver.disconnect();
         
-        regButtonObserver = new MutationObserver((mutations) => {
+        const docEl = document.querySelector(SELECTORS.docElement);
+        if (!docEl) return;
+        
+        loadingObserver = new MutationObserver((mutations) => {
             mutations.forEach(mutation => {
-                // 🔥 Проверяем, изменилась ли кнопка RegButton
-                if (mutation.target.id === 'RegButton') {
-                    const regBtn = mutation.target;
-                    const isDisabled = regBtn.hasAttribute('disabled');
-                    const text = regBtn.textContent.trim();
+                // 🔥 Проверяем изменение класса LoadingContent
+                if (mutation.attributeName === 'class') {
+                    const hasLoading = docEl.classList.contains('LoadingContent');
                     
-                    // 🔥 Если кнопка disabled и текст "Запущен в работу"
-                    if (isDisabled && text === 'Запущен в работу') {
-                        // 🔥 Перезапускаем перехват кнопок
+                    // 🔥 Если LoadingContent УБРАН — страница обновилась, навешиваем валидаторы заново
+                    if (!hasLoading) {
                         setTimeout(() => {
                             interceptButtons();
-                        }, 300);
+                        }, 300); // 🔥 Небольшая задержка для рендеринга контента
                     }
                 }
             });
         });
         
-        // 🔥 Начинаем наблюдение за RegButton
-        const regBtn = document.querySelector(SELECTORS.regButton);
-        if (regBtn) {
-            regButtonObserver.observe(regBtn, {
-                attributes: true,
-                childList: true,
-                subtree: true,
-                characterData: true
-            });
-        }
+        loadingObserver.observe(docEl, {
+            attributes: true,
+            attributeFilter: ['class']
+        });
     }
 
     function runParser() {
@@ -590,7 +584,7 @@
         if (active) return;
         active = true;
         setupObserver();
-        setupRegButtonObserver(); // 🔥 Запускаем observer для RegButton
+        setupLoadingObserver(); // 🔥 Запускаем observer для #Doc.LoadingContent
         setTimeout(runParser, 600);
         fetchValidationRules();
     }
@@ -599,7 +593,7 @@
         if (!active) return;
         active = false;
         if (observer) { observer.disconnect(); observer = null; }
-        if (regButtonObserver) { regButtonObserver.disconnect(); regButtonObserver = null; } // 🔥 Отключаем observer
+        if (loadingObserver) { loadingObserver.disconnect(); loadingObserver = null; } // 🔥 Отключаем observer
         clearTimeout(debounceTimer);
         attachedHandlers.clear();
         originalHandlers.clear();
