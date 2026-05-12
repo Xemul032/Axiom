@@ -3,10 +3,8 @@
 
     // 🔥 Проверка зависимостей (сразу в начале)
     if (!GM || !GM.xmlhttpRequest) {
-        console.error('[EasyPackMaker] ❌ GM API не передан. Модуль не может работать.');
         return;
     }
-    console.log('[EasyPackMaker] 🚀 Модуль запущен');
 
     // --- НАСТРОЙКИ ---
     const JSON_URL = 'https://raw.githubusercontent.com/Xemul032/Axiom_calcs/refs/heads/main/calcs.json';
@@ -36,7 +34,6 @@
                 resolve(formulasData);
                 return;
             }
-            console.log('[EasyPackMaker] 📡 Загрузка формул из:', JSON_URL);
             
             GM.xmlhttpRequest({
                 method: "GET",
@@ -45,19 +42,15 @@
                 onload: function(response) {
                     try {
                         formulasData = JSON.parse(response.responseText);
-                        console.log('[EasyPackMaker] ✅ Формулы загружены:', Object.keys(formulasData).filter(k => k !== '_meta').length, 'типов');
                         resolve(formulasData);
                     } catch (e) {
-                        console.error('[EasyPackMaker] ❌ Ошибка парсинга JSON:', e);
                         reject(e);
                     }
                 },
                 onerror: function(error) {
-                    console.error('[EasyPackMaker] ❌ Ошибка сети при загрузке:', error);
                     reject(error);
                 },
                 ontimeout: function() {
-                    console.error('[EasyPackMaker] ❌ Timeout при загрузке');
                     reject(new Error('Timeout'));
                 }
             });
@@ -99,7 +92,6 @@
 
         for (const key of sortedKeys) {
             if (headerText.includes(key.toLowerCase())) {
-                console.log('[EasyPackMaker] 🔍 Найден тип:', key);
                 return key;
             }
         }
@@ -207,7 +199,6 @@
     // ─────────────────────────────────────────────
     function injectCalculator(targetElement, formulaType) {
         if (targetElement.querySelector('.tm-custom-calculator')) return;
-        console.log('[EasyPackMaker] 📦 Создание калькулятора для типа:', formulaType);
 
         const imageUrl = getImageForType(formulaType);
         const typeName = getTypeName(formulaType);
@@ -466,7 +457,6 @@
         const target = document.querySelector(TARGET_SELECTOR);
         if (target?.querySelector('.tm-custom-calculator')) {
             target.querySelector('.tm-custom-calculator').remove();
-            console.log('[EasyPackMaker] 🗑️ Калькулятор удалён');
         }
         currentType = null;
     }
@@ -505,13 +495,9 @@
     // 12. Инициализация
     // ─────────────────────────────────────────────
     function init() {
-        console.log('[EasyPackMaker] 🔧 Инициализация модуля...');
-        
         fetchFormulas().then(() => {
             checkAndInject();
-        }).catch(err => {
-            console.error('[EasyPackMaker] ❌ Ошибка инициализации:', err);
-        });
+        }).catch(() => {});
 
         const setupObserver = () => {
             const rootElement = document.querySelector(OBSERVE_ROOT);
@@ -534,7 +520,6 @@
         }, POLL_INTERVAL);
 
         checkAndInject();
-        console.log('[EasyPackMaker] ✅ Модуль инициализирован, наблюдатель запущен');
     }
 
     // ─────────────────────────────────────────────
@@ -559,7 +544,6 @@
     window.__tmCheck = checkAndInject;
 
 })(
-    // Аргументы подставит загрузчик основного userscript
     typeof config !== 'undefined' ? config : {},
     typeof GM !== 'undefined' ? GM : {},
     typeof utils !== 'undefined' ? utils : {}
