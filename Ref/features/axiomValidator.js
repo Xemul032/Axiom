@@ -1,4 +1,4 @@
-// 14axiomFullValidator.js — модуль полной валидации заказа и проверки бумаги
+// 15axiomFullValidator.js — модуль полной валидации заказа и проверки бумаги
 // Загружается динамически из config.json через Axiom Status Indicator
 // Возвращает API управления: { init, cleanup, toggle, isActive }
 
@@ -395,7 +395,9 @@
             isProcessingClick = true;
             
             try {
-                // 🔥 ПАРСИНГ ДАННЫХ ВЫПОЛНЯЕТСЯ ПРИ КАЖДОМ КЛИКЕ
+                // 🔥 Небольшая задержка для обновления DOM после действий пользователя
+                await new Promise(resolve => setTimeout(resolve, 100));
+                
                 const pData = {
                     productName: parseProductName(), 
                     mass: parseProductMass(), 
@@ -405,61 +407,72 @@
                     designData: parseDesignBlock(),
                     prepress: parseHistoryPrepress(), 
                     globalPP: parseGlobalPostpress(), 
-                    orders: parseOrders() // 🔥 Парсим заказы заново!
+                    orders: parseOrders() // 🔥 Парсим ЗАНОВО при каждом клике
                 };
 
-                // 🔥 Для fullValidation и paperOnly — ВСЕГДА проверяем бумагу
-                if (handlerType === 'full' || handlerType === 'paperOnly') {
-                    const paperErrors = runPaperCheck(pData); // 🔥 Проверяем бумагу на актуальных данных
+                if (handlerType === 'full') {
+                    const paperErrors = runPaperCheck(pData);
                     
-                    if (handlerType === 'full') {
-                        await fetchValidationRules();
-                        const validationData = {
-                            productName: pData.productName,
-                            summa: pData.summaData.total, rawSumma: pData.summaData.rawSumma, mass: pData.mass,
-                            invoice: pData.invoiceInfo.hasInvoice, invoiceNumber: pData.invoiceInfo.invoiceNumber,
-                            client: pData.productInfo.client, deliveryPoint: pData.productInfo.deliveryPoint, address: pData.productInfo.address,
-                            prepress: pData.prepress, globalPP: pData.globalPP,
-                            orders: pData.orders.map(o => ({ id: o.id, name: o.name, printInfo: o.printInfo, colorInfo: o.colorInfo, paperInfo: o.paperInfo, localPP: o.localPP })),
-                            design: pData.designData?.map(d => d.desc).join(' | ') || ''
-                        };
-                        const res = runValidation(validationData);
-                        
-                        if (!res.passed || paperErrors.length > 0) {
-                            e.stopImmediatePropagation(); e.preventDefault();
-                            const allErrors = [];
-                            if (res.messages.length) { 
-                                allErrors.push('<b>📋 Ошибки из правил:</b>'); 
-                                res.messages.forEach(m => allErrors.push('• ' + m)); 
-                            }
-                            if (paperErrors.length) { 
-                                if (allErrors.length) allErrors.push('<br>'); 
-                                allErrors.push('<b>📦 Не хватает бумаги!:</b>'); 
-                                paperErrors.forEach(m => allErrors.push('• ' + m)); 
-                            }
-                            const alertMsg = '<b>⛔ Проверка не пройдена!</b><br><br>' + allErrors.join('<br>');
-                            if (api?.showCenterMessage) {
-                                api.showCenterMessage({ message: alertMsg, buttonText: 'Понятно', duration: 0 });
-                            }
-                            isProcessingClick = false;
-                            return false;
+                    await fetchValidationRules();
+                    const validationData = {
+                        productName: pData.productName,
+                        summa: pData.summaData.total, rawSumma: pData.summaData.rawSumma, mass: pData.mass,
+                        invoice: pData.invoiceInfo.hasInvoice, invoiceNumber: pData.invoiceInfo.invoiceNumber,
+                        client: pData.productInfo.client, deliveryPoint: pData.productInfo.deliveryPoint, address: pData.productInfo.address,
+                        prepress: pData.prepress, globalPP: pData.globalPP,
+                        orders: pData.orders.map(o => ({ id: o.id, name: o.name, printInfo: o.printInfo, colorInfo: o.colorInfo, paperInfo: o.paperInfo, localPP: o.localPP })),
+                        design: pData.designData?.map(d => d.desc).join(' | ') || ''
+                    };
+                    const res = runValidation(validationData);
+                    
+                    if (!res.passed || paperErrors.length > 0) {
+                        e.stopImmediatePropagation(); e.preventDefault();
+                        const allErrors = [];
+                        if (res.messages.length) { 
+                            allErrors.push('<b>📋 Ошибки из правил:</b>'); 
+                            res.messages.forEach(m => allErrors.push('• ' + m)); 
                         }
+                        if (paperErrors.length) { 
+                            if (allErrors.length) allErrors.push('<br>'); 
+                            allErrors.push('<b>📦 Не хватает бумаги!:</b>'); 
+                            paperErrors.forEach(m => allErrors.push('• ' + m)); 
+                        }
+                        const alertMsg = '<b>⛔ Проверка не пройдена!</b><br><br>' + allErrors.join('<br>');
+                        if (api?.showCenterMessage) {
+                            api.showCenterMessage({ message: alertMsg, buttonText: 'Понятно', duration: 0 });
+                        }
+                        isProcessingClick = false;
+                        return false;
                     }
-                    else if (handlerType === 'paperOnly') {
-                        if (paperErrors.length > 0) {
-                            e.stopImmediatePropagation(); e.preventDefault();
-                            const alertMsg = '<b>⛔ Бумаги не хватает!</b><br><br>' + paperErrors.map(e => '• ' + e).join('<br>');
-                            if (api?.showCenterMessage) {
-                                api.showCenterMessage({ message: alertMsg, buttonText: 'Понятно', duration: 0 });
-                            }
-                            isProcessingClick = false;
-                            return false;
-                        }
+                    
+                    // 🔥 Для fullValidation выполняем оригинальное действие
+                    if (originalOnClick) {
+                        btn.onclick = null;
+                        originalOnClick.call(btn, e);
+                        btn.onclick = originalOnClick;
                     }
                 }
-                // 🔥 Для warningOnly — только предупреждение, не блокируем
+                else if (handlerType === 'paperOnly') {
+                    const paperErrors = runPaperCheck(pData);
+                    if (paperErrors.length > 0) {
+                        e.stopImmediatePropagation(); e.preventDefault();
+                        const alertMsg = '<b>⛔ Бумаги не хватает!</b><br><br>' + paperErrors.map(e => '• ' + e).join('<br>');
+                        if (api?.showCenterMessage) {
+                            api.showCenterMessage({ message: alertMsg, buttonText: 'Понятно', duration: 0 });
+                        }
+                        isProcessingClick = false;
+                        return false;
+                    }
+                    
+                    // 🔥 Для paperOnly выполняем оригинальное действие
+                    if (originalOnClick) {
+                        btn.onclick = null;
+                        originalOnClick.call(btn, e);
+                        btn.onclick = originalOnClick;
+                    }
+                }
                 else if (handlerType === 'warningOnly') {
-                    const paperErrors = runPaperCheck(pData); // 🔥 Тоже проверяем на актуальных данных
+                    const paperErrors = runPaperCheck(pData);
                     if (paperErrors.length > 0) {
                         const alertMsg = '<b>⚠️ ВНИМАНИЕ: Бумаги не хватает!</b><br><br>' + 
                                         paperErrors.map(e => '• ' + e).join('<br>') + 
@@ -468,13 +481,10 @@
                             api.showCenterMessage({ message: alertMsg, buttonText: 'Понятно', duration: 5000 });
                         }
                     }
-                }
-
-                // Выполняем оригинальное действие, если не было блокировки
-                if (originalOnClick && handlerType !== 'full') {
-                    btn.onclick = null;
-                    originalOnClick.call(btn, e);
-                    btn.onclick = originalOnClick;
+                    // 🔥 Для warningOnly НЕ вызываем originalOnClick вручную — 
+                    // позволяем событию всплыть естественным путём к оригинальному обработчику
+                    isProcessingClick = false;
+                    return;
                 }
             } catch {
                 if (handlerType !== 'warningOnly') {
@@ -484,10 +494,11 @@
                     }
                 }
             } finally {
-                if (handlerType !== 'warningOnly') {
-                    setTimeout(() => { isProcessingClick = false; }, 50);
-                } else {
+                // Сброс флага
+                if (handlerType === 'warningOnly') {
                     isProcessingClick = false;
+                } else {
+                    setTimeout(() => { isProcessingClick = false; }, 50);
                 }
             }
         };
