@@ -1,4 +1,4 @@
-// 11axiomFullValidator.js — модуль полной валидации заказа и проверки бумаги
+// 12axiomFullValidator.js — модуль полной валидации заказа и проверки бумаги
 // Загружается динамически из config.json через Axiom Status Indicator
 // Возвращает API управления: { init, cleanup, toggle, isActive }
 
@@ -405,13 +405,26 @@
     }
 
     // ─────────────────────────────────────────────
-    // 🔥 Обработчик клика
+    // 🔥 Обработчик клика (исправленная версия)
     // ─────────────────────────────────────────────
     function createHandler(btn, handlerType, originalOnClick) {
         return async function(e) {
             if (isProcessingClick) return;
             isProcessingClick = true;
+            
             try {
+                // 🔥 ПРОВЕРКА БУМАГИ ВЫПОЛНЯЕТСЯ ПРИ КАЖДОМ КЛИКЕ
+                if (!hasPaperData()) {
+                    // Если данных о бумаге нет — пропускаем валидацию и выполняем оригинальное действие
+                    if (originalOnClick && handlerType !== 'full') {
+                        btn.onclick = null;
+                        originalOnClick.call(btn, e);
+                        btn.onclick = originalOnClick;
+                    }
+                    isProcessingClick = false;
+                    return;
+                }
+                
                 const pData = {
                     productName: parseProductName(), mass: parseProductMass(), summaData: parseProductSumma(),
                     invoiceInfo: parseInvoiceInfo(), productInfo: parseProductInfo(), designData: parseDesignBlock(),
