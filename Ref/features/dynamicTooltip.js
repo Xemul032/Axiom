@@ -8,7 +8,7 @@
         console.error('[DynamicTooltip] ❌ GM API не передан. Модуль не может работать.');
         return;
     }
-    console.log('[DynamicTooltip] 🚀 Модуль запущен');
+  
 
     // Функция для создания тултипа
     function createTooltip(message) {
