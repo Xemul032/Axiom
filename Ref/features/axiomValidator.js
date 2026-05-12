@@ -1,4 +1,4 @@
-// 13axiomFullValidator.js — модуль полной валидации заказа и проверки бумаги
+// 14axiomFullValidator.js — модуль полной валидации заказа и проверки бумаги
 // Загружается динамически из config.json через Axiom Status Indicator
 // Возвращает API управления: { init, cleanup, toggle, isActive }
 
@@ -395,15 +395,22 @@
             isProcessingClick = true;
             
             try {
+                // 🔥 ПАРСИНГ ДАННЫХ ВЫПОЛНЯЕТСЯ ПРИ КАЖДОМ КЛИКЕ
                 const pData = {
-                    productName: parseProductName(), mass: parseProductMass(), summaData: parseProductSumma(),
-                    invoiceInfo: parseInvoiceInfo(), productInfo: parseProductInfo(), designData: parseDesignBlock(),
-                    prepress: parseHistoryPrepress(), globalPP: parseGlobalPostpress(), orders: parseOrders()
+                    productName: parseProductName(), 
+                    mass: parseProductMass(), 
+                    summaData: parseProductSumma(),
+                    invoiceInfo: parseInvoiceInfo(), 
+                    productInfo: parseProductInfo(), 
+                    designData: parseDesignBlock(),
+                    prepress: parseHistoryPrepress(), 
+                    globalPP: parseGlobalPostpress(), 
+                    orders: parseOrders() // 🔥 Парсим заказы заново!
                 };
 
                 // 🔥 Для fullValidation и paperOnly — ВСЕГДА проверяем бумагу
                 if (handlerType === 'full' || handlerType === 'paperOnly') {
-                    const paperErrors = runPaperCheck(pData);
+                    const paperErrors = runPaperCheck(pData); // 🔥 Проверяем бумагу на актуальных данных
                     
                     if (handlerType === 'full') {
                         await fetchValidationRules();
@@ -452,7 +459,7 @@
                 }
                 // 🔥 Для warningOnly — только предупреждение, не блокируем
                 else if (handlerType === 'warningOnly') {
-                    const paperErrors = runPaperCheck(pData);
+                    const paperErrors = runPaperCheck(pData); // 🔥 Тоже проверяем на актуальных данных
                     if (paperErrors.length > 0) {
                         const alertMsg = '<b>⚠️ ВНИМАНИЕ: Бумаги не хватает!</b><br><br>' + 
                                         paperErrors.map(e => '• ' + e).join('<br>') + 
