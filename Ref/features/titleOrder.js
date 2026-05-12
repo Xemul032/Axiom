@@ -8,8 +8,7 @@
         console.error('[TitleOrder] ❌ GM API не передан. Модуль не может работать.');
         return;
     }
-    console.log('[TitleOrder] 🚀 Модуль запущен');
-
+   
     let originalTitle = document.title; // Сохраняем оригинальный заголовок страницы
 
     // Функция для обновления заголовка страницы
