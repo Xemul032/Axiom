@@ -3,9 +3,8 @@
 
     // 🔥 Проверка зависимостей (сразу в начале)
     if (!GM || !GM.xmlhttpRequest) {
-        console.warn('[ConfidAgree] ⚠️ Запущен без полного GM API (работает в ограниченном режиме)');
+        // Работает в ограниченном режиме без полного GM API
     }
-    console.log('[ConfidAgree] 🚀 Модуль запущен');
 
     let warningButton = null;
     let popupElement = null;
@@ -83,7 +82,6 @@
             }
         `;
         document.head.appendChild(styleElement);
-        console.log('[ConfidAgree] ✅ Стили добавлены');
     }
 
     // ─────────────────────────────────────────────
@@ -94,10 +92,9 @@
 
         warningButton = document.createElement('button');
         warningButton.className = 'axiom-warning-button';
-        warningButton.textContent = ''; // Пустая кнопка-оверлей
+        warningButton.textContent = '';
         warningButton.addEventListener('click', showPopup);
         document.body.appendChild(warningButton);
-        console.log('[ConfidAgree] ✅ Кнопка предупреждения создана');
     }
 
     // ─────────────────────────────────────────────
@@ -125,7 +122,6 @@
         const agreementText = document.querySelector('.axiom-agreement-text');
         const enterButton = document.getElementById('axiom-enter-button');
 
-        // Обработка состояния чекбокса
         checkbox.addEventListener('change', function () {
             if (this.checked) {
                 agreementText.classList.add('active');
@@ -136,28 +132,23 @@
             }
         });
 
-        // Обработка клика по кнопке "Войти"
         enterButton.addEventListener('click', function () {
             if (enterButton.classList.contains('visible')) {
                 const loginButton = document.querySelector("body > table > tbody > tr:nth-child(2) > td > div > form > div > div:nth-child(5) > button");
                 if (loginButton) {
-                    console.log('[ConfidAgree] ✅ Клик по кнопке входа');
                     loginButton.click();
-                } else {
-                    console.warn('[ConfidAgree] ⚠️ Кнопка входа не найдена');
                 }
-                document.body.removeChild(popupElement);
+                if (popupElement && popupElement.parentNode) {
+                    document.body.removeChild(popupElement);
+                }
                 if (warningButton && warningButton.parentNode) {
                     document.body.removeChild(warningButton);
                 }
                 popupElement = null;
                 warningButton = null;
                 warningShown = true;
-                console.log('[ConfidAgree] ✅ Окно закрыто, предупреждение показано');
             }
         });
-        
-        console.log('[ConfidAgree] ✅ Popup показан');
     }
 
     // ─────────────────────────────────────────────
@@ -170,20 +161,15 @@
         const textElement = document.querySelector('body > table > tbody > tr:nth-child(3) > td > p');
         const hasText = textElement && textElement.textContent.includes('Система управления полиграфическим производством');
 
-        // Элементы обнаружены → показываем предупреждение
         if (logo && hasText) {
             if (!elementsDetected) {
                 elementsDetected = true;
-                console.log('[ConfidAgree] 🔍 Страница входа обнаружена');
                 createWarningButton();
             }
         }
-        // Элементы исчезли → возможно, пользователь ушёл со страницы входа
         else if (elementsDetected) {
             elementsDetected = false;
-            console.log('[ConfidAgree] 🔍 Элементы входа исчезли');
 
-            // Запускаем таймер на удаление кнопки, если она ещё висит
             if (!warningTimer && warningButton && !popupElement) {
                 warningTimer = setTimeout(() => {
                     const logoNow = document.querySelector('img[src*="img/ax/axlogotrans.png"]');
@@ -193,7 +179,6 @@
                         if (warningButton.parentNode) {
                             document.body.removeChild(warningButton);
                             warningButton = null;
-                            console.log('[ConfidAgree] 🗑️ Кнопка предупреждения удалена');
                         }
                     }
                     warningTimer = null;
@@ -219,17 +204,13 @@
             attributes: true, attributeFilter: ['src', 'textContent']
         });
 
-        // Первичная проверка
         checkElements();
 
-        // Проверка при возврате вкладки в фокус
         document.addEventListener('visibilitychange', () => {
             if (document.visibilityState === 'visible') {
                 checkElements();
             }
         });
-        
-        console.log('[ConfidAgree] ✅ Наблюдатель DOM запущен');
     }
 
     // ─────────────────────────────────────────────
@@ -242,7 +223,6 @@
     }
 
 })(
-    // Аргументы подставит загрузчик основного userscript
     typeof config !== 'undefined' ? config : {},
     typeof GM !== 'undefined' ? GM : {},
     typeof utils !== 'undefined' ? utils : {}
