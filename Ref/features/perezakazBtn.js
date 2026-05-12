@@ -372,11 +372,9 @@
             newBtn.addEventListener("click", handleButtonClick);
             topButtons.appendChild(newBtn);
             
-            console.log('[PerezakazBtn] ✅ Кнопка добавлена');
         } else if (!shouldShowButton && existingBtn) {
             // Удаляем кнопку из DOM
             existingBtn.remove();
-            console.log('[PerezakazBtn] 🗑 Кнопка удалена');
         }
     }
 
@@ -396,8 +394,6 @@
             subtree: true,
             attributes: true
         });
-        
-        console.log('[PerezakazBtn] 🚀 Модуль инициализирован');
     }
 
     function cleanup() {
@@ -415,8 +411,6 @@
         document.querySelectorAll(`.${UNIQUE_PREFIX}modal-overlay`).forEach(el => {
             if (el.parentNode) el.parentNode.removeChild(el);
         });
-        
-        console.log('[PerezakazBtn] 🧹 Модуль очищен');
     }
 
     function toggle() {
