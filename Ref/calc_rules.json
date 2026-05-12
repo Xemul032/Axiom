@@ -84,7 +84,7 @@
       {
         "scope": "global",
         "field": "postpress_text",
-        "op": "eq",
+        "op": "contains",
         "value": "Термопереплет"
       }
     ]
