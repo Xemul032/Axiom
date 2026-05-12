@@ -1,4 +1,4 @@
-// 15axiomFullValidator.js — модуль полной валидации заказа и проверки бумаги
+// 16axiomFullValidator.js — модуль полной валидации заказа и проверки бумаги
 // Загружается динамически из config.json через Axiom Status Indicator
 // Возвращает API управления: { init, cleanup, toggle, isActive }
 
@@ -395,9 +395,7 @@
             isProcessingClick = true;
             
             try {
-                // 🔥 Небольшая задержка для обновления DOM после действий пользователя
-                await new Promise(resolve => setTimeout(resolve, 100));
-                
+                // 🔥 ПАРСИНГ ДАННЫХ ВЫПОЛНЯЕТСЯ ПРИ КАЖДОМ КЛИКЕ — данные всегда актуальны
                 const pData = {
                     productName: parseProductName(), 
                     mass: parseProductMass(), 
@@ -407,7 +405,7 @@
                     designData: parseDesignBlock(),
                     prepress: parseHistoryPrepress(), 
                     globalPP: parseGlobalPostpress(), 
-                    orders: parseOrders() // 🔥 Парсим ЗАНОВО при каждом клике
+                    orders: parseOrders()
                 };
 
                 if (handlerType === 'full') {
@@ -445,7 +443,7 @@
                         return false;
                     }
                     
-                    // 🔥 Для fullValidation выполняем оригинальное действие
+                    // 🔥 Выполняем оригинальное действие
                     if (originalOnClick) {
                         btn.onclick = null;
                         originalOnClick.call(btn, e);
@@ -464,7 +462,7 @@
                         return false;
                     }
                     
-                    // 🔥 Для paperOnly выполняем оригинальное действие
+                    // 🔥 Выполняем оригинальное действие
                     if (originalOnClick) {
                         btn.onclick = null;
                         originalOnClick.call(btn, e);
@@ -481,10 +479,12 @@
                             api.showCenterMessage({ message: alertMsg, buttonText: 'Понятно', duration: 5000 });
                         }
                     }
-                    // 🔥 Для warningOnly НЕ вызываем originalOnClick вручную — 
-                    // позволяем событию всплыть естественным путём к оригинальному обработчику
-                    isProcessingClick = false;
-                    return;
+                    // 🔥 🔥 ИСПРАВЛЕНО: выполняем оригинальное действие для warningOnly
+                    if (originalOnClick) {
+                        btn.onclick = null;
+                        originalOnClick.call(btn, e);
+                        btn.onclick = originalOnClick;
+                    }
                 }
             } catch {
                 if (handlerType !== 'warningOnly') {
@@ -494,12 +494,8 @@
                     }
                 }
             } finally {
-                // Сброс флага
-                if (handlerType === 'warningOnly') {
-                    isProcessingClick = false;
-                } else {
-                    setTimeout(() => { isProcessingClick = false; }, 50);
-                }
+                // 🔥 Сброс флага для всех типов кнопок
+                setTimeout(() => { isProcessingClick = false; }, 50);
             }
         };
     }
@@ -521,10 +517,9 @@
     }
 
     // ─────────────────────────────────────────────
-    // 🔥 🔥 ИСПРАВЛЕННАЯ ФУНКЦИЯ: перехват кнопок (без hasPaperData)
+    // 🔥 Перехват кнопок
     // ─────────────────────────────────────────────
     function interceptButtons() {
-        // 🔥 Навешиваем обработчики на ВСЕ кнопки, проверка происходит внутри createHandler
         SELECTORS.fullValidation.forEach(selector => {
             document.querySelectorAll(selector).forEach(btn => { if (btn) attachHandler(btn, 'full'); });
         });
