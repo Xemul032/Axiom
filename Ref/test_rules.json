@@ -9,14 +9,14 @@
       "conditions": [
         {
           "field": "orders",
-          "operator": "ordersContain",
+          "operator": "ordersArrayContain",
           "value": "МГИ",
           "subField": "localPP",
           "caseSensitive": false
         },
         {
           "field": "design",
-          "operator": "contains",
+          "operator": "notContains",
           "value": "MGI",
           "caseSensitive": false
         }
