@@ -1,4 +1,4 @@
-// 2summaDiscountButtons.js — модуль кнопок скидок и наценок с корректным расчётом
+// 3summaDiscountButtons.js — модуль кнопок скидок и наценок с корректным расчётом
 // Загружается динамически из config.json через Axiom Status Indicator
 // Возвращает API управления: { init, cleanup, toggle, isActive }
 
@@ -18,25 +18,6 @@
         { label: '-5%', percent: 5, positive: false, class: 'tm-btn-orange', order: 1 },
         { label: '-10%', percent: 10, positive: false, class: 'tm-btn-red', order: 2 }
     ];
-    const STYLES = {
-        button: config?.styles?.button || {
-            padding: '6px 16px',
-            fontSize: '13px',
-            fontWeight: '600',
-            color: '#fff',
-            border: 'none',
-            borderRadius: '4px',
-            cursor: 'pointer',
-            boxShadow: '0 2px 4px rgba(0,0,0,0.2)',
-            transition: 'all 0.2s ease',
-            marginRight: '8px'
-        },
-        colors: config?.styles?.colors || {
-            green: '#5cb85c',
-            orange: '#f0ad4e',
-            red: '#d9534f'
-        }
-    };
 
     // 🔥 Внутреннее состояние
     let active = false;
@@ -46,7 +27,7 @@
     let insertedRow = null;
 
     // ─────────────────────────────────────────────
-    // 🔥 Внедрение стилей (исправленная версия)
+    // 🔥 Внедрение стилей (из оригинального скрипта)
     // ─────────────────────────────────────────────
     function injectStyles() {
         if (styleEl) return;
@@ -54,68 +35,32 @@
         styleEl = document.createElement('style');
         styleEl.id = `${UNIQUE_PREFIX}styles`;
         styleEl.textContent = `
-            /* 🔥 Базовые стили кнопок - максимальная специфичность */
-            button.${UNIQUE_PREFIX}btn,
-            .${UNIQUE_PREFIX}row button.${UNIQUE_PREFIX}btn {
-                padding: ${STYLES.button.padding} !important;
-                font-size: ${STYLES.button.fontSize} !important;
-                font-weight: ${STYLES.button.fontWeight} !important;
-                color: #ffffff !important;
-                border: none !important;
-                border-radius: ${STYLES.button.borderRadius} !important;
+            .${UNIQUE_PREFIX}btn {
+                padding: 3px 18px !important;
+                font-size: 11px !important;
+                font-weight: 700 !important;
+                color: #fff !important;
+                border: 1px solid rgba(0,0,0,0.2) !important;
+                border-radius: 4px !important;
                 cursor: pointer !important;
-                box-shadow: ${STYLES.button.boxShadow} !important;
-                transition: ${STYLES.button.transition} !important;
-                margin-right: ${STYLES.button.marginRight} !important;
-                text-align: center !important;
-                display: inline-block !important;
-                line-height: 1.4 !important;
-                white-space: nowrap !important;
-                vertical-align: middle !important;
-                -webkit-appearance: none !important;
-                -moz-appearance: none !important;
-                appearance: none !important;
-                background: #cccccc !important;
+                box-shadow: 0 1px 3px rgba(0,0,0,0.2) !important;
+                transition: all 0.15s ease !important;
+                margin-right: 6px !important;
             }
-            
-            button.${UNIQUE_PREFIX}btn:last-child {
-                margin-right: 0 !important;
-            }
-            
-            /* 🔥 Эффекты при наведении */
-            button.${UNIQUE_PREFIX}btn:hover,
-            .${UNIQUE_PREFIX}row button.${UNIQUE_PREFIX}btn:hover {
+            .${UNIQUE_PREFIX}btn:last-child { margin-right: 0 !important; }
+            .${UNIQUE_PREFIX}btn:hover {
                 transform: translateY(-1px) !important;
-                box-shadow: 0 4px 8px rgba(0,0,0,0.3) !important;
-                opacity: 0.95 !important;
+                box-shadow: 0 3px 6px rgba(0,0,0,0.25) !important;
             }
-            
-            button.${UNIQUE_PREFIX}btn:active,
-            .${UNIQUE_PREFIX}row button.${UNIQUE_PREFIX}btn:active {
-                transform: translateY(0) !important;
-                box-shadow: 0 2px 4px rgba(0,0,0,0.2) !important;
+            .${UNIQUE_PREFIX}btn-green {
+                background: linear-gradient(180deg, #5cb85c 0%, #4cae4c 100%) !important;
             }
-            
-            /* 🔥 Цвета кнопок */
-            button.${UNIQUE_PREFIX}btn-green,
-            .${UNIQUE_PREFIX}row button.${UNIQUE_PREFIX}btn-green {
-                background: ${STYLES.colors.green} !important;
-                background: linear-gradient(180deg, ${STYLES.colors.green} 0%, #4cae4c 100%) !important;
+            .${UNIQUE_PREFIX}btn-orange {
+                background: linear-gradient(180deg, #f0ad4e 0%, #ec971f 100%) !important;
             }
-            
-            button.${UNIQUE_PREFIX}btn-orange,
-            .${UNIQUE_PREFIX}row button.${UNIQUE_PREFIX}btn-orange {
-                background: ${STYLES.colors.orange} !important;
-                background: linear-gradient(180deg, ${STYLES.colors.orange} 0%, #ec971f 100%) !important;
+            .${UNIQUE_PREFIX}btn-red {
+                background: linear-gradient(180deg, #d9534f 0%, #c9302c 100%) !important;
             }
-            
-            button.${UNIQUE_PREFIX}btn-red,
-            .${UNIQUE_PREFIX}row button.${UNIQUE_PREFIX}btn-red {
-                background: ${STYLES.colors.red} !important;
-                background: linear-gradient(180deg, ${STYLES.colors.red} 0%, #c9302c 100%) !important;
-            }
-            
-            /* 🔥 Защита строки от скрытия */
             .${UNIQUE_PREFIX}row {
                 display: table-row !important;
                 visibility: visible !important;
@@ -233,24 +178,6 @@
                     btn.textContent = btnCfg.label;
                     btn.className = `${UNIQUE_PREFIX}btn ${UNIQUE_PREFIX}${btnCfg.class}`;
                     btn.type = 'button';
-                    
-                    // 🔥 Добавляем inline-стили для гарантии применения
-                    btn.style.cssText = `
-                        padding: ${STYLES.button.padding} !important;
-                        font-size: ${STYLES.button.fontSize} !important;
-                        font-weight: ${STYLES.button.fontWeight} !important;
-                        color: #ffffff !important;
-                        border: none !important;
-                        border-radius: ${STYLES.button.borderRadius} !important;
-                        cursor: pointer !important;
-                        box-shadow: ${STYLES.button.boxShadow} !important;
-                        transition: ${STYLES.button.transition} !important;
-                        margin-right: ${STYLES.button.marginRight} !important;
-                        background: ${btnCfg.class === 'tm-btn-green' ? STYLES.colors.green : 
-                                   btnCfg.class === 'tm-btn-orange' ? STYLES.colors.orange : 
-                                   STYLES.colors.red} !important;
-                    `;
-                    
                     btn.onclick = (e) => {
                         e.preventDefault();
                         e.stopPropagation();
@@ -286,14 +213,6 @@
         });
         
         observer.observe(document.body, { childList: true, subtree: true });
-    }
-
-    // ─────────────────────────────────────────────
-    // 🔥 Применение изменений
-    // ─────────────────────────────────────────────
-    function applyChanges() {
-        injectStyles();
-        checkAndInit();
     }
 
     // ─────────────────────────────────────────────
