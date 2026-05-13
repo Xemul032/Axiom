@@ -14,7 +14,7 @@
     const selector3 = "#Summary > table > tbody > tr > td:nth-child(1) > table.table.table-condensed.table-striped > tbody:nth-child(3) > tr:nth-child(4) > td:nth-child(2) > table > tbody > tr > td:nth-child(1) > div";
 
     // Другие селекторы
-    const buttonToRemove = "#Summary > table > tbody > tr > td:nth-child(1) > div.right > div > button:nth-child(2)";
+   
     const timeFilesRow = "#Summary > table > tbody > tr > td:nth-child(2) > table > tbody > tr.TimeFilesInfo";
     const paySchemaImage = "#Top > form > div > div > div > span:nth-child(2) > span.PaySchemaIcon > img[src*='payschema-4.png']";
     const hiddenButtonInRow = "#Summary > table > tbody > tr > td:nth-child(2) > table > tbody > tr.TimeFilesInfo > td.right > button";
@@ -96,11 +96,7 @@
                 if (target3 && target3.blocked) unblockElement(target3);
             }
 
-            // Удаляем лишнюю кнопку
-            const btnToRemove = document.querySelector(buttonToRemove);
-            if (btnToRemove) {
-                btnToRemove.remove();
-            }
+
 
             // === Скрытие строки по заданному селектору ===
             const rowToHide = document.querySelector(
