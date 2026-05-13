@@ -1,4 +1,4 @@
-// summaDiscountButtons.js — модуль кнопок скидок и наценок с корректным расчётом
+// 1summaDiscountButtons.js — модуль кнопок скидок и наценок с корректным расчётом
 // Загружается динамически из config.json через Axiom Status Indicator
 // Возвращает API управления: { init, cleanup, toggle, isActive }
 
@@ -20,21 +20,21 @@
     ];
     const STYLES = {
         button: config?.styles?.button || {
-            padding: '3px 18px',
-            fontSize: '11px',
-            fontWeight: '700',
+            padding: '6px 16px',
+            fontSize: '13px',
+            fontWeight: '600',
             color: '#fff',
-            border: '1px solid rgba(0,0,0,0.2)',
+            border: 'none',
             borderRadius: '4px',
             cursor: 'pointer',
-            boxShadow: '0 1px 3px rgba(0,0,0,0.2)',
-            transition: 'all 0.15s ease',
-            marginRight: '6px'
+            boxShadow: '0 2px 4px rgba(0,0,0,0.2)',
+            transition: 'all 0.2s ease',
+            marginRight: '8px'
         },
         colors: config?.styles?.colors || {
-            green: 'linear-gradient(180deg, #5cb85c 0%, #4cae4c 100%)',
-            orange: 'linear-gradient(180deg, #f0ad4e 0%, #ec971f 100%)',
-            red: 'linear-gradient(180deg, #d9534f 0%, #c9302c 100%)'
+            green: '#5cb85c',
+            orange: '#f0ad4e',
+            red: '#d9534f'
         }
     };
 
@@ -46,7 +46,7 @@
     let insertedRow = null;
 
     // ─────────────────────────────────────────────
-    // 🔥 Внедрение стилей
+    // 🔥 Внедрение стилей (исправленная версия)
     // ─────────────────────────────────────────────
     function injectStyles() {
         if (styleEl) return;
@@ -54,27 +54,66 @@
         styleEl = document.createElement('style');
         styleEl.id = `${UNIQUE_PREFIX}styles`;
         styleEl.textContent = `
+            /* 🔥 Базовые стили кнопок */
             .${UNIQUE_PREFIX}btn {
                 padding: ${STYLES.button.padding} !important;
                 font-size: ${STYLES.button.fontSize} !important;
                 font-weight: ${STYLES.button.fontWeight} !important;
-                color: ${STYLES.button.color} !important;
-                border: ${STYLES.button.border} !important;
+                color: #ffffff !important;
+                border: none !important;
                 border-radius: ${STYLES.button.borderRadius} !important;
-                cursor: ${STYLES.button.cursor} !important;
+                cursor: pointer !important;
                 box-shadow: ${STYLES.button.boxShadow} !important;
                 transition: ${STYLES.button.transition} !important;
-                margin-right: 6px;
+                margin-right: ${STYLES.button.marginRight} !important;
+                text-align: center !important;
+                display: inline-block !important;
+                line-height: 1.4 !important;
+                white-space: nowrap !important;
+                vertical-align: middle !important;
+                -webkit-appearance: none !important;
+                -moz-appearance: none !important;
+                appearance: none !important;
             }
-            .${UNIQUE_PREFIX}btn:last-child { margin-right: 0 !important; }
+            
+            .${UNIQUE_PREFIX}btn:last-child {
+                margin-right: 0 !important;
+            }
+            
+            /* 🔥 Эффекты при наведении */
             .${UNIQUE_PREFIX}btn:hover {
-                transform: translateY(-1px);
-                box-shadow: 0 3px 6px rgba(0,0,0,0.25) !important;
+                transform: translateY(-1px) !important;
+                box-shadow: 0 4px 8px rgba(0,0,0,0.3) !important;
+                opacity: 0.95 !important;
             }
-            .${UNIQUE_PREFIX}btn-green { background: ${STYLES.colors.green} !important; }
-            .${UNIQUE_PREFIX}btn-orange { background: ${STYLES.colors.orange} !important; }
-            .${UNIQUE_PREFIX}btn-red { background: ${STYLES.colors.red} !important; }
-            .${UNIQUE_PREFIX}row { display: table-row !important; visibility: visible !important; opacity: 1 !important; }
+            
+            .${UNIQUE_PREFIX}btn:active {
+                transform: translateY(0) !important;
+                box-shadow: 0 2px 4px rgba(0,0,0,0.2) !important;
+            }
+            
+            /* 🔥 Цвета кнопок */
+            .${UNIQUE_PREFIX}btn-green {
+                background: ${STYLES.colors.green} !important;
+                background: linear-gradient(180deg, ${STYLES.colors.green} 0%, #4cae4c 100%) !important;
+            }
+            
+            .${UNIQUE_PREFIX}btn-orange {
+                background: ${STYLES.colors.orange} !important;
+                background: linear-gradient(180deg, ${STYLES.colors.orange} 0%, #ec971f 100%) !important;
+            }
+            
+            .${UNIQUE_PREFIX}btn-red {
+                background: ${STYLES.colors.red} !important;
+                background: linear-gradient(180deg, ${STYLES.colors.red} 0%, #c9302c 100%) !important;
+            }
+            
+            /* 🔥 Защита строки от скрытия */
+            .${UNIQUE_PREFIX}row {
+                display: table-row !important;
+                visibility: visible !important;
+                opacity: 1 !important;
+            }
         `;
         document.head.appendChild(styleEl);
     }
