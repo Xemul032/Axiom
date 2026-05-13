@@ -1,4 +1,4 @@
-// 18axiomFullValidator.js — модуль полной валидации заказа и проверки бумаги
+// testaxiomFullValidator.js — модуль полной валидации заказа и проверки материалов
 // Загружается динамически из config.json через Axiom Status Indicator
 // Возвращает API управления: { init, cleanup, toggle, isActive }
 
@@ -33,7 +33,7 @@
     let validationRules = null;
     let rulesLastFetch = 0;
     let observer = null;
-    let loadingObserver = null; // 🔥 Отдельный observer для #Doc.LoadingContent
+    let loadingObserver = null;
     let isProcessingClick = false;
     const originalHandlers = new WeakMap();
     const attachedHandlers = new WeakMap();
@@ -255,11 +255,22 @@
         while(n) { const t=n.tagName==='TABLE'?n:n.querySelector('table.table-condensed'); if(t) { t.querySelectorAll('tr[class^="PostpressPrice"]').forEach(r=>{const b=r.querySelector('b'); if(b){const v=clean(b.textContent); if(v&&!g.includes(v))g.push(v);}}); if(g.length)break; } n=n.nextElementSibling; }
         return g;
     }
+    
+    // ─────────────────────────────────────────────
+    // 🔥 🔥 НОВАЯ ФУНКЦИЯ: парсинг склада (поддержка бумаги и материалов)
+    // ─────────────────────────────────────────────
     function parseSkladInfo(orderBlock) {
         const skladBlock = orderBlock.querySelector(SELECTORS.skladBlock);
         if (!skladBlock) return null;
+        
         const rows = skladBlock.querySelectorAll('tbody tr');
-        const data = { required: null, inStock: null, otherOrders: null };
+        const data = { 
+            required: null, 
+            inStock: null, 
+            otherOrders: null,
+            type: null // 'paper' или 'material'
+        };
+        
         rows.forEach(row => {
             const labelTd = row.querySelector('td:first-child');
             const valueTd = row.querySelector('td.right.nobreak, td:nth-child(2)');
@@ -267,28 +278,56 @@
                 const label = clean(labelTd.textContent);
                 const valueText = clean(valueTd.textContent);
                 const value = parseNum(valueText);
-                if (label.includes('Требуется листов')) data.required = value;
-                else if (label.includes('На складе')) data.inStock = value;
-                else if (label.includes('Другие заказы')) data.otherOrders = value;
+                
+                // 🔥 Определяем тип: "Требуется листов" = бумага, "Требуется" = материалы
+                if (label.includes('Требуется листов')) {
+                    data.required = value;
+                    data.type = 'paper';
+                } else if (label === 'Требуется') {
+                    data.required = value;
+                    data.type = 'material';
+                } else if (label.includes('На складе')) {
+                    data.inStock = value;
+                } else if (label.includes('Другие заказы')) {
+                    data.otherOrders = value;
+                }
             }
         });
+        
         if (data.required === null && data.inStock === null && data.otherOrders === null) return null;
         return data;
     }
-    function checkPaperAvailability(skladData, orderId, orderName) {
+    
+    // ─────────────────────────────────────────────
+    // 🔥 🔥 НОВАЯ ФУНКЦИЯ: проверка доступности (бумага или материалы)
+    // ─────────────────────────────────────────────
+    function checkMaterialAvailability(skladData, orderId, orderName) {
         if (!skladData || skladData.required === null || skladData.inStock === null) {
-            return { status: 'unknown', message: 'Нет данных' };
+            return { status: 'unknown', message: 'Нет данных', type: skladData?.type || 'unknown' };
         }
+        
         const otherOrders = skladData.otherOrders || 0;
         const available = skladData.inStock - otherOrders;
         const needed = skladData.required + 50;
         const diff = available - needed;
-        if (needed <= available) {
-            return { status: 'enough', needed, available, diff, message: `✅ Бумаги хватает (запас: ${diff} л.)` };
+        
+        // 🔥 Разные сообщения для бумаги и материалов
+        if (skladData.type === 'material') {
+            if (needed <= available) {
+                return { status: 'enough', needed, available, diff, message: `✅ Материалов хватает (запас: ${diff})`, type: 'material' };
+            } else {
+                return { status: 'notEnough', needed, available, diff: Math.abs(diff), message: `❌ Не хватает материалов для универсального расчёта! (дефицит: ${Math.abs(diff)})`, type: 'material' };
+            }
         } else {
-            return { status: 'notEnough', needed, available, diff: Math.abs(diff), message: `❌ Бумаги не хватает! Замените бумагу или свяжитесь с ответственным за остатки бумаги для запуска заказа в работу` };
+            // Бумага (по умолчанию)
+            if (needed <= available) {
+                return { status: 'enough', needed, available, diff, message: `✅ Бумаги хватает (запас: ${diff} л.)`, type: 'paper' };
+            } else {
+                return { status: 'notEnough', needed, available, diff: Math.abs(diff), message: `❌ Бумаги не хватает! Замените бумагу или свяжитесь с ответственным за остатки бумаги для запуска заказа в работу`, type: 'paper' };
+            }
         }
     }
+    
     function parseOrders() {
         const os=[];
         document.querySelectorAll('.formblock').forEach(bl => {
@@ -373,19 +412,22 @@
         return SELECTORS.warningOnly.some(selector => { try { return btn.matches(selector); } catch { return false; } });
     }
 
-    function runPaperCheck(pData) {
-        let paperErrors = [];
+    // ─────────────────────────────────────────────
+    // 🔥 🔥 ИСПРАВЛЕННАЯ ФУНКЦИЯ: проверка материалов (бумага + универсальные)
+    // ─────────────────────────────────────────────
+    function runMaterialCheck(pData) {
+        let errors = [];
         if (pData.orders?.length) {
             pData.orders.forEach(order => {
-                if (order.sklad) {
-                    const paperCheck = checkPaperAvailability(order.sklad, order.id, order.name);
-                    if (paperCheck?.status === 'notEnough') {
-                        paperErrors.push(`Ордер #${order.id} "${order.name}": ${paperCheck.message}`);
+                if (order.sklad && order.sklad.type) {
+                    const check = checkMaterialAvailability(order.sklad, order.id, order.name);
+                    if (check?.status === 'notEnough') {
+                        errors.push(`Ордер #${order.id} "${order.name}": ${check.message}`);
                     }
                 }
             });
         }
-        return paperErrors;
+        return errors;
     }
 
     // ─────────────────────────────────────────────
@@ -410,7 +452,7 @@
                 };
 
                 if (handlerType === 'full') {
-                    const paperErrors = runPaperCheck(pData);
+                    const materialErrors = runMaterialCheck(pData);
                     
                     await fetchValidationRules();
                     const validationData = {
@@ -424,17 +466,17 @@
                     };
                     const res = runValidation(validationData);
                     
-                    if (!res.passed || paperErrors.length > 0) {
+                    if (!res.passed || materialErrors.length > 0) {
                         e.stopImmediatePropagation(); e.preventDefault();
                         const allErrors = [];
                         if (res.messages.length) { 
                             allErrors.push('<b>📋 Ошибки из правил:</b>'); 
                             res.messages.forEach(m => allErrors.push('• ' + m)); 
                         }
-                        if (paperErrors.length) { 
+                        if (materialErrors.length) { 
                             if (allErrors.length) allErrors.push('<br>'); 
-                            allErrors.push('<b>📦 Не хватает бумаги!:</b>'); 
-                            paperErrors.forEach(m => allErrors.push('• ' + m)); 
+                            allErrors.push('<b>📦 Не хватает материалов!:</b>'); 
+                            materialErrors.forEach(m => allErrors.push('• ' + m)); 
                         }
                         const alertMsg = '<b>⛔ Проверка не пройдена!</b><br><br>' + allErrors.join('<br>');
                         if (api?.showCenterMessage) {
@@ -451,10 +493,10 @@
                     }
                 }
                 else if (handlerType === 'paperOnly') {
-                    const paperErrors = runPaperCheck(pData);
-                    if (paperErrors.length > 0) {
+                    const materialErrors = runMaterialCheck(pData);
+                    if (materialErrors.length > 0) {
                         e.stopImmediatePropagation(); e.preventDefault();
-                        const alertMsg = '<b>⛔ Бумаги не хватает!</b><br><br>' + paperErrors.map(e => '• ' + e).join('<br>');
+                        const alertMsg = '<b>⛔ Не хватает материалов!</b><br><br>' + materialErrors.map(e => '• ' + e).join('<br>');
                         if (api?.showCenterMessage) {
                             api.showCenterMessage({ message: alertMsg, buttonText: 'Понятно', duration: 0 });
                         }
@@ -469,10 +511,10 @@
                     }
                 }
                 else if (handlerType === 'warningOnly') {
-                    const paperErrors = runPaperCheck(pData);
-                    if (paperErrors.length > 0) {
-                        const alertMsg = '<b>⚠️ ВНИМАНИЕ: Бумаги не хватает!</b><br><br>' + 
-                                        paperErrors.map(e => '• ' + e).join('<br>') + 
+                    const materialErrors = runMaterialCheck(pData);
+                    if (materialErrors.length > 0) {
+                        const alertMsg = '<b>⚠️ ВНИМАНИЕ: Не хватает материалов!</b><br><br>' + 
+                                        materialErrors.map(e => '• ' + e).join('<br>') + 
                                         '<br><br>🔸 Действие всё равно будет выполнено.';
                         if (api?.showCenterMessage) {
                             api.showCenterMessage({ message: alertMsg, buttonText: 'Понятно', duration: 5000 });
@@ -525,37 +567,6 @@
         });
     }
 
-    // ─────────────────────────────────────────────
-    // 🔥 🔥 НОВЫЙ OBSERVER: отслеживаем #Doc.LoadingContent
-    // ─────────────────────────────────────────────
-    function setupLoadingObserver() {
-        if (loadingObserver) loadingObserver.disconnect();
-        
-        const docEl = document.querySelector(SELECTORS.docElement);
-        if (!docEl) return;
-        
-        loadingObserver = new MutationObserver((mutations) => {
-            mutations.forEach(mutation => {
-                // 🔥 Проверяем изменение класса LoadingContent
-                if (mutation.attributeName === 'class') {
-                    const hasLoading = docEl.classList.contains('LoadingContent');
-                    
-                    // 🔥 Если LoadingContent УБРАН — страница обновилась, навешиваем валидаторы заново
-                    if (!hasLoading) {
-                        setTimeout(() => {
-                            interceptButtons();
-                        }, 300); // 🔥 Небольшая задержка для рендеринга контента
-                    }
-                }
-            });
-        });
-        
-        loadingObserver.observe(docEl, {
-            attributes: true,
-            attributeFilter: ['class']
-        });
-    }
-
     function runParser() {
         if (isProcessingClick) return;
         if (isRunning) return;
@@ -578,13 +589,41 @@
     }
 
     // ─────────────────────────────────────────────
+    // 🔥 🔥 НОВЫЙ OBSERVER: отслеживаем #Doc.LoadingContent
+    // ─────────────────────────────────────────────
+    function setupLoadingObserver() {
+        if (loadingObserver) loadingObserver.disconnect();
+        
+        const docEl = document.querySelector(SELECTORS.docElement);
+        if (!docEl) return;
+        
+        loadingObserver = new MutationObserver((mutations) => {
+            mutations.forEach(mutation => {
+                if (mutation.attributeName === 'class') {
+                    const hasLoading = docEl.classList.contains('LoadingContent');
+                    if (!hasLoading) {
+                        setTimeout(() => {
+                            interceptButtons();
+                        }, 300);
+                    }
+                }
+            });
+        });
+        
+        loadingObserver.observe(docEl, {
+            attributes: true,
+            attributeFilter: ['class']
+        });
+    }
+
+    // ─────────────────────────────────────────────
     // 🔥 API модуля
     // ─────────────────────────────────────────────
     function init() {
         if (active) return;
         active = true;
         setupObserver();
-        setupLoadingObserver(); // 🔥 Запускаем observer для #Doc.LoadingContent
+        setupLoadingObserver();
         setTimeout(runParser, 600);
         fetchValidationRules();
     }
@@ -593,7 +632,7 @@
         if (!active) return;
         active = false;
         if (observer) { observer.disconnect(); observer = null; }
-        if (loadingObserver) { loadingObserver.disconnect(); loadingObserver = null; } // 🔥 Отключаем observer
+        if (loadingObserver) { loadingObserver.disconnect(); loadingObserver = null; }
         clearTimeout(debounceTimer);
         attachedHandlers.clear();
         originalHandlers.clear();
