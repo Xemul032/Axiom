@@ -1,4 +1,4 @@
-// 1summaDiscountButtons.js — модуль кнопок скидок и наценок с корректным расчётом
+// 2summaDiscountButtons.js — модуль кнопок скидок и наценок с корректным расчётом
 // Загружается динамически из config.json через Axiom Status Indicator
 // Возвращает API управления: { init, cleanup, toggle, isActive }
 
@@ -54,8 +54,9 @@
         styleEl = document.createElement('style');
         styleEl.id = `${UNIQUE_PREFIX}styles`;
         styleEl.textContent = `
-            /* 🔥 Базовые стили кнопок */
-            .${UNIQUE_PREFIX}btn {
+            /* 🔥 Базовые стили кнопок - максимальная специфичность */
+            button.${UNIQUE_PREFIX}btn,
+            .${UNIQUE_PREFIX}row button.${UNIQUE_PREFIX}btn {
                 padding: ${STYLES.button.padding} !important;
                 font-size: ${STYLES.button.fontSize} !important;
                 font-weight: ${STYLES.button.fontWeight} !important;
@@ -74,36 +75,42 @@
                 -webkit-appearance: none !important;
                 -moz-appearance: none !important;
                 appearance: none !important;
+                background: #cccccc !important;
             }
             
-            .${UNIQUE_PREFIX}btn:last-child {
+            button.${UNIQUE_PREFIX}btn:last-child {
                 margin-right: 0 !important;
             }
             
             /* 🔥 Эффекты при наведении */
-            .${UNIQUE_PREFIX}btn:hover {
+            button.${UNIQUE_PREFIX}btn:hover,
+            .${UNIQUE_PREFIX}row button.${UNIQUE_PREFIX}btn:hover {
                 transform: translateY(-1px) !important;
                 box-shadow: 0 4px 8px rgba(0,0,0,0.3) !important;
                 opacity: 0.95 !important;
             }
             
-            .${UNIQUE_PREFIX}btn:active {
+            button.${UNIQUE_PREFIX}btn:active,
+            .${UNIQUE_PREFIX}row button.${UNIQUE_PREFIX}btn:active {
                 transform: translateY(0) !important;
                 box-shadow: 0 2px 4px rgba(0,0,0,0.2) !important;
             }
             
             /* 🔥 Цвета кнопок */
-            .${UNIQUE_PREFIX}btn-green {
+            button.${UNIQUE_PREFIX}btn-green,
+            .${UNIQUE_PREFIX}row button.${UNIQUE_PREFIX}btn-green {
                 background: ${STYLES.colors.green} !important;
                 background: linear-gradient(180deg, ${STYLES.colors.green} 0%, #4cae4c 100%) !important;
             }
             
-            .${UNIQUE_PREFIX}btn-orange {
+            button.${UNIQUE_PREFIX}btn-orange,
+            .${UNIQUE_PREFIX}row button.${UNIQUE_PREFIX}btn-orange {
                 background: ${STYLES.colors.orange} !important;
                 background: linear-gradient(180deg, ${STYLES.colors.orange} 0%, #ec971f 100%) !important;
             }
             
-            .${UNIQUE_PREFIX}btn-red {
+            button.${UNIQUE_PREFIX}btn-red,
+            .${UNIQUE_PREFIX}row button.${UNIQUE_PREFIX}btn-red {
                 background: ${STYLES.colors.red} !important;
                 background: linear-gradient(180deg, ${STYLES.colors.red} 0%, #c9302c 100%) !important;
             }
@@ -226,6 +233,24 @@
                     btn.textContent = btnCfg.label;
                     btn.className = `${UNIQUE_PREFIX}btn ${UNIQUE_PREFIX}${btnCfg.class}`;
                     btn.type = 'button';
+                    
+                    // 🔥 Добавляем inline-стили для гарантии применения
+                    btn.style.cssText = `
+                        padding: ${STYLES.button.padding} !important;
+                        font-size: ${STYLES.button.fontSize} !important;
+                        font-weight: ${STYLES.button.fontWeight} !important;
+                        color: #ffffff !important;
+                        border: none !important;
+                        border-radius: ${STYLES.button.borderRadius} !important;
+                        cursor: pointer !important;
+                        box-shadow: ${STYLES.button.boxShadow} !important;
+                        transition: ${STYLES.button.transition} !important;
+                        margin-right: ${STYLES.button.marginRight} !important;
+                        background: ${btnCfg.class === 'tm-btn-green' ? STYLES.colors.green : 
+                                   btnCfg.class === 'tm-btn-orange' ? STYLES.colors.orange : 
+                                   STYLES.colors.red} !important;
+                    `;
+                    
                     btn.onclick = (e) => {
                         e.preventDefault();
                         e.stopPropagation();
