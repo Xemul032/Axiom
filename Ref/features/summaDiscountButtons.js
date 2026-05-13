@@ -158,45 +158,63 @@
     // ─────────────────────────────────────────────
     function addDiscountRow() {
         const targetTbody = document.querySelector(SELECTORS.targetTbody);
-        if (!targetTbody || targetTbody.querySelector(`.${UNIQUE_PREFIX}row`)) return;
+        if (!targetTbody) return;
+        
+        // 🔥 Проверяем, не добавлена ли уже строка
+        const existingRow = targetTbody.querySelector(`.${UNIQUE_PREFIX}row`);
+        if (existingRow) return;
 
-        const firstRow = document.querySelector(SELECTORS.firstRow);
+        const firstRow = targetTbody.querySelector('tr');
         if (!firstRow) return;
 
-        const newRow = firstRow.cloneNode(true);
+        // 🔥 Создаём НОВУЮ строку (не клонируем)
+        const newRow = document.createElement('tr');
         newRow.className = `${UNIQUE_PREFIX}row`;
         newRow.setAttribute(`data-${UNIQUE_PREFIX}created`, 'true');
         insertedRow = newRow;
 
-        const cells = newRow.querySelectorAll('td');
-        if (cells.length >= 2) {
-            cells[0].textContent = 'Скидка:';
-            cells[0].style.fontWeight = 'bold';
-            cells[0].style.whiteSpace = 'nowrap';
+        // 🔥 Создаём первую ячейку с текстом "Скидка:"
+        const labelCell = document.createElement('td');
+        labelCell.textContent = 'Скидка:';
+        labelCell.style.fontWeight = 'bold';
+        labelCell.style.whiteSpace = 'nowrap';
+        labelCell.style.textAlign = 'right';
+        labelCell.style.padding = '8px';
+        newRow.appendChild(labelCell);
 
-            cells[1].innerHTML = '';
-            cells[1].style.textAlign = 'right';
-            cells[1].style.verticalAlign = 'middle';
+        // 🔥 Создаём вторую ячейку с кнопками
+        const buttonsCell = document.createElement('td');
+        buttonsCell.style.textAlign = 'left';
+        buttonsCell.style.verticalAlign = 'middle';
+        buttonsCell.style.padding = '8px';
 
-            // Сортируем кнопки по порядку и создаём
-            DISCOUNTS
-                .slice()
-                .sort((a, b) => a.order - b.order)
-                .forEach(btnCfg => {
-                    const btn = document.createElement('button');
-                    btn.textContent = btnCfg.label;
-                    btn.className = `${UNIQUE_PREFIX}btn ${UNIQUE_PREFIX}${btnCfg.class}`;
-                    btn.type = 'button';
-                    btn.onclick = (e) => {
-                        e.preventDefault();
-                        e.stopPropagation();
-                        applyDiscount(btnCfg.percent, btnCfg.positive);
-                    };
-                    cells[1].appendChild(btn);
-                });
+        // Сортируем кнопки по порядку и создаём
+        DISCOUNTS
+            .slice()
+            .sort((a, b) => a.order - b.order)
+            .forEach(btnCfg => {
+                const btn = document.createElement('button');
+                btn.textContent = btnCfg.label;
+                btn.className = `${UNIQUE_PREFIX}btn ${UNIQUE_PREFIX}${btnCfg.class}`;
+                btn.type = 'button';
+                btn.onclick = (e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    applyDiscount(btnCfg.percent, btnCfg.positive);
+                };
+                buttonsCell.appendChild(btn);
+            });
+
+        newRow.appendChild(buttonsCell);
+
+        // 🔥 Вставляем строку ПЕРВОЙ после заголовочной строки (или в начало tbody)
+        const rows = targetTbody.querySelectorAll('tr');
+        if (rows.length > 0) {
+            targetTbody.insertBefore(newRow, rows[0].nextSibling);
+        } else {
+            targetTbody.appendChild(newRow);
         }
-
-        firstRow.parentNode.insertBefore(newRow, firstRow.nextSibling);
+        
         protectRowFromHiding(newRow);
     }
 
