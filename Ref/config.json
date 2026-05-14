@@ -1,5 +1,5 @@
 {
-  "version": "2.6",
+  "version": "2.7",
   "enabled": true,
   "checkIntervalSec": 1800,
 
@@ -21,7 +21,7 @@
    "summaDiscountButtons": {
       "enabled": true,
       "url": "https://raw.githubusercontent.com/Xemul032/Axiom/refs/heads/main/Ref/features/summaDiscountButtons.js",
-      "runAt": "document-idle",
+      "runAt": "document-start",
       "config": {}
     },    
    "hideCalcHeadControls": {
