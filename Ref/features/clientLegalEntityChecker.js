@@ -1,4 +1,4 @@
-// clientLegalEntityChecker.js — модуль проверки юр.лиц для клиентов
+// 1clientLegalEntityChecker.js — модуль проверки юр.лиц для клиентов
 // Загружается динамически из config.json через Axiom Status Indicator
 // Возвращает API управления: { init, cleanup, toggle, isActive }
 
@@ -37,13 +37,17 @@
     // 🔥 Внутреннее состояние
     let active = false;
     let overlayEl = null;
+    let initialized = false; // 🔥 Флаг: обработчики навешаны или нет
+    let dangerVisibilityChecked = false;
+    
+    // 🔥 Ссылки на элементы и обработчики (для очистки)
     let clientNameEl = null;
     let clientInnEl = null;
     let submitBtn = null;
     let dangerObserver = null;
-    let dangerVisibilityChecked = false;
-    let inputHandlers = { name: null, inn: null };
-    let clickHandler = null;
+    let nameInputHandler = null;
+    let innInputHandler = null;
+    let overlayClickHandler = null;
 
     // ─────────────────────────────────────────────
     // 🔥 Внедрение стилей
@@ -165,64 +169,18 @@
     }
 
     // ─────────────────────────────────────────────
-    // 🔥 Настройка обработчиков
+    // 🔥 🔥 НАВЕШИВАНИЕ ОБРАБОТЧИКОВ (только когда элементы есть)
     // ─────────────────────────────────────────────
-    function setupHandlers() {
-        if (!clientNameEl || !clientInnEl) return;
+    function attachHandlers() {
+        if (initialized) return;
         
-        // Обработчик для названия клиента
-        inputHandlers.name = checkClientName;
-        clientNameEl.addEventListener('input', inputHandlers.name);
-        
-        // Обработчик для ИНН
-        inputHandlers.inn = checkInnForDigitsOnly;
-        clientInnEl.addEventListener('input', inputHandlers.inn);
-        
-        // Обработчик клика по оверлею
-        clickHandler = handleOverlayClick;
-        if (overlayEl) {
-            overlayEl.addEventListener('click', clickHandler);
-        }
-        
-        // Observer для отслеживания появления #danger
-        dangerObserver = new MutationObserver(checkDangerVisibility);
-        dangerObserver.observe(document.body, { childList: true, subtree: true });
-    }
-
-    // ─────────────────────────────────────────────
-    // 🔥 Очистка обработчиков
-    // ─────────────────────────────────────────────
-    function cleanupHandlers() {
-        if (clientNameEl && inputHandlers.name) {
-            clientNameEl.removeEventListener('input', inputHandlers.name);
-        }
-        if (clientInnEl && inputHandlers.inn) {
-            clientInnEl.removeEventListener('input', inputHandlers.inn);
-        }
-        if (overlayEl && clickHandler) {
-            overlayEl.removeEventListener('click', clickHandler);
-        }
-        if (dangerObserver) {
-            dangerObserver.disconnect();
-            dangerObserver = null;
-        }
-        inputHandlers = { name: null, inn: null };
-        clickHandler = null;
-        dangerVisibilityChecked = false;
-    }
-
-    // ─────────────────────────────────────────────
-    // 🔥 Применение изменений
-    // ─────────────────────────────────────────────
-    function applyChanges() {
-        // Ищем элементы
+        // Пересобираем элементы
         clientNameEl = document.querySelector(SELECTORS.clientName);
         clientInnEl = document.querySelector(SELECTORS.clientInn);
         submitBtn = document.querySelector(SELECTORS.submitButton);
         
-        // Если не нашли требуемые поля — выходим
-        if (!hasRequiredFields() || !clientNameEl || !clientInnEl) {
-            if (overlayEl) overlayEl.style.display = 'none';
+        // Если не нашли всё необходимое — выходим
+        if (!hasRequiredFields() || !clientNameEl || !clientInnEl || !submitBtn) {
             return;
         }
         
@@ -234,13 +192,99 @@
             document.body.appendChild(overlayEl);
         }
         
-        // Настраиваем обработчики
-        setupHandlers();
+        // 🔥 Создаём и сохраняем обработчики
+        nameInputHandler = () => checkClientName();
+        innInputHandler = () => checkInnForDigitsOnly();
+        overlayClickHandler = () => handleOverlayClick();
         
-        // Первичная проверка
+        // 🔥 Навешиваем обработчики
+        clientNameEl.addEventListener('input', nameInputHandler);
+        clientInnEl.addEventListener('input', innInputHandler);
+        overlayEl.addEventListener('click', overlayClickHandler);
+        
+        // 🔥 Observer для #danger
+        dangerObserver = new MutationObserver(() => {
+            dangerVisibilityChecked = false;
+            checkDangerVisibility();
+        });
+        dangerObserver.observe(document.body, { childList: true, subtree: true });
+        
+        // 🔥 Первичная проверка
         checkClientName();
         checkInnForDigitsOnly();
         checkDangerVisibility();
+        
+        initialized = true;
+    }
+
+    // ─────────────────────────────────────────────
+    // 🔥 🔥 ОТВЯЗЫВАНИЕ ОБРАБОТЧИКОВ (когда элементы пропали)
+    // ─────────────────────────────────────────────
+    function detachHandlers() {
+        if (!initialized) return;
+        
+        // Снимаем обработчики
+        if (clientNameEl && nameInputHandler) {
+            clientNameEl.removeEventListener('input', nameInputHandler);
+        }
+        if (clientInnEl && innInputHandler) {
+            clientInnEl.removeEventListener('input', innInputHandler);
+        }
+        if (overlayEl && overlayClickHandler) {
+            overlayEl.removeEventListener('click', overlayClickHandler);
+        }
+        if (dangerObserver) {
+            dangerObserver.disconnect();
+            dangerObserver = null;
+        }
+        
+        // Скрываем оверлей
+        if (overlayEl) {
+            overlayEl.style.display = 'none';
+        }
+        
+        // Сбрасываем ссылки
+        clientNameEl = null;
+        clientInnEl = null;
+        submitBtn = null;
+        dangerVisibilityChecked = false;
+        initialized = false;
+    }
+
+    // ─────────────────────────────────────────────
+    // 🔥 🔥 OBSERVER: отслеживаем появление/исчезновение ключевых элементов
+    // ─────────────────────────────────────────────
+    function setupElementsObserver() {
+        const observer = new MutationObserver(() => {
+            // Проверяем наличие ключевых элементов
+            const nameExists = !!document.querySelector(SELECTORS.clientName);
+            const innExists = !!document.querySelector(SELECTORS.clientInn);
+            const submitExists = !!document.querySelector(SELECTORS.submitButton);
+            const fieldsExist = hasRequiredFields();
+            
+            // 🔥 Если все элементы есть И обработчики ещё не навешаны — навешиваем
+            if (nameExists && innExists && submitExists && fieldsExist && !initialized) {
+                attachHandlers();
+            }
+            // 🔥 Если хотя бы одного элемента нет И обработчики навешаны — отвязываем
+            else if ((!nameExists || !innExists || !submitExists || !fieldsExist) && initialized) {
+                detachHandlers();
+            }
+        });
+        
+        observer.observe(document.body, { childList: true, subtree: true });
+        
+        // 🔥 Первичная проверка при запуске
+        setTimeout(() => {
+            const nameExists = !!document.querySelector(SELECTORS.clientName);
+            const innExists = !!document.querySelector(SELECTORS.clientInn);
+            const submitExists = !!document.querySelector(SELECTORS.submitButton);
+            const fieldsExist = hasRequiredFields();
+            
+            if (nameExists && innExists && submitExists && fieldsExist) {
+                attachHandlers();
+            }
+        }, 100);
     }
 
     // ─────────────────────────────────────────────
@@ -251,26 +295,21 @@
         active = true;
         
         injectStyles();
-        applyChanges();
+        setupElementsObserver();
     }
 
     function cleanup() {
         if (!active) return;
         active = false;
         
-        // Очищаем обработчики
-        cleanupHandlers();
+        // 🔥 Отвязываем все обработчики
+        detachHandlers();
         
-        // Удаляем оверлей
+        // 🔥 Удаляем оверлей
         if (overlayEl?.parentNode) {
             overlayEl.parentNode.removeChild(overlayEl);
             overlayEl = null;
         }
-        
-        // Сбрасываем ссылки на элементы
-        clientNameEl = null;
-        clientInnEl = null;
-        submitBtn = null;
     }
 
     function toggle() {
@@ -283,13 +322,25 @@
 
     // 🔥 Публичные методы для внешнего управления
     function refresh() {
-        applyChanges();
+        // Принудительно перепроверить состояние
+        const nameExists = !!document.querySelector(SELECTORS.clientName);
+        const innExists = !!document.querySelector(SELECTORS.clientInn);
+        const submitExists = !!document.querySelector(SELECTORS.submitButton);
+        const fieldsExist = hasRequiredFields();
+        
+        if (nameExists && innExists && submitExists && fieldsExist && !initialized) {
+            attachHandlers();
+        } else if ((!nameExists || !innExists || !submitExists || !fieldsExist) && initialized) {
+            detachHandlers();
+        }
     }
 
     function forceCheck() {
-        checkClientName();
-        checkInnForDigitsOnly();
-        checkDangerVisibility();
+        if (initialized) {
+            checkClientName();
+            checkInnForDigitsOnly();
+            checkDangerVisibility();
+        }
     }
 
     // 🔥 Авто-запуск
