@@ -1,4 +1,4 @@
-// summaDiscountButtons.js — модуль кнопок скидок и наценок с корректным расчётом
+// 1summaDiscountButtons.js — модуль кнопок скидок и наценок с корректным расчётом
 // Загружается динамически из config.json через Axiom Status Indicator
 // Возвращает API управления: { init, cleanup, toggle, isActive }
 
@@ -29,11 +29,40 @@
     let cssLoaded = false;
 
     // ─────────────────────────────────────────────
+    // 🔥 INLINE-СТИЛИ ДЛЯ КНОПОК (гарантированное применение)
+    // ─────────────────────────────────────────────
+    const BUTTON_BASE_STYLES = {
+        padding: '3px 18px',
+        fontSize: '11px',
+        fontWeight: '700',
+        color: '#fff',
+        border: '1px solid rgba(0,0,0,0.2)',
+        borderRadius: '4px',
+        cursor: 'pointer',
+        boxShadow: '0 1px 3px rgba(0,0,0,0.2)',
+        transition: 'all 0.15s ease',
+        marginRight: '6px',
+        display: 'inline-block',
+        textAlign: 'center',
+        whiteSpace: 'nowrap',
+        verticalAlign: 'middle',
+        WebkitAppearance: 'none',
+        MozAppearance: 'none',
+        appearance: 'none',
+        lineHeight: '1.4'
+    };
+
+    const BUTTON_COLORS = {
+        green: 'linear-gradient(180deg, #5cb85c 0%, #4cae4c 100%)',
+        orange: 'linear-gradient(180deg, #f0ad4e 0%, #ec971f 100%)',
+        red: 'linear-gradient(180deg, #d9534f 0%, #c9302c 100%)'
+    };
+
+    // ─────────────────────────────────────────────
     // 🔥 Загрузка внешней CSS-библиотеки
     // ─────────────────────────────────────────────
     function loadCssLibrary() {
-        return new Promise((resolve, reject) => {
-            // Если стили уже загружены — выходим
+        return new Promise((resolve) => {
             if (cssLoaded || document.getElementById(`${UNIQUE_PREFIX}css-lib`)) {
                 cssLoaded = true;
                 resolve();
@@ -41,7 +70,6 @@
             }
 
             if (typeof GM_xmlhttpRequest !== 'undefined') {
-                // 🔥 Используем GM_xmlhttpRequest для обхода CORS
                 GM_xmlhttpRequest({
                     method: 'GET',
                     url: CSS_URL,
@@ -50,33 +78,26 @@
                         if (response.status === 200) {
                             injectStyles(response.responseText);
                             cssLoaded = true;
-                            resolve();
-                        } else {
-                            console.warn(`[Axiom] Не удалось загрузить CSS: HTTP ${response.status}`);
-                            injectFallbackStyles();
-                            resolve();
                         }
+                        resolve();
                     },
                     onerror: () => {
-                        console.warn('[Axiom] Ошибка сети при загрузке CSS');
+                        console.warn('[Axiom] Ошибка загрузки CSS');
                         injectFallbackStyles();
                         resolve();
                     },
                     ontimeout: () => {
-                        console.warn('[Axiom] Таймаут загрузки CSS');
                         injectFallbackStyles();
                         resolve();
                     }
                 });
             } else {
-                // 🔥 Fallback на обычный link-тег
                 const link = document.createElement('link');
                 link.id = `${UNIQUE_PREFIX}css-lib`;
                 link.rel = 'stylesheet';
                 link.href = CSS_URL;
                 link.onload = () => { cssLoaded = true; resolve(); };
                 link.onerror = () => {
-                    console.warn('[Axiom] Не удалось загрузить CSS через link');
                     injectFallbackStyles();
                     resolve();
                 };
@@ -85,24 +106,16 @@
         });
     }
 
-    // ─────────────────────────────────────────────
-    // 🔥 Внедрение стилей (из загруженного CSS)
-    // ─────────────────────────────────────────────
     function injectStyles(cssText) {
         if (styleEl) return;
-        
         styleEl = document.createElement('style');
         styleEl.id = `${UNIQUE_PREFIX}styles`;
         styleEl.textContent = cssText;
         document.head.appendChild(styleEl);
     }
 
-    // ─────────────────────────────────────────────
-    // 🔥 Резервные стили (если CSS не загрузился)
-    // ─────────────────────────────────────────────
     function injectFallbackStyles() {
         if (styleEl) return;
-        
         styleEl = document.createElement('style');
         styleEl.id = `${UNIQUE_PREFIX}fallback`;
         styleEl.textContent = `
@@ -114,13 +127,53 @@
             }
             .summa-discount-btn:last-child { margin-right: 0 !important; }
             .summa-discount-btn:hover { transform: translateY(-1px) !important; }
-            .summa-discount-btn-green { background: linear-gradient(180deg, #5cb85c 0%, #4cae4c 100%) !important; }
-            .summa-discount-btn-orange { background: linear-gradient(180deg, #f0ad4e 0%, #ec971f 100%) !important; }
-            .summa-discount-btn-red { background: linear-gradient(180deg, #d9534f 0%, #c9302c 100%) !important; }
+            .summa-discount-btn-green { background: ${BUTTON_COLORS.green} !important; }
+            .summa-discount-btn-orange { background: ${BUTTON_COLORS.orange} !important; }
+            .summa-discount-btn-red { background: ${BUTTON_COLORS.red} !important; }
             .summa-discount-row { display: table-row !important; visibility: visible !important; opacity: 1 !important; }
         `;
         document.head.appendChild(styleEl);
         cssLoaded = true;
+    }
+
+    // ─────────────────────────────────────────────
+    // 🔥 Создание кнопки с inline-стилями
+    // ─────────────────────────────────────────────
+    function createButton(btnCfg) {
+        const btn = document.createElement('button');
+        btn.textContent = btnCfg.label;
+        btn.className = `summa-discount-btn ${btnCfg.class}`;
+        btn.type = 'button';
+        
+        // 🔥 Применяем inline-стили
+        Object.assign(btn.style, BUTTON_BASE_STYLES);
+        
+        // 🔥 Добавляем цвет фона
+        let bgColor = '';
+        if (btnCfg.class.includes('green')) bgColor = BUTTON_COLORS.green;
+        else if (btnCfg.class.includes('orange')) bgColor = BUTTON_COLORS.orange;
+        else if (btnCfg.class.includes('red')) bgColor = BUTTON_COLORS.red;
+        
+        btn.style.background = bgColor;
+        btn.style.backgroundImage = bgColor;
+        
+        // 🔥 Hover-эффект через inline-стили
+        btn.onmouseenter = () => {
+            btn.style.transform = 'translateY(-1px)';
+            btn.style.boxShadow = '0 3px 6px rgba(0,0,0,0.25)';
+        };
+        btn.onmouseleave = () => {
+            btn.style.transform = 'translateY(0)';
+            btn.style.boxShadow = '0 1px 3px rgba(0,0,0,0.2)';
+        };
+        
+        btn.onclick = (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            applyDiscount(btnCfg.percent, btnCfg.positive);
+        };
+        
+        return btn;
     }
 
     // ─────────────────────────────────────────────
@@ -218,20 +271,12 @@
             cells[1].style.textAlign = 'right';
             cells[1].style.verticalAlign = 'middle';
 
+            // Создаём кнопки с inline-стилями
             DISCOUNTS
                 .slice()
                 .sort((a, b) => a.order - b.order)
                 .forEach(btnCfg => {
-                    const btn = document.createElement('button');
-                    btn.textContent = btnCfg.label;
-                    // 🔥 Используем классы из CSS-библиотеки
-                    btn.className = `summa-discount-btn ${btnCfg.class}`;
-                    btn.type = 'button';
-                    btn.onclick = (e) => {
-                        e.preventDefault();
-                        e.stopPropagation();
-                        applyDiscount(btnCfg.percent, btnCfg.positive);
-                    };
+                    const btn = createButton(btnCfg);
                     cells[1].appendChild(btn);
                 });
         }
@@ -271,7 +316,7 @@
         if (active) return;
         active = true;
         
-        // 🔥 Сначала загружаем CSS-библиотеку
+        // 🔥 Сначала загружаем CSS, затем инициализируем
         await loadCssLibrary();
         
         setupObserver();
