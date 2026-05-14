@@ -1,0 +1,67 @@
+/* summaDiscountButtons.css — библиотека стилей для кнопок скидок/наценок */
+/* Загружается динамически из config.json через Axiom Status Indicator */
+
+/* 🔥 Базовый класс кнопки */
+.summa-discount-btn {
+    padding: 3px 18px !important;
+    font-size: 11px !important;
+    font-weight: 700 !important;
+    color: #fff !important;
+    border: 1px solid rgba(0,0,0,0.2) !important;
+    border-radius: 4px !important;
+    cursor: pointer !important;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.2) !important;
+    transition: all 0.15s ease !important;
+    margin-right: 6px !important;
+    display: inline-block !important;
+    text-align: center !important;
+    white-space: nowrap !important;
+    vertical-align: middle !important;
+    -webkit-appearance: none !important;
+    -moz-appearance: none !important;
+    appearance: none !important;
+    line-height: 1.4 !important;
+}
+
+.summa-discount-btn:last-child {
+    margin-right: 0 !important;
+}
+
+/* 🔥 Эффекты при наведении */
+.summa-discount-btn:hover {
+    transform: translateY(-1px) !important;
+    box-shadow: 0 3px 6px rgba(0,0,0,0.25) !important;
+}
+
+.summa-discount-btn:active {
+    transform: translateY(0) !important;
+}
+
+/* 🔥 Цветовые вариации */
+.summa-discount-btn-green {
+    background: linear-gradient(180deg, #5cb85c 0%, #4cae4c 100%) !important;
+}
+
+.summa-discount-btn-orange {
+    background: linear-gradient(180deg, #f0ad4e 0%, #ec971f 100%) !important;
+}
+
+.summa-discount-btn-red {
+    background: linear-gradient(180deg, #d9534f 0%, #c9302c 100%) !important;
+}
+
+/* 🔥 Защита строки от скрытия */
+.summa-discount-row {
+    display: table-row !important;
+    visibility: visible !important;
+    opacity: 1 !important;
+}
+
+/* 🔥 Адаптивность для мобильных */
+@media (max-width: 768px) {
+    .summa-discount-btn {
+        padding: 2px 12px !important;
+        font-size: 10px !important;
+        margin-right: 4px !important;
+    }
+}
