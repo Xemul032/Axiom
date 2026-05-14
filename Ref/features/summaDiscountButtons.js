@@ -1,4 +1,4 @@
-// 3summaDiscountButtons.js — модуль кнопок скидок и наценок с корректным расчётом
+// summaDiscountButtons.js — модуль кнопок скидок и наценок с корректным расчётом
 // Загружается динамически из config.json через Axiom Status Indicator
 // Возвращает API управления: { init, cleanup, toggle, isActive }
 
@@ -7,6 +7,7 @@
 
     // 🔥 Конфигурация из config.json
     const UNIQUE_PREFIX = config?.uniquePrefix || 'summa-discount-';
+    const CSS_URL = config?.cssUrl || 'https://raw.githubusercontent.com/Xemul032/Axiom/refs/heads/main/Ref/summaDiscountButtons.css';
     const SELECTORS = {
         summa: config?.selectors?.summa || '#Summa',
         correctionInput: config?.selectors?.correctionInput || '#Fin > table > tbody:nth-child(4) > tr > td:nth-child(1) > table > tbody > tr:nth-child(1) > td.right > input.right.SummaCorrection',
@@ -14,9 +15,9 @@
         firstRow: config?.selectors?.firstRow || '#Fin > table > tbody:nth-child(4) > tr > td:nth-child(1) > table > tbody > tr:first-child'
     };
     const DISCOUNTS = config?.discounts || [
-        { label: '+40%', percent: 40, positive: true, class: 'tm-btn-green', order: 0 },
-        { label: '-5%', percent: 5, positive: false, class: 'tm-btn-orange', order: 1 },
-        { label: '-10%', percent: 10, positive: false, class: 'tm-btn-red', order: 2 }
+        { label: '+40%', percent: 40, positive: true, class: 'summa-discount-btn-green', order: 0 },
+        { label: '-5%', percent: 5, positive: false, class: 'summa-discount-btn-orange', order: 1 },
+        { label: '-10%', percent: 10, positive: false, class: 'summa-discount-btn-red', order: 2 }
     ];
 
     // 🔥 Внутреннее состояние
@@ -25,49 +26,101 @@
     let rowObserver = null;
     let styleEl = null;
     let insertedRow = null;
+    let cssLoaded = false;
 
     // ─────────────────────────────────────────────
-    // 🔥 Внедрение стилей (из оригинального скрипта)
+    // 🔥 Загрузка внешней CSS-библиотеки
     // ─────────────────────────────────────────────
-    function injectStyles() {
+    function loadCssLibrary() {
+        return new Promise((resolve, reject) => {
+            // Если стили уже загружены — выходим
+            if (cssLoaded || document.getElementById(`${UNIQUE_PREFIX}css-lib`)) {
+                cssLoaded = true;
+                resolve();
+                return;
+            }
+
+            if (typeof GM_xmlhttpRequest !== 'undefined') {
+                // 🔥 Используем GM_xmlhttpRequest для обхода CORS
+                GM_xmlhttpRequest({
+                    method: 'GET',
+                    url: CSS_URL,
+                    timeout: 10000,
+                    onload: (response) => {
+                        if (response.status === 200) {
+                            injectStyles(response.responseText);
+                            cssLoaded = true;
+                            resolve();
+                        } else {
+                            console.warn(`[Axiom] Не удалось загрузить CSS: HTTP ${response.status}`);
+                            injectFallbackStyles();
+                            resolve();
+                        }
+                    },
+                    onerror: () => {
+                        console.warn('[Axiom] Ошибка сети при загрузке CSS');
+                        injectFallbackStyles();
+                        resolve();
+                    },
+                    ontimeout: () => {
+                        console.warn('[Axiom] Таймаут загрузки CSS');
+                        injectFallbackStyles();
+                        resolve();
+                    }
+                });
+            } else {
+                // 🔥 Fallback на обычный link-тег
+                const link = document.createElement('link');
+                link.id = `${UNIQUE_PREFIX}css-lib`;
+                link.rel = 'stylesheet';
+                link.href = CSS_URL;
+                link.onload = () => { cssLoaded = true; resolve(); };
+                link.onerror = () => {
+                    console.warn('[Axiom] Не удалось загрузить CSS через link');
+                    injectFallbackStyles();
+                    resolve();
+                };
+                document.head.appendChild(link);
+            }
+        });
+    }
+
+    // ─────────────────────────────────────────────
+    // 🔥 Внедрение стилей (из загруженного CSS)
+    // ─────────────────────────────────────────────
+    function injectStyles(cssText) {
         if (styleEl) return;
         
         styleEl = document.createElement('style');
         styleEl.id = `${UNIQUE_PREFIX}styles`;
+        styleEl.textContent = cssText;
+        document.head.appendChild(styleEl);
+    }
+
+    // ─────────────────────────────────────────────
+    // 🔥 Резервные стили (если CSS не загрузился)
+    // ─────────────────────────────────────────────
+    function injectFallbackStyles() {
+        if (styleEl) return;
+        
+        styleEl = document.createElement('style');
+        styleEl.id = `${UNIQUE_PREFIX}fallback`;
         styleEl.textContent = `
-            .${UNIQUE_PREFIX}btn {
-                padding: 3px 18px !important;
-                font-size: 11px !important;
-                font-weight: 700 !important;
-                color: #fff !important;
-                border: 1px solid rgba(0,0,0,0.2) !important;
-                border-radius: 4px !important;
-                cursor: pointer !important;
-                box-shadow: 0 1px 3px rgba(0,0,0,0.2) !important;
-                transition: all 0.15s ease !important;
-                margin-right: 6px !important;
+            .summa-discount-btn {
+                padding: 3px 18px !important; font-size: 11px !important; font-weight: 700 !important;
+                color: #fff !important; border: 1px solid rgba(0,0,0,0.2) !important;
+                border-radius: 4px !important; cursor: pointer !important;
+                box-shadow: 0 1px 3px rgba(0,0,0,0.2) !important; margin-right: 6px !important;
             }
-            .${UNIQUE_PREFIX}btn:last-child { margin-right: 0 !important; }
-            .${UNIQUE_PREFIX}btn:hover {
-                transform: translateY(-1px) !important;
-                box-shadow: 0 3px 6px rgba(0,0,0,0.25) !important;
-            }
-            .${UNIQUE_PREFIX}btn-green {
-                background: linear-gradient(180deg, #5cb85c 0%, #4cae4c 100%) !important;
-            }
-            .${UNIQUE_PREFIX}btn-orange {
-                background: linear-gradient(180deg, #f0ad4e 0%, #ec971f 100%) !important;
-            }
-            .${UNIQUE_PREFIX}btn-red {
-                background: linear-gradient(180deg, #d9534f 0%, #c9302c 100%) !important;
-            }
-            .${UNIQUE_PREFIX}row {
-                display: table-row !important;
-                visibility: visible !important;
-                opacity: 1 !important;
-            }
+            .summa-discount-btn:last-child { margin-right: 0 !important; }
+            .summa-discount-btn:hover { transform: translateY(-1px) !important; }
+            .summa-discount-btn-green { background: linear-gradient(180deg, #5cb85c 0%, #4cae4c 100%) !important; }
+            .summa-discount-btn-orange { background: linear-gradient(180deg, #f0ad4e 0%, #ec971f 100%) !important; }
+            .summa-discount-btn-red { background: linear-gradient(180deg, #d9534f 0%, #c9302c 100%) !important; }
+            .summa-discount-row { display: table-row !important; visibility: visible !important; opacity: 1 !important; }
         `;
         document.head.appendChild(styleEl);
+        cssLoaded = true;
     }
 
     // ─────────────────────────────────────────────
@@ -99,13 +152,11 @@
         const targetInput = document.querySelector(SELECTORS.correctionInput);
         if (!targetInput) return;
 
-        // Получаем текущее значение корректировки
         let currentCorrection = 0;
         if (targetInput.value && targetInput.value.trim() !== '') {
             currentCorrection = parseRussianNumber(targetInput.value);
         }
 
-        // Считаем эффективную сумму
         let effectiveSumma;
         if (currentCorrection < 0) {
             effectiveSumma = baseSumma + Math.abs(currentCorrection);
@@ -113,12 +164,10 @@
             effectiveSumma = baseSumma - currentCorrection;
         }
 
-        // Считаем процент от эффективной суммы
         const amount = effectiveSumma * percent / 100;
         const sign = isPositive ? '' : '-';
         const formattedValue = `${sign}${amount.toFixed(2).replace('.', ',')}`;
 
-        // Записываем и триггерим события
         targetInput.value = formattedValue;
         triggerEvents(targetInput);
     }
@@ -135,7 +184,7 @@
                     const target = mutation.target;
                     if (target.style.display === 'none') {
                         target.style.setProperty('display', 'table-row', 'important');
-                        target.classList.add(`${UNIQUE_PREFIX}row`);
+                        target.classList.add('summa-discount-row');
                     }
                 }
             }
@@ -149,13 +198,13 @@
     // ─────────────────────────────────────────────
     function addDiscountRow() {
         const targetTbody = document.querySelector(SELECTORS.targetTbody);
-        if (!targetTbody || targetTbody.querySelector(`.${UNIQUE_PREFIX}row`)) return;
+        if (!targetTbody || targetTbody.querySelector('.summa-discount-row')) return;
 
         const firstRow = document.querySelector(SELECTORS.firstRow);
         if (!firstRow) return;
 
         const newRow = firstRow.cloneNode(true);
-        newRow.className = `${UNIQUE_PREFIX}row`;
+        newRow.className = 'summa-discount-row';
         newRow.setAttribute(`data-${UNIQUE_PREFIX}created`, 'true');
         insertedRow = newRow;
 
@@ -169,14 +218,14 @@
             cells[1].style.textAlign = 'right';
             cells[1].style.verticalAlign = 'middle';
 
-            // Сортируем кнопки по порядку и создаём
             DISCOUNTS
                 .slice()
                 .sort((a, b) => a.order - b.order)
                 .forEach(btnCfg => {
                     const btn = document.createElement('button');
                     btn.textContent = btnCfg.label;
-                    btn.className = `${UNIQUE_PREFIX}btn ${UNIQUE_PREFIX}${btnCfg.class}`;
+                    // 🔥 Используем классы из CSS-библиотеки
+                    btn.className = `summa-discount-btn ${btnCfg.class}`;
                     btn.type = 'button';
                     btn.onclick = (e) => {
                         e.preventDefault();
@@ -218,11 +267,13 @@
     // ─────────────────────────────────────────────
     // 🔥 API модуля
     // ─────────────────────────────────────────────
-    function init() {
+    async function init() {
         if (active) return;
         active = true;
         
-        injectStyles();
+        // 🔥 Сначала загружаем CSS-библиотеку
+        await loadCssLibrary();
+        
         setupObserver();
         checkAndInit();
     }
@@ -231,25 +282,21 @@
         if (!active) return;
         active = false;
         
-        // Отключаем observers
         if (observer) { observer.disconnect(); observer = null; }
         if (rowObserver) { rowObserver.disconnect(); rowObserver = null; }
         
-        // Удаляем стили
         if (styleEl?.parentNode) {
             styleEl.parentNode.removeChild(styleEl);
             styleEl = null;
         }
         
-        // Удаляем добавленную строку
         if (insertedRow?.parentNode) {
             insertedRow.parentNode.removeChild(insertedRow);
             insertedRow = null;
         }
         
-        // Очищаем атрибуты защиты
-        document.querySelectorAll(`.${UNIQUE_PREFIX}row`).forEach(el => {
-            el.classList.remove(`${UNIQUE_PREFIX}row`);
+        document.querySelectorAll('.summa-discount-row').forEach(el => {
+            el.classList.remove('summa-discount-row');
             el.removeAttribute(`data-${UNIQUE_PREFIX}created`);
         });
     }
@@ -262,7 +309,6 @@
         return active;
     }
 
-    // 🔥 Публичные методы для внешнего управления
     function refresh() {
         checkAndInit();
     }
@@ -296,7 +342,7 @@
         refresh,
         forceAddRow,
         forceRemoveRow,
-        applyDiscount // Для внешнего вызова
+        applyDiscount
     };
 
 })(config, GM, utils, api);
