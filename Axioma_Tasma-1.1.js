@@ -27,7 +27,7 @@
     // ========== ФУНКЦИЯ ОБНОВЛЕНИЯ ЗАГОЛОВКА ==========
     function updateTitle(orderId) {
         if (orderId) {
-            document.title = `Заказ №${orderId} | ${originalTitle}`;
+            document.title = `№${orderId} | ${originalTitle}`;
         } else {
             document.title = originalTitle;
         }
