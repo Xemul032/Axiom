@@ -173,5 +173,23 @@
         "value": "софттач"
       }
     ]
+  },
+  {
+    "id": "Контурная только на самоклейке",
+    "message": "Для меловки/картона нужна операция \"Сквозная резка\"",
+    "conditions": [
+      {
+        "scope": "order",
+        "field": "postpress_text",
+        "op": "contains",
+        "value": "контурная"
+      },
+      {
+        "scope": "order",
+        "field": "paper",
+        "op": "not_contains",
+        "value": "Самоклейка"
+      }
+    ]
   }
 ]
