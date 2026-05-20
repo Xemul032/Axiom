@@ -522,6 +522,25 @@
     }
 
     // ─────────────────────────────────────────────
+    // 🔥 НОВАЯ ФУНКЦИЯ: управление видимостью кнопки #workWithFilesBtn
+    // ─────────────────────────────────────────────
+    function toggleWorkWithFilesButton() {
+        const workBtn = document.querySelector(WORK_WITH_FILES_BTN_SELECTOR);
+        if (!workBtn) return;
+        
+        // 🔥 Если есть #finstop-block — скрываем кнопку
+        const finStopBlock = document.querySelector('#finstop-block');
+        if (finStopBlock) {
+            workBtn.style.display = 'none';
+        } else {
+            // 🔥 Если фин.стоп не активен — показываем кнопку (если она была скрыта нами)
+            if (workBtn.style.display === 'none') {
+                workBtn.style.display = '';
+            }
+        }
+    }
+
+    // ─────────────────────────────────────────────
     // Фин.Стоп блок
     // ─────────────────────────────────────────────
     function createFinStopBlock() {
@@ -575,6 +594,9 @@
         finStopContainer = createFinStopBlock();
         parentTable.parentNode.insertBefore(finStopContainer, parentTable.nextSibling);
         finStopActive = true;
+        
+        // 🔥 🔥 НОВЫЙ ВЫЗОВ: скрываем кнопку при активации фин.стопа
+        toggleWorkWithFilesButton();
     }
 
     function restoreSummaryTable() {
@@ -589,6 +611,9 @@
         if (orphan && orphan.parentNode) orphan.parentNode.removeChild(orphan);
         finStopContainer = null;
         finStopActive = false;
+        
+        // 🔥 🔥 НОВЫЙ ВЫЗОВ: показываем кнопку при деактивации фин.стопа
+        toggleWorkWithFilesButton();
     }
 
     function deactivateFinStop() {
@@ -615,6 +640,8 @@
         observer = new MutationObserver((mutations) => {
             handleLoadingStateChange();
             checkPayIcon();
+            // 🔥 🔥 НОВЫЙ ВЫЗОВ: следим за изменениями DOM для кнопки
+            toggleWorkWithFilesButton();
         });
         if (document.body) {
             observer.observe(document.body, {
