@@ -1,4 +1,4 @@
-//Версия1
+//Вариант2
 
 (function(config, GM, utils) {
     'use strict';
@@ -21,6 +21,9 @@
     const statusIconSelector = "#Top > form > div > div > div > span:nth-child(2) > span.StatusIcon > img";
     const CALC_STATUS_SRC = '/axiom/img/status/status-calc.png';
 
+    // 🔥 НОВЫЙ СЕЛЕКТОР для отслеживания загрузки
+    const docElementSelector = "#Doc";
+
     // Другие селекторы
     const timeFilesRow = "#Summary > table > tbody > tr > td:nth-child(2) > table > tbody > tr.TimeFilesInfo";
     const paySchemaImage = "#Top > form > div > div > div > span:nth-child(2) > span.PaySchemaIcon > img[src*='payschema-4.png']";
@@ -31,6 +34,7 @@
     const hideConditionSelector = "#History > table:nth-child(1) > tbody > tr:nth-child(4) > td.right.bold";
 
     let isChecking = false;
+    let loadingObserver = null; // 🔥 Observer для #Doc.LoadingContent
 
     // ─────────────────────────────────────────────
     // Функция блокировки элемента
@@ -85,6 +89,37 @@
             // Возвращаем, если условия больше не выполняются
             button2.style.display = '';
         }
+    }
+
+    // ─────────────────────────────────────────────
+    // 🔥 🔥 НОВЫЙ OBSERVER: отслеживаем #Doc.LoadingContent
+    // ─────────────────────────────────────────────
+    function setupLoadingObserver() {
+        if (loadingObserver) loadingObserver.disconnect();
+        
+        const docEl = document.querySelector(docElementSelector);
+        if (!docEl) return;
+        
+        loadingObserver = new MutationObserver((mutations) => {
+            mutations.forEach(mutation => {
+                // 🔥 Проверяем изменение класса LoadingContent
+                if (mutation.attributeName === 'class') {
+                    const hasLoading = docEl.classList.contains('LoadingContent');
+                    
+                    // 🔥 Если LoadingContent УБРАН — страница обновилась, перезапускаем проверки
+                    if (!hasLoading) {
+                        setTimeout(() => {
+                            checkAndBlockElements();
+                        }, 300); // 🔥 Небольшая задержка для рендеринга контента
+                    }
+                }
+            });
+        });
+        
+        loadingObserver.observe(docEl, {
+            attributes: true,
+            attributeFilter: ['class']
+        });
     }
 
     // ─────────────────────────────────────────────
@@ -258,6 +293,9 @@
     // Инициализация скрипта
     // ─────────────────────────────────────────────
     function initScript() {
+        // 🔥 Запускаем observer для #Doc.LoadingContent
+        setupLoadingObserver();
+        
         // Наблюдатель за изменениями DOM
         const observer = new MutationObserver(checkAndBlockElements);
         observer.observe(document.body, {
@@ -268,7 +306,7 @@
         // Первичная проверка
         checkAndBlockElements();
         
-        console.log('[LockManager] ✅ Наблюдатель DOM запущен');
+        console.log('[LockManager] ✅ Наблюдатели DOM запущены');
     }
 
     // ─────────────────────────────────────────────
