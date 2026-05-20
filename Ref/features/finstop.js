@@ -1,3 +1,5 @@
+//Версия1
+
 (function(config, GM, utils) {
     'use strict';
 
