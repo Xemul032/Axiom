@@ -1,3 +1,5 @@
+//Версия1
+
 (function(config, GM, utils) {
     'use strict';
 
@@ -13,8 +15,13 @@
     const selector2 = "#Summary > table > tbody > tr > td:nth-child(1) > table.table.table-condensed.table-striped > tbody:nth-child(1) > tr:nth-child(2) > td:nth-child(2) > div";
     const selector3 = "#Summary > table > tbody > tr > td:nth-child(1) > table.table.table-condensed.table-striped > tbody:nth-child(3) > tr:nth-child(4) > td:nth-child(2) > table > tbody > tr > td:nth-child(1) > div";
 
+    // 🔥 НОВЫЕ СЕЛЕКТОРЫ для дополнительной логики
+    const button1Selector = "#Summary > table > tbody > tr > td:nth-child(1) > div.right > div > button:nth-child(1)";
+    const button2Selector = "#Summary > table > tbody > tr > td:nth-child(1) > div.right > div > button:nth-child(2)";
+    const statusIconSelector = "#Top > form > div > div > div > span:nth-child(2) > span.StatusIcon > img";
+    const CALC_STATUS_SRC = '/axiom/img/status/status-calc.png';
+
     // Другие селекторы
-   
     const timeFilesRow = "#Summary > table > tbody > tr > td:nth-child(2) > table > tbody > tr.TimeFilesInfo";
     const paySchemaImage = "#Top > form > div > div > div > span:nth-child(2) > span.PaySchemaIcon > img[src*='payschema-4.png']";
     const hiddenButtonInRow = "#Summary > table > tbody > tr > td:nth-child(2) > table > tbody > tr.TimeFilesInfo > td.right > button";
@@ -58,6 +65,29 @@
     }
 
     // ─────────────────────────────────────────────
+    // 🔥 НОВАЯ ФУНКЦИЯ: проверка условий для скрытия кнопки
+    // ─────────────────────────────────────────────
+    function checkAndHideButton2() {
+        const button1 = document.querySelector(button1Selector);
+        const button2 = document.querySelector(button2Selector);
+        const statusIcon = document.querySelector(statusIconSelector);
+
+        // 🔥 Условие: есть button1 И статус = calc
+        const shouldHide = button1 && 
+                          statusIcon && 
+                          statusIcon.src && 
+                          statusIcon.src.includes(CALC_STATUS_SRC);
+
+        if (shouldHide && button2) {
+            // Скрываем кнопку 2
+            button2.style.display = 'none';
+        } else if (button2 && button2.style.display === 'none') {
+            // Возвращаем, если условия больше не выполняются
+            button2.style.display = '';
+        }
+    }
+
+    // ─────────────────────────────────────────────
     // Основная функция проверки и блокировки
     // ─────────────────────────────────────────────
     function checkAndBlockElements() {
@@ -96,7 +126,8 @@
                 if (target3 && target3.blocked) unblockElement(target3);
             }
 
-
+            // 🔥 🔥 ВЫЗОВ НОВОЙ ПРОВЕРКИ для скрытия кнопки
+            checkAndHideButton2();
 
             // === Скрытие строки по заданному селектору ===
             const rowToHide = document.querySelector(
