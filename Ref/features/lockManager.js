@@ -1,4 +1,4 @@
-//Вариант2
+//Версия3
 
 (function(config, GM, utils) {
     'use strict';
@@ -23,6 +23,10 @@
 
     // 🔥 НОВЫЙ СЕЛЕКТОР для отслеживания загрузки
     const docElementSelector = "#Doc";
+
+    // 🔥 НОВЫЙ СЕЛЕКТОР для кнопки с файлами
+    const workWithFilesBtnSelector = "#workWithFilesBtn";
+    const finStopBlockSelector = "#finstop-block";
 
     // Другие селекторы
     const timeFilesRow = "#Summary > table > tbody > tr > td:nth-child(2) > table > tbody > tr.TimeFilesInfo";
@@ -88,6 +92,30 @@
         } else if (button2 && button2.style.display === 'none') {
             // Возвращаем, если условия больше не выполняются
             button2.style.display = '';
+        }
+    }
+
+    // ─────────────────────────────────────────────
+    // 🔥 🔥 НОВАЯ ФУНКЦИЯ: скрытие #workWithFilesBtn при наличии #finstop-block
+    // ─────────────────────────────────────────────
+    function checkAndHideWorkWithFilesBtn() {
+        const finStopBlock = document.querySelector(finStopBlockSelector);
+        const workBtn = document.querySelector(workWithFilesBtnSelector);
+        
+        if (!workBtn) return;
+        
+        // 🔥 Если есть #finstop-block — скрываем кнопку
+        if (finStopBlock) {
+            if (workBtn.style.display !== 'none') {
+                workBtn.dataset.originalDisplay = workBtn.style.display || 'inline-block';
+                workBtn.style.display = 'none';
+            }
+        } else {
+            // 🔥 Если фин.стоп исчез — возвращаем кнопку
+            if (workBtn.style.display === 'none' && workBtn.dataset.originalDisplay) {
+                workBtn.style.display = workBtn.dataset.originalDisplay;
+                delete workBtn.dataset.originalDisplay;
+            }
         }
     }
 
@@ -163,6 +191,9 @@
 
             // 🔥 🔥 ВЫЗОВ НОВОЙ ПРОВЕРКИ для скрытия кнопки
             checkAndHideButton2();
+            
+            // 🔥 🔥 ВЫЗОВ НОВОЙ ПРОВЕРКИ для скрытия #workWithFilesBtn
+            checkAndHideWorkWithFilesBtn();
 
             // === Скрытие строки по заданному селектору ===
             const rowToHide = document.querySelector(
@@ -216,7 +247,6 @@
             } else {
                 const oldFinBtn = document.getElementById('financialStopBtn');
                 if (oldFinBtn) oldFinBtn.remove();
-
                 const regButton = document.querySelector(regButtonSelector);
                 const rightDiv = document.querySelector(rightContainerSelector);
                 const hideConditionEl = document.querySelector(hideConditionSelector);
