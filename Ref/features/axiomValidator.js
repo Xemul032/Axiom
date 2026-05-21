@@ -308,7 +308,7 @@
         
         const otherOrders = skladData.otherOrders || 0;
         const available = skladData.inStock - otherOrders;
-        const needed = skladData.required + 50;
+        const needed = skladData.required + 10;
         const diff = available - needed;
         
         // 🔥 Разные сообщения для бумаги и материалов
