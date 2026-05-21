@@ -188,7 +188,7 @@
         "scope": "order",
         "field": "paper",
         "op": "not_contains",
-        "value": "Самоклейка"
+        "value": "Самокле"
       }
     ]
   }
