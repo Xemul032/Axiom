@@ -1,5 +1,4 @@
-// newFinStop.js — модуль фин.стопа с проверкой смены схемы оплаты
-// Загружается динамически из config.json через Axiom Status Indicator
+//Версия1
 
 (function(config, GM, utils) {
     'use strict';
@@ -15,7 +14,6 @@
     const USERNAME_SELECTOR = 'body > ul > div > li:nth-child(1) > a';
     const WORK_WITH_FILES_BTN_SELECTOR = '#workWithFilesBtn';
     const LOADING_INDICATOR_SELECTOR = '#DocLoadingIndicator';
-    const PAY_SCHEMA_SELECT_SELECTOR = 'select[onchange*="PaySchema"]'; // 🔥 Селектор для схемы оплаты
 
     let finStopActive = false;
     let finStopContainer = null;
@@ -26,7 +24,7 @@
     let isPageLoading = false;
 
     // ─────────────────────────────────────────────
-    // Проверка зависимостей
+    // Проверка зависимостей (сразу в начале)
     // ─────────────────────────────────────────────
     if (!GM || !GM.xmlhttpRequest) {
         return;
@@ -406,7 +404,7 @@
     }
 
     // ─────────────────────────────────────────────
-    // API запросы
+    // API запросы (используют переданный GM объект)
     // ─────────────────────────────────────────────
     function checkBlacklist(username) {
         return new Promise((resolve, reject) => {
@@ -479,44 +477,10 @@
     }
 
     // ─────────────────────────────────────────────
-    // 🔥 НОВАЯ ФУНКЦИЯ: ожидание смены схемы оплаты на "Кредит"
-    // ─────────────────────────────────────────────
-    function waitForPaySchemaChange(timeout = 10000) {
-        return new Promise((resolve, reject) => {
-            const select = document.querySelector(PAY_SCHEMA_SELECT_SELECTOR);
-            if (!select) {
-                reject(new Error('Селект схемы оплаты не найден'));
-                return;
-            }
-
-            // 🔥 Если уже стоит "3" — сразу разрешаем
-            if (select.value === "3") {
-                resolve();
-                return;
-            }
-
-            const startTime = Date.now();
-            const checkInterval = setInterval(() => {
-                // 🔥 Проверяем, не истёк ли таймаут
-                if (Date.now() - startTime > timeout) {
-                    clearInterval(checkInterval);
-                    reject(new Error('Таймаут ожидания смены схемы оплаты'));
-                    return;
-                }
-
-                // 🔥 Проверяем значение селекта
-                if (select.value === "3") {
-                    clearInterval(checkInterval);
-                    resolve();
-                }
-            }, 200); // Проверка каждые 200мс
-        });
-    }
-
-    // ─────────────────────────────────────────────
     // Смена схемы оплаты на "Кредит"
     // ─────────────────────────────────────────────
     function changePaySchemaToCredit() {
+        const PAY_SCHEMA_SELECT_SELECTOR = 'select[onchange*="PaySchema"]';
         const select = document.querySelector(PAY_SCHEMA_SELECT_SELECTOR);
         if (select) {
             select.value = "3";
@@ -528,7 +492,7 @@
     }
 
     // ─────────────────────────────────────────────
-    // 🔥 ОБНОВЛЁННЫЙ Обработчик кнопки "Ок"
+    // Обработчик кнопки "Ок" (использует замыкание на GM, utils)
     // ─────────────────────────────────────────────
     async function handleOk() {
         const { productId, username } = collectData();
@@ -536,57 +500,42 @@
             showErrorModal('Не удалось собрать данные со страницы. Проверьте наличие ProductId и имени пользователя.');
             return;
         }
-
         showLoadingModal('Проверка доступа...');
         setProgress(20, 'Проверка чёрного списка...');
-
         try {
-            // 1. Проверка чёрного списка
             const isBlacklisted = await checkBlacklist(username);
             setProgress(50, 'Проверка завершена');
             if (isBlacklisted) {
                 setTimeout(() => showBlacklistModal(), 400);
                 return;
             }
-
-            // 2. Запись данных в таблицу
             setProgress(60, 'Запись данных в таблицу...');
+            await new Promise(r => setTimeout(r, 300));
+            showLoadingModal('Сохранение данных...');
+            setProgress(30, 'Отправка данных...');
             await writeToSheet(productId, username);
-
-            // 3. 🔥 Меняем схему оплаты на "Кредит"
-            setProgress(80, 'Смена схемы оплаты...');
-            const changed = changePaySchemaToCredit();
-            if (!changed) {
-                throw new Error('Не удалось найти селект схемы оплаты');
-            }
-
-            // 4. 🔥 🔥 🔥 ЖДЁМ, пока схема оплаты реально изменится на "3"
-            setProgress(90, 'Ожидание подтверждения...');
-            await waitForPaySchemaChange(10000); // 🔥 Ждём до 10 секунд
-
-            // 5. Только после успешной смены — показываем успех
+            changePaySchemaToCredit();
             setProgress(100, 'Готово!');
             await new Promise(r => setTimeout(r, 500));
             showSuccessModal();
-
         } catch (err) {
-            console.error('FinStop error:', err);
-            // 🔥 Если ошибка — показываем её, но НЕ закрываем модалку автоматически
-            showErrorModal('Ошибка: ' + (err.message || 'Неизвестная ошибка. Попробуйте позже.'));
+            showErrorModal('Произошла ошибка при обработке запроса. Попробуйте позже.');
         }
     }
 
     // ─────────────────────────────────────────────
-    // 🔥 ФУНКЦИЯ: управление видимостью кнопки #workWithFilesBtn
+    // 🔥 НОВАЯ ФУНКЦИЯ: управление видимостью кнопки #workWithFilesBtn
     // ─────────────────────────────────────────────
     function toggleWorkWithFilesButton() {
         const workBtn = document.querySelector(WORK_WITH_FILES_BTN_SELECTOR);
         if (!workBtn) return;
         
+        // 🔥 Если есть #finstop-block — скрываем кнопку
         const finStopBlock = document.querySelector('#finstop-block');
         if (finStopBlock) {
             workBtn.style.display = 'none';
         } else {
+            // 🔥 Если фин.стоп не активен — показываем кнопку (если она была скрыта нами)
             if (workBtn.style.display === 'none') {
                 workBtn.style.display = '';
             }
@@ -647,6 +596,8 @@
         finStopContainer = createFinStopBlock();
         parentTable.parentNode.insertBefore(finStopContainer, parentTable.nextSibling);
         finStopActive = true;
+        
+        // 🔥 🔥 НОВЫЙ ВЫЗОВ: скрываем кнопку при активации фин.стопа
         toggleWorkWithFilesButton();
     }
 
@@ -662,6 +613,8 @@
         if (orphan && orphan.parentNode) orphan.parentNode.removeChild(orphan);
         finStopContainer = null;
         finStopActive = false;
+        
+        // 🔥 🔥 НОВЫЙ ВЫЗОВ: показываем кнопку при деактивации фин.стопа
         toggleWorkWithFilesButton();
     }
 
@@ -689,24 +642,21 @@
         observer = new MutationObserver((mutations) => {
             handleLoadingStateChange();
             checkPayIcon();
+            // 🔥 🔥 НОВЫЙ ВЫЗОВ: следим за изменениями DOM для кнопки
             toggleWorkWithFilesButton();
         });
         if (document.body) {
             observer.observe(document.body, {
-                childList: true,
-                subtree: true,
-                attributes: true,
-                attributeFilter: ['src', 'class']
+                childList: true, subtree: true,
+                attributes: true, attributeFilter: ['src', 'class']
             });
         } else {
             const obsWaiter = setInterval(() => {
                 if (document.body) {
                     clearInterval(obsWaiter);
                     observer.observe(document.body, {
-                        childList: true,
-                        subtree: true,
-                        attributes: true,
-                        attributeFilter: ['src', 'class']
+                        childList: true, subtree: true,
+                        attributes: true, attributeFilter: ['src', 'class']
                     });
                     checkPayIcon();
                 }
@@ -715,13 +665,13 @@
     }
 
     // ─────────────────────────────────────────────
-    // 🚀 ЗАПУСК
+    // 🚀 ЗАПУСК ЛОГИКИ (сразу, без обёртки)
     // ─────────────────────────────────────────────
     startObserver();
     checkPayIcon();
-    setInterval(checkPayIcon, 2000);
 
 })(
+    // Эти аргументы подставит загрузчик из основного userscript
     typeof config !== 'undefined' ? config : {},
     typeof GM !== 'undefined' ? GM : {},
     typeof utils !== 'undefined' ? utils : {}
