@@ -1,4 +1,4 @@
-// 11brakReprintTelegramNotifier.js — модуль отправки уведомлений о перепечатке в Telegram
+// brakReprintTelegramNotifier.js — модуль отправки уведомлений о перепечатке в Telegram
 // Загружается динамически из config.json через Axiom Status Indicator
 // Возвращает API управления: { init, cleanup, toggle, isActive, sendNow }
 // ⚠️ ВСЕ НАСТРОЙКИ (селекторы, токены, chatId) — ВНУТРИ КОДА, не в конфиге!
@@ -22,22 +22,15 @@
         brakComment: '#BrakComment',
         brakDepartment: '#BrakDepartmentId_chosen > a > span',
         brakAuthor: '#BrakAuthorId_chosen > a > span',
+        // 🔥 НОВЫЕ: для сбора суммы заказа
+        summaElement: '.summa.Summa#Summa, .Summa',
+        correctionInput: 'input.SummaCorrection',
         // Кнопки-триггеры (массив селекторов)
         triggerButtons: [
             '#workWithFilesBtn',
             '#Summary > table > tbody > tr > td:nth-child(2) > table > tbody > tr.TimeFilesInfo > td.right > button'
         ]
     };
-    
-    // 🔥 Селекторы, которые ОБЯЗАТЕЛЬНО должны быть заполнены для отправки
-    // (brakBlock проверяется только на наличие, так как это контейнер)
-    const REQUIRED_SELECTORS = [
-        'productId',
-        'brakOriginalId',
-        'brakComment',
-        'brakDepartment',
-        'brakAuthor'
-    ];
     
     // Настройки логгирования
     const LOGGING_ENABLED = false;
@@ -67,52 +60,92 @@
     }
 
     // ─────────────────────────────────────────────
+    // 🔥 Парсинг числа из строки (убираем пробелы, заменяем запятую)
+    // ─────────────────────────────────────────────
+    function parseNum(str) {
+        if (!str) return 0;
+        const cleaned = str.toString().replace(/\s/g, '').replace(',', '.');
+        const num = parseFloat(cleaned);
+        return isNaN(num) ? 0 : num;
+    }
+
+    // ─────────────────────────────────────────────
+    // 🔥 Форматирование числа с пробелами (12345.67 → "12 345,67")
+    // ─────────────────────────────────────────────
+    function formatMoney(amount) {
+        const [intPart, decPart] = amount.toFixed(2).split('.');
+        const formattedInt = intPart.replace(/\B(?=(\d{3})+(?!\d))/g, ' ');
+        return decPart ? `${formattedInt},${decPart}` : formattedInt;
+    }
+
+    // ─────────────────────────────────────────────
+    // 🔥 🔥 НОВАЯ ФУНКЦИЯ: сбор суммы заказа
+    // ─────────────────────────────────────────────
+    function parseProductSumma() {
+        let s = 0, c = 0;
+        
+        // Сумма заказа
+        const se = document.querySelector(SELECTORS.summaElement);
+        if (se) {
+            const text = se.textContent || se.value || '';
+            s = parseNum(text);
+        }
+        
+        // Корректировка суммы (если есть)
+        const ce = document.querySelector(SELECTORS.correctionInput);
+        if (ce && ce.value) {
+            c = parseNum(ce.value);
+        }
+        
+        // Итоговая сумма (с учётом корректировки)
+        const total = s - c;
+        
+        return {
+            rawSumma: s,
+            rawCorrection: c,
+            total: total.toFixed(2),
+            formatted: formatMoney(total)
+        };
+    }
+
+    // ─────────────────────────────────────────────
+    // 🔥 Проверка готовности данных
+    // ─────────────────────────────────────────────
+    function isReady() {
+        const prodIdEl = document.querySelector(SELECTORS.productId);
+        const brakBlock = document.querySelector(SELECTORS.brakBlock);
+        return prodIdEl && brakBlock && prodIdEl.textContent.trim() !== '';
+    }
+
+    // ─────────────────────────────────────────────
     // 🔥 Безопасное извлечение текста
     // ─────────────────────────────────────────────
     function extractText(selector) {
         const el = document.querySelector(selector);
-        if (!el) return null;
+        if (!el) return 'Не найдено';
         const value = el.value !== undefined ? el.value : el.textContent;
-        const trimmed = (value || '').toString().trim();
-        return trimmed || null;
+        return (value || '').toString().trim() || 'Не найдено';
     }
 
     // ─────────────────────────────────────────────
-    // 🔥 🔥 НОВАЯ ФУНКЦИЯ: проверка наличия и заполненности ВСЕХ обязательных полей
-    // ─────────────────────────────────────────────
-    function isAllDataReady() {
-        // 1. Проверяем brakBlock (должен просто существовать в DOM)
-        const brakBlock = document.querySelector(SELECTORS.brakBlock);
-        if (!brakBlock) {
-            log('❌ Не найден brakBlock:', SELECTORS.brakBlock);
-            return false;
-        }
-        
-        // 2. Проверяем ВСЕ обязательные селекторы на наличие И заполненность
-        for (const key of REQUIRED_SELECTORS) {
-            const selector = SELECTORS[key];
-            const value = extractText(selector);
-            
-            if (value === null) {
-                log(`❌ Не найден или пустой ${key}:`, selector);
-                return false;
-            }
-        }
-        
-        log('✅ Все обязательные поля найдены и заполнены');
-        return true;
-    }
-
-    // ─────────────────────────────────────────────
-    // 🔥 Формирование сообщения
+    // 🔥 Формирование сообщения (с суммой в конце)
     // ─────────────────────────────────────────────
     function formatMessage(data) {
-        return `Запущена перепечатка! 
+        // 🔥 Формируем основную часть сообщения
+        let message = `Запущена перепечатка! 
 Номер перепечатки: ${data.productId}
 Перепечатывается заказ : ${data.originalId}
 Отдел: ${data.dept}
 Причина: ${data.comment}
 Ответственный: ${data.author}`;
+        
+        // 🔥 Добавляем сумму заказа последней строкой
+        if (data.summa && data.summa.total) {
+            message += `
+Сумма перепечатки: ${data.summa.formatted} рублей`;
+        }
+        
+        return message;
     }
 
     // ─────────────────────────────────────────────
@@ -124,9 +157,8 @@
             return;
         }
 
-        // 🔥 🔥 🔥 СТРОГАЯ ПРОВЕРКА: все поля должны быть в DOM и заполнены
-        if (!isAllDataReady()) {
-            log('❌ Данные не готовы: не все обязательные поля заполнены');
+        if (!isReady()) {
+            log('❌ Данные не готовы для отправки');
             return;
         }
 
@@ -137,23 +169,28 @@
 
         isSending = true;
 
-        // 🔥 Сбор данных (теперь гарантированно не будет null)
+        // 🔥 Сбор данных
         const data = {
             productId: extractText(SELECTORS.productId),
             originalId: extractText(SELECTORS.brakOriginalId),
             comment: extractText(SELECTORS.brakComment),
             dept: extractText(SELECTORS.brakDepartment),
-            author: extractText(SELECTORS.brakAuthor)
+            author: extractText(SELECTORS.brakAuthor),
+            // 🔥 Собираем сумму заказа
+            summa: parseProductSumma()
         };
 
+        // 🔥 Формируем сообщение (с суммой)
         const message = formatMessage(data);
 
         log('📤 Отправка уведомления:', { 
             productId: data.productId, 
             originalId: data.originalId,
-            dept: data.dept 
+            dept: data.dept,
+            summa: data.summa?.formatted || 'N/A'
         });
 
+        // 🔥 Отправка запроса
         const sendRequest = (url, payload) => {
             if (GM?.xmlhttpRequest) {
                 return new Promise((resolve, reject) => {
@@ -201,8 +238,7 @@
         });
 
         if (isTriggerButton) {
-            log('🎯 Клик по триггер-кнопке, проверяем данные...');
-            // 🔥 Отправка ТОЛЬКО если все данные готовы
+            log('🎯 Клик по триггер-кнопке, запускаем фоновую отправку');
             sendToTelegram();
         }
     }
