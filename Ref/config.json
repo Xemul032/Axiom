@@ -24,6 +24,13 @@
       "runAt": "document-idle",
       "config": {}
     },
+
+   "perepechatkaTG": {
+      "enabled": true,
+      "url": "https://raw.githubusercontent.com/Xemul032/Axiom/refs/heads/main/Ref/features/perepechatkaTG.js",
+      "runAt": "document-idle",
+      "config": {}
+    },    
    "summaDiscountButtons": {
       "enabled": true,
       "url": "https://raw.githubusercontent.com/Xemul032/Axiom/refs/heads/main/Ref/features/summaDiscountButtons.js",
