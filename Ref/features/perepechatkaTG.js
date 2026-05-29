@@ -8,9 +8,9 @@
     // 🔥 Конфигурация из config.json
     const UNIQUE_PREFIX = config?.uniquePrefix || 'brak-telegram-';
     const TELEGRAM = config?.telegram || {
-        botToken: '8070906629:AAERcsFRpNFlfNTCvdvnQJpgpeCYHuDKHIM',
-        chatId: '-5229879106r',
-        apiUrl: 'https://api.telegram.org/bot8070906629:AAERcsFRpNFlfNTCvdvnQJpgpeCYHuDKHIM/sendMessage'
+        botToken: '',
+        chatId: '',
+        apiUrl: ''
     };
     const SELECTORS = config?.selectors || {
         productId: '#ProductId, #productid',
