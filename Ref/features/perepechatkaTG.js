@@ -1,4 +1,4 @@
-// 12brakReprintTelegramNotifier.js — модуль отправки уведомлений о перепечатке в Telegram
+// 32brakReprintTelegramNotifier.js — модуль отправки уведомлений о перепечатке в Telegram
 // Загружается динамически из config.json через Axiom Status Indicator
 // Возвращает API управления: { init, cleanup, toggle, isActive, sendNow }
 // ⚠️ ВСЕ НАСТРОЙКИ (селекторы, токены, chatId) — ВНУТРИ КОДА, не в конфиге!
@@ -10,7 +10,7 @@
     // 🔥 🔥 🔥 ВСЕ НАСТРОЙКИ — ВНУТРИ КОДА (не выносить в config.json!) 🔥 🔥 🔥
     
     // Telegram конфигурация
-    const TELEGRAM_BOT_TOKEN = '8070906629:AAH0fTlPbHsOUO20f6zdHw7eozcSq8qgUDA';
+    const TELEGRAM_BOT_TOKEN = '8070906629:AAEzR7a9k7nxIBTof8lfz7o5cRsMErJ3DEo';
     const TELEGRAM_CHAT_ID = '-5229879106';
     const TELEGRAM_API_URL = `https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendMessage`;
     
@@ -22,9 +22,6 @@
         brakComment: '#BrakComment',
         brakDepartment: '#BrakDepartmentId_chosen > a > span',
         brakAuthor: '#BrakAuthorId_chosen > a > span',
-        // 🔥 НОВЫЕ: для расчета суммы
-        summaBase: '#Summa',
-        summaCorrection: '#Fin > table > tbody:nth-child(4) > tr > td:nth-child(1) > table > tbody > tr:nth-child(1) > td.right > input',
         // Кнопки-триггеры (массив селекторов)
         triggerButtons: [
             '#workWithFilesBtn',
@@ -60,15 +57,6 @@
     }
 
     // ─────────────────────────────────────────────
-    // 🔥 Проверка готовности данных
-    // ─────────────────────────────────────────────
-    function isReady() {
-        const prodIdEl = document.querySelector(SELECTORS.productId);
-        const brakBlock = document.querySelector(SELECTORS.brakBlock);
-        return prodIdEl && brakBlock && prodIdEl.textContent.trim() !== '';
-    }
-
-    // ─────────────────────────────────────────────
     // 🔥 Безопасное извлечение текста
     // ─────────────────────────────────────────────
     function extractText(selector) {
@@ -80,50 +68,41 @@
     }
 
     // ─────────────────────────────────────────────
-    // 🔥 🔥 НОВАЯ ФУНКЦИЯ: получение суммы перепечатки
+    // 🔥 🔥 НОВАЯ ФУНКЦИЯ: проверка заполненности ВСЕХ обязательных полей
     // ─────────────────────────────────────────────
-    function getReprintSum() {
-        // Получаем базовую сумму из #Summa
-        const summaBaseEl = document.querySelector(SELECTORS.summaBase);
-        let baseSum = 0;
-        if (summaBaseEl) {
-            const baseText = summaBaseEl.textContent.trim().replace(/\s/g, '').replace(',', '.');
-            baseSum = parseFloat(baseText) || 0;
+    function areAllFieldsFilled() {
+        // 1. Проверяем brakBlock (должен просто существовать в DOM)
+        const brakBlock = document.querySelector(SELECTORS.brakBlock);
+        if (!brakBlock) {
+            log('❌ Не найден brakBlock:', SELECTORS.brakBlock);
+            return false;
         }
         
-        // Получаем коррекцию из input.SummaCorrection
-        const correctionEl = document.querySelector(SELECTORS.summaCorrection);
-        let correction = 0;
-        if (correctionEl && correctionEl.value) {
-            const corrText = correctionEl.value.trim().replace(',', '.');
-            correction = parseFloat(corrText) || 0;
+        // 2. Проверяем ВСЕ обязательные поля на наличие И заполненность
+        const requiredFields = [
+            { key: 'productId', selector: SELECTORS.productId },
+            { key: 'brakOriginalId', selector: SELECTORS.brakOriginalId },
+            { key: 'brakComment', selector: SELECTORS.brakComment },
+            { key: 'brakDepartment', selector: SELECTORS.brakDepartment },
+            { key: 'brakAuthor', selector: SELECTORS.brakAuthor }
+        ];
+        
+        for (const field of requiredFields) {
+            const value = extractText(field.selector);
+            if (value === null || value === '') {
+                log(`❌ Поле ${field.key} пусто или не найдено:`, field.selector);
+                return false;
+            }
         }
         
-        // 🔥 Логика: если коррекция отрицательная — берём модуль и ПРИБАВЛЯЕМ к базе
-        // Если положительная — ВЫЧИТАЕМ из базы (или можно просто прибавлять с учётом знака)
-        let finalSum = baseSum;
-        if (correction < 0) {
-            finalSum = baseSum + Math.abs(correction);
-        } else if (correction > 0) {
-            finalSum = baseSum - correction;
-        }
-        
-        // Округляем до 2 знаков и возвращаем
-        return Math.round(finalSum * 100) / 100;
+        log('✅ Все обязательные поля заполнены');
+        return true;
     }
 
     // ─────────────────────────────────────────────
-    // 🔥 Формирование сообщения в НОВОМ формате
+    // 🔥 Формирование сообщения
     // ─────────────────────────────────────────────
     function formatMessage(data) {
-        // 🔥 Новый формат сообщения:
-        // Запущена перепечатка! 
-        // Номер перепечатки: 380377
-        // Перепечатывается заказ : {originalId}
-        // Отдел: {dept}
-        // Причина: {comment}
-        // Ответственный: {author}
-        // Сумма перепечатки: {sum} рублей
         return `Запущена перепечатка! 
 Номер перепечатки: ${data.productId}
 Перепечатывается заказ : ${data.originalId}
@@ -142,8 +121,9 @@
             return;
         }
 
-        if (!isReady()) {
-            log('❌ Данные не готовы для отправки');
+        // 🔥 🔥 🔥 СТРОГАЯ ПРОВЕРКА: все поля должны быть заполнены
+        if (!areAllFieldsFilled()) {
+            log('❌ Не все поля заполнены, отправка отменена');
             return;
         }
 
@@ -154,24 +134,22 @@
 
         isSending = true;
 
-        // 🔥 Сбор данных — включая сумму
+        // 🔥 Сбор данных (теперь гарантированно не будет null)
         const data = {
             productId: extractText(SELECTORS.productId),
             originalId: extractText(SELECTORS.brakOriginalId),
             comment: extractText(SELECTORS.brakComment),
             dept: extractText(SELECTORS.brakDepartment),
             author: extractText(SELECTORS.brakAuthor),
-            sum: getReprintSum() // 🔥 НОВОЕ: сумма перепечатки
+            sum: getReprintSum()
         };
 
-        // 🔥 Формируем сообщение с суммой
         const message = formatMessage(data);
 
         log('📤 Отправка уведомления:', { 
             productId: data.productId, 
             originalId: data.originalId,
-            dept: data.dept,
-            sum: data.sum
+            dept: data.dept 
         });
 
         const sendRequest = (url, payload) => {
@@ -213,6 +191,34 @@
     }
 
     // ─────────────────────────────────────────────
+    // 🔥 Функция расчета суммы перепечатки
+    // ─────────────────────────────────────────────
+    function getReprintSum() {
+        const summaBaseEl = document.querySelector('#Summa');
+        let baseSum = 0;
+        if (summaBaseEl) {
+            const baseText = summaBaseEl.textContent.trim().replace(/\s/g, '').replace(',', '.');
+            baseSum = parseFloat(baseText) || 0;
+        }
+        
+        const correctionEl = document.querySelector('#Fin > table > tbody:nth-child(4) > tr > td:nth-child(1) > table > tbody > tr:nth-child(1) > td.right > input');
+        let correction = 0;
+        if (correctionEl && correctionEl.value) {
+            const corrText = correctionEl.value.trim().replace(',', '.');
+            correction = parseFloat(corrText) || 0;
+        }
+        
+        let finalSum = baseSum;
+        if (correction < 0) {
+            finalSum = baseSum + Math.abs(correction);
+        } else if (correction > 0) {
+            finalSum = baseSum - correction;
+        }
+        
+        return Math.round(finalSum * 100) / 100;
+    }
+
+    // ─────────────────────────────────────────────
     // 🔥 Обработчик клика по триггер-кнопкам
     // ─────────────────────────────────────────────
     function handleClick(e) {
@@ -221,7 +227,8 @@
         });
 
         if (isTriggerButton) {
-            log('🎯 Клик по триггер-кнопке, запускаем фоновую отправку');
+            log('🎯 Клик по триггер-кнопке, проверяем данные...');
+            // 🔥 Отправка ТОЛЬКО если все данные готовы
             sendToTelegram();
         }
     }
