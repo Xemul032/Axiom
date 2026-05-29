@@ -29,31 +29,7 @@
       "enabled": false,
       "url": "https://raw.githubusercontent.com/Xemul032/Axiom/refs/heads/main/Ref/features/perepechatkaTG.js",
       "runAt": "document-idle",
-      "config": {
-        "uniquePrefix": "brak-telegram-",
-        "autoInit": true,
-        "logging": {
-          "enabled": false,
-          "prefix": "[BrakTelegram]"
-        },
-        "telegram": {
-          "botToken": "8070906629:AAERcsFRpNFlfNTCvdvnQJpgpeCYHuDKHIM",
-          "chatId": "-5229879106r",
-          "apiUrl": "https://api.telegram.org/bot{BOT_TOKEN}/sendMessage"
-        },
-        "selectors": {
-          "productId": "#ProductId, #productid",
-          "brakBlock": "#BrakBlock",
-          "brakComment": "#BrakComment",
-          "brakDepartment": "#BrakDepartmentId_chosen > a > span",
-          "brakAuthor": "#BrakAuthorId_chosen > a > span",
-          "triggerButtons": [
-            "#workWithFilesBtn",
-            "#Summary > table > tbody > tr > td:nth-child(2) > table > tbody > tr.TimeFilesInfo > td.right > button"
-          ]
-        },
-        "messageTemplate": "Запущена перепечатка! \nНомер заказа: {productId}. \nОтдел: {dept}\nПричина: {comment}\nОтветственный: {author}"
-      }
+      "config": {}
     },    
    "summaDiscountButtons": {
       "enabled": true,
