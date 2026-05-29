@@ -12,12 +12,18 @@
       "runAt": "document-idle",
       "config": {}
     },  
+   "hideDostavka": {
+      "enabled": true,
+      "url": "https://raw.githubusercontent.com/Xemul032/Axiom/refs/heads/main/Ref/features/hideDostavka.js",
+      "runAt": "document-idle",
+      "config": {}
+    }, 
    "clientLegalEntityChecker": {
       "enabled": true,
       "url": "https://raw.githubusercontent.com/Xemul032/Axiom/refs/heads/main/Ref/features/clientLegalEntityChecker.js",
       "runAt": "document-idle",
       "config": {}
-    }, 
+    },     
    "lockDateBuh": {
       "enabled": true,
       "url": "https://raw.githubusercontent.com/Xemul032/Axiom/refs/heads/main/Ref/features/lockDateBuh.js",
