@@ -1,4 +1,4 @@
-// brakReprintTelegramNotifier.js — модуль отправки уведомлений о перепечатке в Telegram
+// 12brakReprintTelegramNotifier.js — модуль отправки уведомлений о перепечатке в Telegram
 // Загружается динамически из config.json через Axiom Status Indicator
 // Возвращает API управления: { init, cleanup, toggle, isActive, sendNow }
 // ⚠️ ВСЕ НАСТРОЙКИ (селекторы, токены, chatId) — ВНУТРИ КОДА, не в конфиге!
@@ -22,9 +22,9 @@
         brakComment: '#BrakComment',
         brakDepartment: '#BrakDepartmentId_chosen > a > span',
         brakAuthor: '#BrakAuthorId_chosen > a > span',
-        // 🔥 НОВЫЕ: для сбора суммы заказа
-        summaElement: '.summa.Summa#Summa, .Summa',
-        correctionInput: 'input.SummaCorrection',
+        // 🔥 НОВЫЕ: для расчета суммы
+        summaBase: '#Summa',
+        summaCorrection: '#Fin > table > tbody:nth-child(4) > tr > td:nth-child(1) > table > tbody > tr:nth-child(1) > td.right > input',
         // Кнопки-триггеры (массив селекторов)
         triggerButtons: [
             '#workWithFilesBtn',
@@ -60,55 +60,6 @@
     }
 
     // ─────────────────────────────────────────────
-    // 🔥 Парсинг числа из строки (убираем пробелы, заменяем запятую)
-    // ─────────────────────────────────────────────
-    function parseNum(str) {
-        if (!str) return 0;
-        const cleaned = str.toString().replace(/\s/g, '').replace(',', '.');
-        const num = parseFloat(cleaned);
-        return isNaN(num) ? 0 : num;
-    }
-
-    // ─────────────────────────────────────────────
-    // 🔥 Форматирование числа с пробелами (12345.67 → "12 345,67")
-    // ─────────────────────────────────────────────
-    function formatMoney(amount) {
-        const [intPart, decPart] = amount.toFixed(2).split('.');
-        const formattedInt = intPart.replace(/\B(?=(\d{3})+(?!\d))/g, ' ');
-        return decPart ? `${formattedInt},${decPart}` : formattedInt;
-    }
-
-    // ─────────────────────────────────────────────
-    // 🔥 🔥 НОВАЯ ФУНКЦИЯ: сбор суммы заказа
-    // ─────────────────────────────────────────────
-    function parseProductSumma() {
-        let s = 0, c = 0;
-        
-        // Сумма заказа
-        const se = document.querySelector(SELECTORS.summaElement);
-        if (se) {
-            const text = se.textContent || se.value || '';
-            s = parseNum(text);
-        }
-        
-        // Корректировка суммы (если есть)
-        const ce = document.querySelector(SELECTORS.correctionInput);
-        if (ce && ce.value) {
-            c = parseNum(ce.value);
-        }
-        
-        // Итоговая сумма (с учётом корректировки)
-        const total = s - c;
-        
-        return {
-            rawSumma: s,
-            rawCorrection: c,
-            total: total.toFixed(2),
-            formatted: formatMoney(total)
-        };
-    }
-
-    // ─────────────────────────────────────────────
     // 🔥 Проверка готовности данных
     // ─────────────────────────────────────────────
     function isReady() {
@@ -122,30 +73,64 @@
     // ─────────────────────────────────────────────
     function extractText(selector) {
         const el = document.querySelector(selector);
-        if (!el) return 'Не найдено';
+        if (!el) return null;
         const value = el.value !== undefined ? el.value : el.textContent;
-        return (value || '').toString().trim() || 'Не найдено';
+        const trimmed = (value || '').toString().trim();
+        return trimmed || null;
     }
 
     // ─────────────────────────────────────────────
-    // 🔥 Формирование сообщения (с суммой в конце)
+    // 🔥 🔥 НОВАЯ ФУНКЦИЯ: получение суммы перепечатки
+    // ─────────────────────────────────────────────
+    function getReprintSum() {
+        // Получаем базовую сумму из #Summa
+        const summaBaseEl = document.querySelector(SELECTORS.summaBase);
+        let baseSum = 0;
+        if (summaBaseEl) {
+            const baseText = summaBaseEl.textContent.trim().replace(/\s/g, '').replace(',', '.');
+            baseSum = parseFloat(baseText) || 0;
+        }
+        
+        // Получаем коррекцию из input.SummaCorrection
+        const correctionEl = document.querySelector(SELECTORS.summaCorrection);
+        let correction = 0;
+        if (correctionEl && correctionEl.value) {
+            const corrText = correctionEl.value.trim().replace(',', '.');
+            correction = parseFloat(corrText) || 0;
+        }
+        
+        // 🔥 Логика: если коррекция отрицательная — берём модуль и ПРИБАВЛЯЕМ к базе
+        // Если положительная — ВЫЧИТАЕМ из базы (или можно просто прибавлять с учётом знака)
+        let finalSum = baseSum;
+        if (correction < 0) {
+            finalSum = baseSum + Math.abs(correction);
+        } else if (correction > 0) {
+            finalSum = baseSum - correction;
+        }
+        
+        // Округляем до 2 знаков и возвращаем
+        return Math.round(finalSum * 100) / 100;
+    }
+
+    // ─────────────────────────────────────────────
+    // 🔥 Формирование сообщения в НОВОМ формате
     // ─────────────────────────────────────────────
     function formatMessage(data) {
-        // 🔥 Формируем основную часть сообщения
-        let message = `Запущена перепечатка! 
+        // 🔥 Новый формат сообщения:
+        // Запущена перепечатка! 
+        // Номер перепечатки: 380377
+        // Перепечатывается заказ : {originalId}
+        // Отдел: {dept}
+        // Причина: {comment}
+        // Ответственный: {author}
+        // Сумма перепечатки: {sum} рублей
+        return `Запущена перепечатка! 
 Номер перепечатки: ${data.productId}
 Перепечатывается заказ : ${data.originalId}
 Отдел: ${data.dept}
 Причина: ${data.comment}
-Ответственный: ${data.author}`;
-        
-        // 🔥 Добавляем сумму заказа последней строкой
-        if (data.summa && data.summa.total) {
-            message += `
-Сумма перепечатки: ${data.summa.formatted} рублей`;
-        }
-        
-        return message;
+Ответственный: ${data.author}
+Сумма перепечатки: ${data.sum} рублей`;
     }
 
     // ─────────────────────────────────────────────
@@ -169,28 +154,26 @@
 
         isSending = true;
 
-        // 🔥 Сбор данных
+        // 🔥 Сбор данных — включая сумму
         const data = {
             productId: extractText(SELECTORS.productId),
             originalId: extractText(SELECTORS.brakOriginalId),
             comment: extractText(SELECTORS.brakComment),
             dept: extractText(SELECTORS.brakDepartment),
             author: extractText(SELECTORS.brakAuthor),
-            // 🔥 Собираем сумму заказа
-            summa: parseProductSumma()
+            sum: getReprintSum() // 🔥 НОВОЕ: сумма перепечатки
         };
 
-        // 🔥 Формируем сообщение (с суммой)
+        // 🔥 Формируем сообщение с суммой
         const message = formatMessage(data);
 
         log('📤 Отправка уведомления:', { 
             productId: data.productId, 
             originalId: data.originalId,
             dept: data.dept,
-            summa: data.summa?.formatted || 'N/A'
+            sum: data.sum
         });
 
-        // 🔥 Отправка запроса
         const sendRequest = (url, payload) => {
             if (GM?.xmlhttpRequest) {
                 return new Promise((resolve, reject) => {
@@ -280,7 +263,7 @@
         if (active) return;
         
         if (!TELEGRAM_BOT_TOKEN || !TELEGRAM_CHAT_ID) {
-            warn('⚠️ Модуль не активирован: не настроены TELEGRAM_BOT_TOKEN или TELEGRAM_CHAT_ID');
+            warn('⚠️ Модуль не активирован: не настроены токены');
             return;
         }
         
