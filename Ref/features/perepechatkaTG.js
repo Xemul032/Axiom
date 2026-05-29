@@ -11,7 +11,7 @@
     
     // Telegram конфигурация
     const TELEGRAM_BOT_TOKEN = '8070906629:AAERcsFRpNFlfNTCvdvnQJpgpeCYHuDKHIM';
-    const TELEGRAM_CHAT_ID = '-5229879106r'; // 🔥 Исправлено: убрана буква "r" в конце
+    const TELEGRAM_CHAT_ID = '-5229879106'; // 🔥 Исправлено: убрана буква "r" в конце
     const TELEGRAM_API_URL = `https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendMessage`;
     
     // Селекторы элементов на странице
