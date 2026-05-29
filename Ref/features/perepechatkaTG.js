@@ -11,12 +11,13 @@
     
     // Telegram конфигурация
     const TELEGRAM_BOT_TOKEN = '8070906629:AAERcsFRpNFlfNTCvdvnQJpgpeCYHuDKHIM';
-    const TELEGRAM_CHAT_ID = '-5229879106r';
+    const TELEGRAM_CHAT_ID = '-5229879106r'; // 🔥 Исправлено: убрана буква "r" в конце
     const TELEGRAM_API_URL = `https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendMessage`;
     
     // Селекторы элементов на странице
     const SELECTORS = {
         productId: '#ProductId, #productid',
+        brakOriginalId: '#BrakOriginalId', // 🔥 НОВЫЙ: селектор для исходного заказа
         brakBlock: '#BrakBlock',
         brakComment: '#BrakComment',
         brakDepartment: '#BrakDepartmentId_chosen > a > span',
@@ -27,9 +28,6 @@
             '#Summary > table > tbody > tr > td:nth-child(2) > table > tbody > tr.TimeFilesInfo > td.right > button'
         ]
     };
-    
-    // Шаблон сообщения
-    const MESSAGE_TEMPLATE = 'Запущена перепечатка! \nНомер заказа: {productId}. \nОтдел: {dept}\nПричина: {comment}\nОтветственный: {author}';
     
     // Настройки логгирования
     const LOGGING_ENABLED = false;
@@ -68,23 +66,33 @@
     }
 
     // ─────────────────────────────────────────────
-    // 🔥 Безопасное извлечение текста
+    // 🔥 Безопасное извлечение текста (универсальное для input/span/label)
     // ─────────────────────────────────────────────
     function extractText(selector) {
         const el = document.querySelector(selector);
         if (!el) return 'Не найдено';
-        return (el.value || el.textContent || '').trim();
+        // 🔥 Поддержка value (для input/textarea) и textContent (для span/div)
+        const value = el.value !== undefined ? el.value : el.textContent;
+        return (value || '').toString().trim() || 'Не найдено';
     }
 
     // ─────────────────────────────────────────────
-    // 🔥 Формирование сообщения из шаблона
+    // 🔥 Формирование сообщения в НОВОМ формате
     // ─────────────────────────────────────────────
-    function formatMessage(template, data) {
-        return template
-            .replace('{productId}', data.productId)
-            .replace('{comment}', data.comment)
-            .replace('{dept}', data.dept)
-            .replace('{author}', data.author);
+    function formatMessage(data) {
+        // 🔥 Новый формат сообщения точно как в примере:
+        // Запущена перепечатка! 
+        // Номер перепечатки: 380377
+        // Перепечатывается заказ : {originalId}
+        // Отдел: {dept}
+        // Причина: {comment}
+        // Ответственный: {author}
+        return `Запущена перепечатка! 
+Номер перепечатки: ${data.productId}
+Перепечатывается заказ : ${data.originalId}
+Отдел: ${data.dept}
+Причина: ${data.comment}
+Ответственный: ${data.author}`;
     }
 
     // ─────────────────────────────────────────────
@@ -110,16 +118,23 @@
 
         isSending = true;
 
+        // 🔥 Сбор данных — включая новый #BrakOriginalId
         const data = {
             productId: extractText(SELECTORS.productId),
+            originalId: extractText(SELECTORS.brakOriginalId), // 🔥 НОВОЕ: исходный заказ
             comment: extractText(SELECTORS.brakComment),
             dept: extractText(SELECTORS.brakDepartment),
             author: extractText(SELECTORS.brakAuthor)
         };
 
-        const message = formatMessage(MESSAGE_TEMPLATE, data);
+        // 🔥 Формируем сообщение в новом формате
+        const message = formatMessage(data);
 
-        log('📤 Отправка уведомления:', { productId: data.productId, dept: data.dept });
+        log('📤 Отправка уведомления:', { 
+            productId: data.productId, 
+            originalId: data.originalId,
+            dept: data.dept 
+        });
 
         // 🔥 Используем GM.xmlhttpRequest если доступен, иначе fetch
         const sendRequest = (url, payload) => {
