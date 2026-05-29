@@ -26,7 +26,7 @@
     },
 
    "perepechatkaTG": {
-      "enabled": false,
+      "enabled": true,
       "url": "https://raw.githubusercontent.com/Xemul032/Axiom/refs/heads/main/Ref/features/perepechatkaTG.js",
       "runAt": "document-idle",
       "config": {
@@ -38,7 +38,7 @@
         },
         "telegram": {
           "botToken": "8070906629:AAERcsFRpNFlfNTCvdvnQJpgpeCYHuDKHIM",
-          "chatId": "-5229879106",
+          "chatId": "-5229879106r",
           "apiUrl": "https://api.telegram.org/bot{BOT_TOKEN}/sendMessage"
         },
         "selectors": {
