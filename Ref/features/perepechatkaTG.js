@@ -1,52 +1,59 @@
 // brakReprintTelegramNotifier.js — модуль отправки уведомлений о перепечатке в Telegram
 // Загружается динамически из config.json через Axiom Status Indicator
 // Возвращает API управления: { init, cleanup, toggle, isActive, sendNow }
+// ⚠️ ВСЕ НАСТРОЙКИ (селекторы, токены, chatId) — ВНУТРИ КОДА, не в конфиге!
 
 (function(config, GM, utils, api) {
     'use strict';
 
-    // 🔥 Конфигурация из config.json
-    const UNIQUE_PREFIX = config?.uniquePrefix || 'brak-telegram-';
-    const TELEGRAM = config?.telegram || {
-        botToken: '',
-        chatId: '',
-        apiUrl: ''
-    };
-    const SELECTORS = config?.selectors || {
+    // 🔥 🔥 🔥 ВСЕ НАСТРОЙКИ — ВНУТРИ КОДА (не выносить в config.json!) 🔥 🔥 🔥
+    
+    // Telegram конфигурация
+    const TELEGRAM_BOT_TOKEN = '8070906629:AAERcsFRpNFlfNTCvdvnQJpgpeCYHuDKHIM';
+    const TELEGRAM_CHAT_ID = '-5229879106r';
+    const TELEGRAM_API_URL = `https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendMessage`;
+    
+    // Селекторы элементов на странице
+    const SELECTORS = {
         productId: '#ProductId, #productid',
         brakBlock: '#BrakBlock',
         brakComment: '#BrakComment',
         brakDepartment: '#BrakDepartmentId_chosen > a > span',
         brakAuthor: '#BrakAuthorId_chosen > a > span',
+        // Кнопки-триггеры (массив селекторов)
         triggerButtons: [
             '#workWithFilesBtn',
             '#Summary > table > tbody > tr > td:nth-child(2) > table > tbody > tr.TimeFilesInfo > td.right > button'
         ]
     };
-    const MESSAGE_TEMPLATE = config?.messageTemplate || 
-        'Запущена перепечатка! \nНомер заказа: {productId}. \nОтдел: {dept}\nПричина: {comment}\nОтветственный: {author}';
-    const LOGGING = config?.logging || {
-        enabled: false,
-        prefix: '[BrakTelegram]'
-    };
+    
+    // Шаблон сообщения
+    const MESSAGE_TEMPLATE = 'Запущена перепечатка! \nНомер заказа: {productId}. \nОтдел: {dept}\nПричина: {comment}\nОтветственный: {author}';
+    
+    // Настройки логгирования
+    const LOGGING_ENABLED = false;
+    const LOG_PREFIX = '[BrakTelegram]';
+    
+    // 🔥 Уникальный префикс для изоляции (можно настроить через config, но есть дефолт)
+    const UNIQUE_PREFIX = config?.uniquePrefix || 'brak-telegram-';
 
     // 🔥 Внутреннее состояние
     let active = false;
     let clickHandler = null;
-    let isSending = false; // 🔥 Защита от повторных отправок
+    let isSending = false; // Защита от повторных отправок
 
     // ─────────────────────────────────────────────
     // 🔥 Утилиты логгирования
     // ─────────────────────────────────────────────
     function log(...args) {
-        if (LOGGING.enabled) {
-            console.log(LOGGING.prefix, ...args);
+        if (LOGGING_ENABLED) {
+            console.log(LOG_PREFIX, ...args);
         }
     }
 
     function warn(...args) {
-        if (LOGGING.enabled) {
-            console.warn(LOGGING.prefix, ...args);
+        if (LOGGING_ENABLED) {
+            console.warn(LOG_PREFIX, ...args);
         }
     }
 
@@ -94,9 +101,9 @@
             return;
         }
 
-        // 🔥 Проверка конфигурации
-        if (!TELEGRAM.botToken || !TELEGRAM.chatId) {
-            warn('⚠️ Не настроены botToken или chatId в конфиге');
+        // 🔥 Проверка конфигурации (токены заданы в коде)
+        if (!TELEGRAM_BOT_TOKEN || !TELEGRAM_CHAT_ID) {
+            warn('⚠️ Не настроены TELEGRAM_BOT_TOKEN или TELEGRAM_CHAT_ID в коде модуля');
             return;
         }
 
@@ -110,7 +117,6 @@
         };
 
         const message = formatMessage(MESSAGE_TEMPLATE, data);
-        const apiUrl = TELEGRAM.apiUrl || `https://api.telegram.org/bot${TELEGRAM.botToken}/sendMessage`;
 
         log('📤 Отправка уведомления:', { productId: data.productId, dept: data.dept });
 
@@ -137,8 +143,8 @@
             }
         };
 
-        sendRequest(apiUrl, {
-            chat_id: TELEGRAM.chatId,
+        sendRequest(TELEGRAM_API_URL, {
+            chat_id: TELEGRAM_CHAT_ID,
             text: message,
             parse_mode: 'HTML'
         })
@@ -211,9 +217,9 @@
     function init() {
         if (active) return;
         
-        // 🔥 Валидация конфигурации
-        if (!TELEGRAM.botToken || !TELEGRAM.chatId) {
-            warn('⚠️ Модуль не активирован: не настроены botToken или chatId');
+        // 🔥 Валидация конфигурации (токены заданы в коде)
+        if (!TELEGRAM_BOT_TOKEN || !TELEGRAM_CHAT_ID) {
+            warn('⚠️ Модуль не активирован: не настроены TELEGRAM_BOT_TOKEN или TELEGRAM_CHAT_ID');
             return;
         }
         
