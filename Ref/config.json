@@ -13,7 +13,7 @@
       "config": {}
     },  
    "hideDostavka": {
-      "enabled": true,
+      "enabled": false,
       "url": "https://raw.githubusercontent.com/Xemul032/Axiom/refs/heads/main/Ref/features/hideDostavka.js",
       "runAt": "document-idle",
       "config": {}
