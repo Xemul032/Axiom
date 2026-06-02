@@ -13,13 +13,13 @@
       "config": {}
     },  
    "hideDostavka": {
-      "enabled": false,
+      "enabled": true,
       "url": "https://raw.githubusercontent.com/Xemul032/Axiom/refs/heads/main/Ref/features/hideDostavka.js",
       "runAt": "document-idle",
       "config": {}
     }, 
    "autoCalcDualMode": {
-      "enabled": false,
+      "enabled": true,
       "url": "https://raw.githubusercontent.com/Xemul032/Axiom/refs/heads/main/Ref/features/autoCalcDualMode.js",
       "runAt": "document-idle",
       "config": {}
