@@ -18,6 +18,12 @@
       "runAt": "document-idle",
       "config": {}
     }, 
+   "dateModifier": {
+      "enabled": true,
+      "url": "https://raw.githubusercontent.com/Xemul032/Axiom/refs/heads/main/Ref/features/dateModifier.js",
+      "runAt": "document-idle",
+      "config": {}
+    },     
    "autoCalcDualMode": {
       "enabled": true,
       "url": "https://raw.githubusercontent.com/Xemul032/Axiom/refs/heads/main/Ref/features/autoCalcDualMode.js",
