@@ -11,7 +11,6 @@
     
     // Параметры модификации дат
     const DAYS_TO_ADD = 0;              // Количество дней для прибавления (0 = не прибавлять)
-    const DEBUG_MODE = false;           // Включить отладочный вывод в консоль
     
     // 🔥 Уникальный префикс для изоляции
     const UNIQUE_PREFIX = config?.uniquePrefix || 'date-modifier-';
@@ -50,19 +49,6 @@
     let originalTexts = null; // Для восстановления при отключении
 
     // ─────────────────────────────────────────────
-    // 🔥 Утилиты логгирования (только консоль, без UI)
-    // ─────────────────────────────────────────────
-    function log(message, data = null) {
-        if (DEBUG_MODE) {
-            if (data) {
-                console.log(`[${UNIQUE_PREFIX}] ${message}`, data);
-            } else {
-                console.log(`[${UNIQUE_PREFIX}] ${message}`);
-            }
-        }
-    }
-
-    // ─────────────────────────────────────────────
     // 🔥 Универсальная функция прибавления дней с переносом воскресенья
     // ─────────────────────────────────────────────
     function addDaysWithSundayShift(date, days) {
@@ -72,7 +58,6 @@
         // Если выпало на воскресенье (0 в JS), переносим на понедельник (+1 день)
         if (newDate.getDay() === 0) {
             newDate.setDate(newDate.getDate() + 1);
-            log(`Дата выпала на воскресенье, перенос на понедельник`);
         }
 
         return newDate;
@@ -113,7 +98,6 @@
 
                 span.textContent = `${newDay}.${newMonth}.${newYear}`;
                 processedElements.add(span);
-                log(`ManagerList: "${text}" -> "${newDay}.${newMonth}.${newYear}"`);
             }
         });
     }
@@ -123,9 +107,8 @@
     // ─────────────────────────────────────────────
     function processSummaryPlanBlock() {
         const planBlocks = document.querySelectorAll(SELECTORS.planBlock);
-        log(`Найдено PlanBlock элементов: ${planBlocks.length}`);
 
-        planBlocks.forEach((planBlock, index) => {
+        planBlocks.forEach((planBlock) => {
             if (processedElements.has(planBlock)) return;
 
             const dateReady = planBlock.querySelector(SELECTORS.dateReady);
@@ -138,7 +121,6 @@
                     originalTexts.set(planReady, { display: planReady.style.display });
                 }
                 planReady.style.display = 'none';
-                log(`PlanBlock[${index}]: PlanReady скрыт`);
                 processedElements.add(planReady);
             }
 
@@ -165,7 +147,6 @@
                         originalTexts.set(dateReady, text);
                     }
 
-                    log(`PlanBlock[${index}]: "${text}" -> "${newText}"`);
                     dateReady.textContent = newText;
                     processedElements.add(dateReady);
                     processedElements.add(planBlock);
@@ -191,7 +172,6 @@
                         originalTexts.set(dateReady, text);
                     }
 
-                    log(`PlanBlock[${index}]: "${text}" -> "${newText}"`);
                     dateReady.textContent = newText;
                     processedElements.add(dateReady);
                     processedElements.add(planBlock);
@@ -243,7 +223,6 @@
                                 originalTexts.set(dateCell, text);
                             }
 
-                            log(`UtCalcResult: "${text}" -> "${newText}"`);
                             dateCell.textContent = newText;
                             processedElements.add(row);
                         }
@@ -268,7 +247,6 @@
                 }
             }
         }
-        log('✅ Оригинальные значения восстановлены');
     }
 
     // ─────────────────────────────────────────────
@@ -297,8 +275,6 @@
             childList: true,
             subtree: true
         });
-        
-        log('✅ MutationObserver запущен');
     }
 
     // ─────────────────────────────────────────────
@@ -308,7 +284,6 @@
         if (observer) {
             observer.disconnect();
             observer = null;
-            log('✅ MutationObserver отключён');
         }
     }
 
@@ -329,7 +304,8 @@
         active = true;
         initState();
         
-        log(`🚀 Модуль инициализирован (DAYS_TO_ADD: ${DAYS_TO_ADD}, фоновый режим)`);
+        // 🔥 ЕДИНСТВЕННОЕ СООБЩЕНИЕ В КОНСОЛЬ
+        console.log(`[${UNIQUE_PREFIX}] ✅ Модуль запущен`);
         
         setupObserver();
         processAll(); // Первичная обработка
@@ -345,8 +321,6 @@
         // Очистка хранилищ
         processedElements = null;
         originalTexts = null;
-        
-        log('🧹 Модуль очищен, значения восстановлены');
     }
 
     function toggle() {
@@ -361,8 +335,6 @@
     function forceProcess() {
         if (active) {
             processAll();
-        } else {
-            log('⚠️ Модуль не активен, обработка отменена');
         }
     }
 
