@@ -1,4 +1,4 @@
-// 32brakReprintTelegramNotifier.js — модуль отправки уведомлений о перепечатке в Telegram
+// brakReprintTelegramNotifier.js — модуль отправки уведомлений о перепечатке в Telegram
 // Загружается динамически из config.json через Axiom Status Indicator
 // Возвращает API управления: { init, cleanup, toggle, isActive, sendNow }
 // ⚠️ ВСЕ НАСТРОЙКИ (селекторы, токены, chatId) — ВНУТРИ КОДА, не в конфиге!
@@ -11,11 +11,15 @@
     
     // Telegram конфигурация
     const TELEGRAM_BOT_TOKEN = '8070906629:AAEzR7a9k7nxIBTof8lfz7o5cRsMErJ3DEo';
-    const TELEGRAM_CHAT_ID = [
-    '-5229879106', //Перепечатки Линк
-    '-1003524405962' //Брак 
-];
+    
+    // 🔥 МАССИВ chatId — сообщение отправляется в каждый из них
+    const TELEGRAM_CHAT_IDS = [
+        '-5229879106',      // Перепечатки Линк
+        '-1003524405962'    // Брак
+    ];
+    
     const TELEGRAM_API_URL = `https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendMessage`;
+    const TELEGRAM_DELAY_MS = 500; // 🔥 Задержка между отправками в разные чаты (мс)
     
     // Селекторы элементов на странице
     const SELECTORS = {
@@ -71,17 +75,15 @@
     }
 
     // ─────────────────────────────────────────────
-    // 🔥 🔥 НОВАЯ ФУНКЦИЯ: проверка заполненности ВСЕХ обязательных полей
+    // 🔥 Проверка заполненности ВСЕХ обязательных полей
     // ─────────────────────────────────────────────
     function areAllFieldsFilled() {
-        // 1. Проверяем brakBlock (должен просто существовать в DOM)
         const brakBlock = document.querySelector(SELECTORS.brakBlock);
         if (!brakBlock) {
             log('❌ Не найден brakBlock:', SELECTORS.brakBlock);
             return false;
         }
         
-        // 2. Проверяем ВСЕ обязательные поля на наличие И заполненность
         const requiredFields = [
             { key: 'productId', selector: SELECTORS.productId },
             { key: 'brakOriginalId', selector: SELECTORS.brakOriginalId },
@@ -116,28 +118,74 @@
     }
 
     // ─────────────────────────────────────────────
-    // 🔥 Отправка в Telegram (ПОЛНОСТЬЮ ФОНОВАЯ)
+    // 🔥 Выполнение одного HTTP-запроса к Telegram API
     // ─────────────────────────────────────────────
-    function sendToTelegram() {
+    function sendRequest(url, payload) {
+        if (GM?.xmlhttpRequest) {
+            return new Promise((resolve, reject) => {
+                GM.xmlhttpRequest({
+                    method: 'POST',
+                    url: url,
+                    headers: { 'Content-Type': 'application/json' },
+                    data: JSON.stringify(payload),
+                    onload: (res) => res.status >= 200 && res.status < 300 ? resolve(res) : reject(res),
+                    onerror: reject,
+                    ontimeout: () => reject(new Error('Timeout'))
+                });
+            });
+        } else {
+            return fetch(url, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload)
+            });
+        }
+    }
+
+    // ─────────────────────────────────────────────
+    // 🔥 Отправка сообщения в ОДИН чат
+    // ─────────────────────────────────────────────
+    function sendToSingleChat(chatId, message) {
+        return sendRequest(TELEGRAM_API_URL, {
+            chat_id: chatId,
+            text: message,
+            parse_mode: 'HTML'
+        })
+        .then(() => {
+            log(`✅ Уведомление отправлено в чат ${chatId}`);
+            return { chatId, success: true };
+        })
+        .catch(err => {
+            warn(`❌ Ошибка отправки в чат ${chatId}:`, err);
+            return { chatId, success: false, error: err };
+        });
+    }
+
+    // ─────────────────────────────────────────────
+    // 🔥 Отправка в Telegram (ПОЛНОСТЬЮ ФОНОВАЯ)
+    // 🔥 Отправляет сообщение ПОСЛЕДОВАТЕЛЬНО во все чаты из массива
+    // ─────────────────────────────────────────────
+    async function sendToTelegram() {
         if (isSending) {
             log('⏳ Отправка уже выполняется, пропуск');
             return;
         }
 
-        // 🔥 🔥 🔥 СТРОГАЯ ПРОВЕРКА: все поля должны быть заполнены
+        // 🔥 СТРОГАЯ ПРОВЕРКА: все поля должны быть заполнены
         if (!areAllFieldsFilled()) {
             log('❌ Не все поля заполнены, отправка отменена');
             return;
         }
 
-        if (!TELEGRAM_BOT_TOKEN || !TELEGRAM_CHAT_ID) {
-            warn('⚠️ Не настроены TELEGRAM_BOT_TOKEN или TELEGRAM_CHAT_ID');
+        // 🔥 Проверка конфигурации (массив chatId)
+        if (!TELEGRAM_BOT_TOKEN || !TELEGRAM_CHAT_IDS || !TELEGRAM_CHAT_IDS.length) {
+            warn('⚠️ Не настроены TELEGRAM_BOT_TOKEN или TELEGRAM_CHAT_IDS');
             return;
         }
 
         isSending = true;
 
-        // 🔥 Сбор данных (теперь гарантированно не будет null)
+        // 🔥 Сбор данных
         const data = {
             productId: extractText(SELECTORS.productId),
             originalId: extractText(SELECTORS.brakOriginalId),
@@ -152,45 +200,43 @@
         log('📤 Отправка уведомления:', { 
             productId: data.productId, 
             originalId: data.originalId,
-            dept: data.dept 
+            dept: data.dept,
+            sum: data.sum,
+            chats: TELEGRAM_CHAT_IDS
         });
 
-        const sendRequest = (url, payload) => {
-            if (GM?.xmlhttpRequest) {
-                return new Promise((resolve, reject) => {
-                    GM.xmlhttpRequest({
-                        method: 'POST',
-                        url: url,
-                        headers: { 'Content-Type': 'application/json' },
-                        data: JSON.stringify(payload),
-                        onload: (res) => res.status >= 200 && res.status < 300 ? resolve(res) : reject(res),
-                        onerror: reject,
-                        ontimeout: () => reject(new Error('Timeout'))
-                    });
-                });
-            } else {
-                return fetch(url, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify(payload)
-                });
+        try {
+            // 🔥 Последовательная отправка во все чаты с задержкой
+            const results = [];
+            
+            for (let i = 0; i < TELEGRAM_CHAT_IDS.length; i++) {
+                const chatId = TELEGRAM_CHAT_IDS[i];
+                
+                // Задержка между отправками (кроме первой)
+                if (i > 0 && TELEGRAM_DELAY_MS > 0) {
+                    await new Promise(resolve => setTimeout(resolve, TELEGRAM_DELAY_MS));
+                }
+                
+                const result = await sendToSingleChat(chatId, message);
+                results.push(result);
             }
-        };
-
-        sendRequest(TELEGRAM_API_URL, {
-            chat_id: TELEGRAM_CHAT_ID,
-            text: message,
-            parse_mode: 'HTML'
-        })
-        .then(res => {
-            log('✅ Уведомление успешно отправлено в Telegram');
-        })
-        .catch(err => {
-            warn('❌ Ошибка отправки в Telegram:', err);
-        })
-        .finally(() => {
+            
+            // 🔥 Логируем итог
+            const successCount = results.filter(r => r.success).length;
+            const failCount = results.length - successCount;
+            
+            if (successCount === results.length) {
+                log(`✅ Все уведомления отправлены (${successCount}/${results.length})`);
+            } else if (successCount > 0) {
+                log(`⚠️ Частичная отправка: ${successCount}/${results.length} успешно, ${failCount} с ошибками`);
+            } else {
+                warn(`❌ Не удалось отправить ни в один чат (${failCount}/${results.length})`);
+            }
+        } catch (err) {
+            warn('❌ Критическая ошибка отправки:', err);
+        } finally {
             setTimeout(() => { isSending = false; }, 1000);
-        });
+        }
     }
 
     // ─────────────────────────────────────────────
@@ -231,7 +277,6 @@
 
         if (isTriggerButton) {
             log('🎯 Клик по триггер-кнопке, проверяем данные...');
-            // 🔥 Отправка ТОЛЬКО если все данные готовы
             sendToTelegram();
         }
     }
@@ -272,13 +317,13 @@
     function init() {
         if (active) return;
         
-        if (!TELEGRAM_BOT_TOKEN || !TELEGRAM_CHAT_ID) {
-            warn('⚠️ Модуль не активирован: не настроены токены');
+        if (!TELEGRAM_BOT_TOKEN || !TELEGRAM_CHAT_IDS || !TELEGRAM_CHAT_IDS.length) {
+            warn('⚠️ Модуль не активирован: не настроены токены или chatId');
             return;
         }
         
         active = true;
-        log('🚀 Модуль инициализирован (фоновый режим)');
+        log('🚀 Модуль инициализирован (фоновый режим, чатов:', TELEGRAM_CHAT_IDS.length, ')');
         applyChanges();
     }
 
