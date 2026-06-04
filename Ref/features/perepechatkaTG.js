@@ -11,7 +11,10 @@
     
     // Telegram конфигурация
     const TELEGRAM_BOT_TOKEN = '8070906629:AAEzR7a9k7nxIBTof8lfz7o5cRsMErJ3DEo';
-    const TELEGRAM_CHAT_ID = '-5229879106';
+    const TELEGRAM_CHAT_ID = [
+    '-5229879106', //Перепечатки Линк
+    '-1003524405962' //Брак 
+];
     const TELEGRAM_API_URL = `https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendMessage`;
     
     // Селекторы элементов на странице
