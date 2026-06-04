@@ -11,7 +11,7 @@
     
     // Параметры модификации дат
     const DAYS_TO_ADD = 0;              // Количество дней для прибавления (0 = не прибавлять)
-    const DEBUG_MODE = true;           // Включить отладочный вывод в консоль
+    const DEBUG_MODE = false;           // Включить отладочный вывод в консоль
     
     // 🔥 Уникальный префикс для изоляции
     const UNIQUE_PREFIX = config?.uniquePrefix || 'date-modifier-';
