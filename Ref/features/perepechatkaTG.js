@@ -1,4 +1,4 @@
-// brakReprintTelegramNotifier.js — модуль отправки уведомлений о перепечатке в Telegram
+// 123brakReprintTelegramNotifier.js — модуль отправки уведомлений о перепечатке в Telegram
 // Загружается динамически из config.json через Axiom Status Indicator
 // Возвращает API управления: { init, cleanup, toggle, isActive, sendNow }
 // ⚠️ ВСЕ НАСТРОЙКИ (селекторы, токены, chatId) — ВНУТРИ КОДА, не в конфиге!
@@ -29,6 +29,7 @@
         brakComment: '#BrakComment',
         brakDepartment: '#BrakDepartmentId_chosen > a > span',
         brakAuthor: '#BrakAuthorId_chosen > a > span',
+        userName: 'body > ul > div > li.topmenu-li.ax-topmenu-user > a', // 🔥 НОВЫЙ: имя пользователя
         // Кнопки-триггеры (массив селекторов)
         triggerButtons: [
             '#workWithFilesBtn',
@@ -89,7 +90,8 @@
             { key: 'brakOriginalId', selector: SELECTORS.brakOriginalId },
             { key: 'brakComment', selector: SELECTORS.brakComment },
             { key: 'brakDepartment', selector: SELECTORS.brakDepartment },
-            { key: 'brakAuthor', selector: SELECTORS.brakAuthor }
+            { key: 'brakAuthor', selector: SELECTORS.brakAuthor },
+            { key: 'userName', selector: SELECTORS.userName } // 🔥 НОВОЕ: проверка имени пользователя
         ];
         
         for (const field of requiredFields) {
@@ -109,6 +111,7 @@
     // ─────────────────────────────────────────────
     function formatMessage(data) {
         return `Запущена перепечатка! 
+Перепечатку запустил(а): ${data.userName}
 Номер перепечатки: ${data.productId}
 Перепечатывается заказ : ${data.originalId}
 Отдел: ${data.dept}
@@ -185,13 +188,14 @@
 
         isSending = true;
 
-        // 🔥 Сбор данных
+        // 🔥 Сбор данных (включая имя пользователя)
         const data = {
             productId: extractText(SELECTORS.productId),
             originalId: extractText(SELECTORS.brakOriginalId),
             comment: extractText(SELECTORS.brakComment),
             dept: extractText(SELECTORS.brakDepartment),
             author: extractText(SELECTORS.brakAuthor),
+            userName: extractText(SELECTORS.userName), // 🔥 НОВОЕ: имя пользователя
             sum: getReprintSum()
         };
 
@@ -201,6 +205,7 @@
             productId: data.productId, 
             originalId: data.originalId,
             dept: data.dept,
+            userName: data.userName,
             sum: data.sum,
             chats: TELEGRAM_CHAT_IDS
         });
