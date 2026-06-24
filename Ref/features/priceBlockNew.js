@@ -14,7 +14,7 @@
     // 🔥 Правила наценки (можно переопределить в конфиге)
     const PRICING_RULES = config?.pricingRules || {
         tiers: [
-            { min: 1, max: 50000, markup: 1.4, minPrice: 1500 },
+            { min: 1, max: 50000, markup: 1.4, minPrice: 3000 },
             { min: 50001, max: 100000, markup: 1.4 },
             { min: 100001, max: 150000, markup: 1.3 },
             { min: 150001, max: 300000, markup: 1.2 }
