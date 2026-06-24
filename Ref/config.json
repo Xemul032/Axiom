@@ -1,5 +1,5 @@
 {
-  "version": "2.7",
+  "version": "2.8",
   "enabled": true,
   "checkIntervalSec": 1800,
 
@@ -154,13 +154,13 @@
       "config": {}
     },   
       "priceBlock": {
-      "enabled": true,
+      "enabled": false,
       "url": "https://raw.githubusercontent.com/Xemul032/Axiom/refs/heads/main/Ref/features/priceBlock.js",
       "runAt": "document-idle",
       "config": {}
     },
           "priceBlockNew": {
-      "enabled": false,
+      "enabled": true,
       "url": "https://raw.githubusercontent.com/Xemul032/Axiom/refs/heads/main/Ref/features/priceBlockNew.js",
       "runAt": "document-idle",
       "config": {}
