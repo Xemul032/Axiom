@@ -21,6 +21,7 @@
     const STATUS_IMG_PATH = '/axiom/img/status/status-files.png';
     const ALLOWED_LABELS = [
         'Цифра (ТАСМА)',
+        'Цифра (Копицентр)',
         '⚡️МАЛЫЕ ТИРАЖИ ЦИФРА⚡️'
     ];
 
