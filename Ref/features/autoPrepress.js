@@ -202,7 +202,6 @@
         const orig = window[name];
         if (typeof orig !== 'function' || orig.__apHooked) return;
 
-        // 🔥 Сохраняем оригинал для восстановления при cleanup
         if (!originalWindowFunctions[name]) {
             originalWindowFunctions[name] = orig;
         }
@@ -221,7 +220,6 @@
         HOOK_FUNCTIONS.forEach(hook);
     }
 
-    // 🔥 Восстановление оригинальных функций window
     function unhookAll() {
         for (const name in originalWindowFunctions) {
             try {
@@ -273,6 +271,7 @@
     }
 
     function detectVidy(text) {
+        // ВАЖНО: \w в JS НЕ матчит кириллицу, поэтому основы слов добираем [а-яё]*
         const match = text.match(/(\d+)\s*вид[а-яё]*\s*по\s*(\d+)\s*шт/i);
         if (match) return { vidy: match[1], per_vid: match[2] };
         const ov = text.match(/(\d+)\s*вид[а-яё]*/i);
@@ -329,21 +328,132 @@
         return (r.fw || r.bleed != null || r.kpl != null) ? r : null;
     }
 
+    // ─────────────────────────────────────────────
+    // 🔥 НОВЫЕ ФУНКЦИИ ПАРСИНГА (из юзерскрипта v3.6)
+    // ─────────────────────────────────────────────
+
+    // ВСЕ строки «N вид по M шт., ШхВ» на странице по порядку — число видов И
+    // РАЗМЕР ИЗДЕЛИЯ (обрез) ПО КАЖДОМУ ордеру (многопродуктовый заказ).
+    function allVidy() {
+        const t = (document.body ? document.body.innerText : '') || '';
+        const re = /(\d+)\s*вид[а-яё]*\s*по\s*(\d+)\s*шт\.?\s*,?\s*(?:(\d+(?:[.,]\d+)?)\s*[xхXХ×*]\s*(\d+(?:[.,]\d+)?))?/ig;
+        const out = [];
+        let m;
+        while ((m = re.exec(t)) !== null) {
+            const e = { vidy: parseInt(m[1], 10), per_vid: parseInt(m[2], 10) };
+            if (m[3] && m[4]) {
+                e.tw = parseFloat(m[3].replace(',', '.'));
+                e.th = parseFloat(m[4].replace(',', '.'));
+            }
+            out.push(e);
+        }
+        return out;
+    }
+
+    // Извлечение grid из конкретной таблицы
+    function gridFromTable(tbl) {
+        const rows = tbl && tbl.rows;
+        if (!rows || rows.length === 0) return null;
+        const c0 = rows[0].cells.length;
+        if (c0 === 0) return null;
+        for (const row of rows) if (row.cells.length !== c0) return null;
+        return (c0 * rows.length >= 2) ? { cols: c0, rows: rows.length } : null;
+    }
+
+    // Поиск матрицы раскладки внутри конкретного корневого элемента (ордера)
+    function gridFromRoot(root) {
+        if (!root) return null;
+        for (const tbl of root.querySelectorAll('table.pages')) {
+            const g = gridFromTable(tbl);
+            if (g) return g;
+        }
+        return null;
+    }
+
+    // Сбор всех матриц раскладки со страницы с дедупликацией подряд идущих одинаковых
+    function allGrids() {
+        const raw = [];
+        for (const tbl of document.querySelectorAll('table.pages')) {
+            const g = gridFromTable(tbl);
+            if (g) raw.push(g);
+        }
+        // Дедупликация: 5×6,5×6,5×6,5×6,3×5 → 5×6,3×5
+        const out = [];
+        let prev = '';
+        for (const g of raw) {
+            const key = g.cols + 'x' + g.rows;
+            if (key !== prev) out.push(g);
+            prev = key;
+        }
+        return out;
+    }
+
+    // Заказ из НЕСКОЛЬКИХ ордеров: по блоку SchemaContent на ордер + свой печатный
+    // лист. Возвращает [] для одиночного заказа.
     function detectOrders() {
         const nodes = schemaNodes();
         if (nodes.length < 2) return [];
-        const sw = [...document.querySelectorAll('input.SheetWidth')].map(e => parseFloat(String(e.value || '').replace(',', '.')));
-        const sh = [...document.querySelectorAll('input.SheetHeight')].map(e => parseFloat(String(e.value || '').replace(',', '.')));
+
+        const sw = [...document.querySelectorAll('input.SheetWidth')]
+            .map(e => parseFloat(String(e.value || '').replace(',', '.')));
+        const sh = [...document.querySelectorAll('input.SheetHeight')]
+            .map(e => parseFloat(String(e.value || '').replace(',', '.')));
         const cols = allColors();
-        return nodes.map((node, i) => {
+        const grids = allGrids();
+        const commonGrid = detectGrid();
+
+        const arr = nodes.map((node, i) => {
             const r = parseSchemaNode(node);
             const o = {};
-            if (r.fw) o.fw = r.fw; if (r.fh) o.fh = r.fh;
-            if (r.bleed != null) o.bleed = r.bleed; if (r.kpl != null) o.kpl = r.kpl;
+            if (r.fw) o.fw = r.fw;
+            if (r.fh) o.fh = r.fh;
+            if (r.bleed != null) o.bleed = r.bleed;
+            if (r.kpl != null) o.kpl = r.kpl;
             if (cols[i]) o.colors = cols[i];
             if (sw[i] > 0 && sh[i] > 0) { o.sw = sw[i]; o.sh = sh[i]; }
+
+            const g = gridFromRoot(node.closest('.formblock'))
+                   || ((grids.length === nodes.length) ? grids[i] : commonGrid);
+            if (g) { o.grid_cols = g.cols; o.grid_rows = g.rows; }
             return o;
         });
+
+        // ЧИСЛО ВИДОВ ПО КАЖДОМУ ОРДЕРУ — КОНСЕРВАТИВНО
+        const bodyVidy = allVidy();
+        const cleanMatch = bodyVidy.length === arr.length;
+        const diag = [];
+
+        arr.forEach((o, i) => {
+            let v = detectVidy(nodes[i].textContent || ''), src = v ? 'node' : null;
+            if (!v && cleanMatch) { v = bodyVidy[i]; src = 'body'; }
+            if (v && v.vidy) {
+                o.vidy = parseInt(v.vidy, 10);
+                if (v.per_vid) o.per_vid = parseInt(v.per_vid, 10);
+            }
+            // РАЗМЕР ИЗДЕЛИЯ (обрез) по ордеру
+            if (cleanMatch && bodyVidy[i].tw > 0 && bodyVidy[i].th > 0) {
+                o.tw = bodyVidy[i].tw;
+                o.th = bodyVidy[i].th;
+            }
+            diag.push({
+                i,
+                vidy: o.vidy || null,
+                tw: o.tw || null,
+                th: o.th || null,
+                grid: (o.grid_cols && o.grid_rows) ? (o.grid_cols + '×' + o.grid_rows) : null,
+                src,
+                nodeText: (nodes[i].textContent || '').replace(/\s+/g, ' ').trim().slice(0, 220)
+            });
+        });
+
+        log('ДИАГНОСТИКА видов по ордерам:', {
+            orders: arr.length,
+            bodyVidyCount: bodyVidy.length,
+            bodyVidy: bodyVidy,
+            perOrder: diag
+        });
+
+        return arr;
     }
 
     function detectTrim() {
@@ -352,20 +462,12 @@
         return m ? { tw: parseFloat(m[1].replace(',', '.')), th: parseFloat(m[2].replace(',', '.')) } : null;
     }
 
+    // Матрица раскладки — использует allGrids() и проверяет на идентичность
     function detectGrid() {
-        const sizes = new Set();
-        for (const tbl of document.querySelectorAll('table.pages')) {
-            const rows = tbl.rows;
-            if (!rows || rows.length === 0) continue;
-            const c0 = rows[0].cells.length; if (c0 === 0) continue;
-            let regular = true;
-            for (const row of rows) if (row.cells.length !== c0) { regular = false; break; }
-            if (!regular) continue;
-            if (c0 * rows.length >= 2) sizes.add(c0 + 'x' + rows.length);
-        }
+        const grids = allGrids();
+        const sizes = new Set(grids.map(g => g.cols + 'x' + g.rows));
         if (sizes.size !== 1) return null;
-        const [cols, rows] = [...sizes][0].split('x').map(Number);
-        return { cols, rows };
+        return grids[0] || null;
     }
 
     // ─────────────────────────────────────────────
@@ -611,7 +713,7 @@
     }
 
     // ─────────────────────────────────────────────
-    // 🔥 Открытие инструмента препресса
+    // 🔥 Открытие инструмента препресса (с обновлёнными логами)
     // ─────────────────────────────────────────────
     function openTool() {
         const order = detectOrder();
@@ -645,20 +747,25 @@
         const grid = detectGrid();
         if (grid) { payload.grid_cols = grid.cols; payload.grid_rows = grid.rows; }
 
+        // 🔥 НОВЫЕ ЛОГИ: grid и количество ордеров
+        log('grid:', grid ? (grid.cols + '×' + grid.rows) : 'не определён (расходится/нет) — сервер посчитает сам');
+
         const orders = detectOrders();
         if (orders.length >= 2) payload.orders = orders;
 
+        log('ордеров:', orders.length >= 2 ? orders.length : 1,
+            orders.length >= 2 ? orders : '(одиночный — плоские поля)');
+
         log('отправляю JSON в', TOOL_URL + '/api/job_info', payload);
 
-        // 🔥 Используем GM.xmlhttpRequest из переданного объекта
         if (GM?.xmlhttpRequest) {
             try {
                 GM.xmlhttpRequest({
                     method: 'POST', url: TOOL_URL + '/api/job_info',
                     headers: { 'Content-Type': 'application/json; charset=utf-8' },
                     data: JSON.stringify(payload),
-                    onload: (r) => log('JSON сохранён:', r.status),
-                    onerror: (e) => warn('POST ошибка:', e)
+                    onload: (r) => log('JSON сохранён, ответ сервера:', r.status, r.responseText),
+                    onerror: (e) => warn('POST ошибка (проверь разрешение GM_xmlhttpRequest / @connect):', e)
                 });
             } catch (e) { warn('GM.xmlhttpRequest недоступен:', e); }
         } else {
@@ -740,14 +847,11 @@
 
         log(`🚀 Модуль инициализирован (v${AP_VER})`);
 
-        // 🔥 Перехват функций window
         hookAll();
         hookInterval = setInterval(hookAll, 2000);
 
-        // 🔥 Запуск наблюдателя за #ProductId
         setupProductIdObserver();
 
-        // 🔥 Периодическое размещение кнопки
         placeButton();
         placeButtonInterval = setInterval(placeButton, 1500);
     }
@@ -758,7 +862,6 @@
 
         log('🧹 Модуль очищен');
 
-        // 🔥 Очистка таймеров
         if (placeButtonInterval) {
             clearInterval(placeButtonInterval);
             placeButtonInterval = null;
@@ -770,33 +873,27 @@
         clearTimeout(parseDebounceTimer);
         parseDebounceTimer = null;
 
-        // 🔥 Отключение наблюдателя за #ProductId
         if (productIdObserver) {
             productIdObserver.disconnect();
             productIdObserver = null;
         }
 
-        // 🔥 Восстановление оригинальных функций window
         unhookAll();
 
-        // 🔥 Удаление кнопки
         const existingBtn = document.getElementById(`${UNIQUE_PREFIX}btn`);
         if (existingBtn) existingBtn.remove();
 
-        // 🔥 Удаление модального окна
         if (modalOverlay && modalOverlay.parentNode) {
             modalOverlay.parentNode.removeChild(modalOverlay);
             modalOverlay = null;
             modalFrame = null;
         }
 
-        // 🔥 Удаление стилей
         const styleEl = document.getElementById(`${UNIQUE_PREFIX}modal-styles`);
         if (styleEl && styleEl.parentNode) {
             styleEl.parentNode.removeChild(styleEl);
         }
 
-        // 🔥 Сброс состояния
         lastParsedOrderId = null;
         if (window.__apOrder) delete window.__apOrder;
     }
@@ -809,14 +906,12 @@
         return active;
     }
 
-    // 🔥 Публичный метод для принудительного размещения кнопки
     function refresh() {
         if (active) {
             placeButton();
         }
     }
 
-    // 🔥 Авто-запуск
     if (config?.autoInit !== false) {
         if (document.readyState === 'loading') {
             document.addEventListener('DOMContentLoaded', init);
@@ -825,14 +920,13 @@
         }
     }
 
-    // 🔥 Экспорт API
     return {
         init,
         cleanup,
         toggle,
         isActive,
         refresh,
-        openTool // Для внешнего вызова открытия инструмента
+        openTool
     };
 
 })(config, GM, utils, api);
