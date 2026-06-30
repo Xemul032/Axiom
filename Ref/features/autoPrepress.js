@@ -1,7 +1,7 @@
-// autoPrepress.js — модуль кнопки «Автопрепресс» для Аксиомы
+// autoPrepress1.js — модуль кнопки «Автопрепресс» для Аксиомы
 // Загружается динамически из config.json через Axiom Status Indicator
 // Возвращает API управления: { init, cleanup, toggle, isActive, openTool }
-// ⚠️ ВСЕ НАСТРОЙКИ (URL, селекторы, условия) — ВНУТРИ КОДА, не в конфиге!
+// ⚠️ ВСЕ НАСТРОЙКИ (URL, селекторы) — ВНУТРИ КОДА, не в конфиге!
 // 🔥 РАБОТАЕТ ПОЛНОСТЬЮ В ФОНЕ — БЕЗ ВИЗУАЛЬНЫХ УВЕДОМЛЕНИЙ
 
 (function(config, GM, utils, api) {
@@ -11,19 +11,14 @@
 
     // URL инструмента препресса
     const TOOL_URL = 'http://192.168.1.61:5000';
-    const AP_VER = '3.13';
+    const AP_VER = '3.8';
 
     // 🔥 Уникальный префикс для изоляции стилей и ID
     const UNIQUE_PREFIX = config?.uniquePrefix || 'auto-prepress-';
 
-    // Условия появления кнопки
-    const ALLOWED_POSTPRESS = 'Резка на гильотине стопой (50 х 60 мм и больше)';
+    // 🔥 ЕДИНСТВЕННОЕ УСЛОВИЕ показа кнопки — статус изображения
+    const STATUS_IMG_SELECTOR = '#Top > form > div > div > div > span:nth-child(2) > span.StatusIcon > img';
     const STATUS_IMG_PATH = '/axiom/img/status/status-files.png';
-    const ALLOWED_LABELS = [
-        'Цифра (ТАСМА)',
-        'Цифра (Копицентр)',
-        '⚡️МАЛЫЕ ТИРАЖИ ЦИФРА⚡️'
-    ];
 
     // Функции, которые перехватываются для определения номера заказа
     const HOOK_FUNCTIONS = ['ProductForm', 'ShowForm', 'OrderEdit'];
@@ -41,6 +36,9 @@
     let placeButtonInterval = null;
     let hookInterval = null;
     let lastParsedOrderId = null;
+
+    // 🔥 Кэш объекта Product (сбрасывается при смене заказа)
+    let _apProdCache = undefined;
 
     // 🔥 Сохраняем оригинальные функции window для восстановления при cleanup
     const originalWindowFunctions = {};
@@ -208,7 +206,13 @@
 
         const wrapped = function (id) {
             if (id !== undefined && id !== null && /^\d+$/.test(String(id))) {
-                window.__apOrder = String(id);
+                const sid = String(id);
+                if (window.__apOrder !== sid) {
+                    // 🔥 Аксиома переключает заказы без перезагрузки страницы —
+                    // сбрасываем кэш Product при смене номера заказа
+                    window.__apOrder = sid;
+                    _apProdCache = undefined;
+                }
             }
             return orig.apply(this, arguments);
         };
@@ -271,11 +275,26 @@
     }
 
     function detectVidy(text) {
-        // ВАЖНО: \w в JS НЕ матчит кириллицу, поэтому основы слов добираем [а-яё]*
         const match = text.match(/(\d+)\s*вид[а-яё]*\s*по\s*(\d+)\s*шт/i);
         if (match) return { vidy: match[1], per_vid: match[2] };
         const ov = text.match(/(\d+)\s*вид[а-яё]*/i);
         return ov ? { vidy: ov[1] } : null;
+    }
+
+    function allVidy() {
+        const t = (document.body ? document.body.innerText : '') || '';
+        const re = /(\d+)\s*вид[а-яё]*\s*по\s*(\d+)\s*шт\.?\s*,?\s*(?:(\d+(?:[.,]\d+)?)\s*[xхXХ×*]\s*(\d+(?:[.,]\d+)?))?/ig;
+        const out = [];
+        let m;
+        while ((m = re.exec(t)) !== null) {
+            const e = { vidy: parseInt(m[1], 10), per_vid: parseInt(m[2], 10) };
+            if (m[3] && m[4]) {
+                e.tw = parseFloat(m[3].replace(',', '.'));
+                e.th = parseFloat(m[4].replace(',', '.'));
+            }
+            out.push(e);
+        }
+        return out;
     }
 
     function detectBleed(text) {
@@ -329,67 +348,91 @@
     }
 
     // ─────────────────────────────────────────────
-    // 🔥 НОВЫЕ ФУНКЦИИ ПАРСИНГА (из юзерскрипта v3.6)
+    // 🔥 НОВЫЕ ФУНКЦИИ ПАРСИНГА (из юзерскрипта v3.8)
     // ─────────────────────────────────────────────
 
-    // ВСЕ строки «N вид по M шт., ШхВ» на странице по порядку — число видов И
-    // РАЗМЕР ИЗДЕЛИЯ (обрез) ПО КАЖДОМУ ордеру (многопродуктовый заказ).
-    function allVidy() {
-        const t = (document.body ? document.body.innerText : '') || '';
-        const re = /(\d+)\s*вид[а-яё]*\s*по\s*(\d+)\s*шт\.?\s*,?\s*(?:(\d+(?:[.,]\d+)?)\s*[xхXХ×*]\s*(\d+(?:[.,]\d+)?))?/ig;
-        const out = [];
-        let m;
-        while ((m = re.exec(t)) !== null) {
-            const e = { vidy: parseInt(m[1], 10), per_vid: parseInt(m[2], 10) };
-            if (m[3] && m[4]) {
-                e.tw = parseFloat(m[3].replace(',', '.'));
-                e.th = parseFloat(m[4].replace(',', '.'));
+    // Чтение объекта Product из инлайн-скрипта страницы
+    function readProduct() {
+        if (_apProdCache !== undefined) return _apProdCache;
+        _apProdCache = null;
+        try {
+            const w = (typeof unsafeWindow !== 'undefined') ? unsafeWindow : window;
+            if (w && w.Product && w.Product.Orders) { _apProdCache = w.Product; return _apProdCache; }
+        } catch (e) {}
+        try {
+            for (const s of document.querySelectorAll('script')) {
+                const t = s.textContent || '';
+                const i = t.indexOf('Product = {');
+                if (i < 0) continue;
+                let depth = 0, start = t.indexOf('{', i), end = -1;
+                for (let j = start; j < t.length; j++) {
+                    const ch = t[j];
+                    if (ch === '{') depth++;
+                    else if (ch === '}') { depth--; if (depth === 0) { end = j; break; } }
+                }
+                if (end < 0) continue;
+                const lit = t.slice(start, end + 1);
+                _apProdCache = (new Function('return (' + lit + ')'))();
+                if (_apProdCache && _apProdCache.Orders) return _apProdCache;
             }
-            out.push(e);
-        }
-        return out;
+        } catch (e) { warn('не разобрал Product из скрипта:', e); }
+        return _apProdCache;
     }
 
-    // Извлечение grid из конкретной таблицы
-    function gridFromTable(tbl) {
-        const rows = tbl && tbl.rows;
-        if (!rows || rows.length === 0) return null;
-        const c0 = rows[0].cells.length;
-        if (c0 === 0) return null;
-        for (const row of rows) if (row.cells.length !== c0) return null;
-        return (c0 * rows.length >= 2) ? { cols: c0, rows: rows.length } : null;
+    // Извлечение OrderId из id="SchemaContent<OrderId>"
+    function orderIdOfNode(node) {
+        const m = (node && node.id || '').match(/SchemaContent(\d+)/);
+        return m ? m[1] : null;
     }
 
-    // Поиск матрицы раскладки внутри конкретного корневого элемента (ордера)
-    function gridFromRoot(root) {
-        if (!root) return null;
-        for (const tbl of root.querySelectorAll('table.pages')) {
-            const g = gridFromTable(tbl);
-            if (g) return g;
+    // «Инфо» под НАЗВАНИЕМ заказа (уровень заказа, не ордера)
+    function productInfo() {
+        const div = document.querySelector('input.ProductName + div.form-control');
+        if (!div) return null;
+        const t = (div.textContent || '').replace(/\s+/g, ' ').trim();
+        return t || null;
+    }
+
+    // Техпроцесс ордера = цветной лейбл в области своей кнопки схемы
+    function techLabelFor(orderId) {
+        const btn = document.getElementById('SchemaButton' + orderId);
+        const scope = btn && (btn.closest('h4, nobr, td') || btn.parentElement);
+        if (!scope) return null;
+        for (const el of scope.querySelectorAll('span.label[style]')) {
+            if (el.id && /^SchemaButton/.test(el.id)) continue;
+            if (/background-color/i.test(el.getAttribute('style') || '')) {
+                const t = (el.textContent || '').replace(/\s+/g, ' ').trim();
+                if (t) return t;
+            }
         }
         return null;
     }
 
-    // Сбор всех матриц раскладки со страницы с дедупликацией подряд идущих одинаковых
-    function allGrids() {
-        const raw = [];
-        for (const tbl of document.querySelectorAll('table.pages')) {
-            const g = gridFromTable(tbl);
-            if (g) raw.push(g);
-        }
-        // Дедупликация: 5×6,5×6,5×6,5×6,3×5 → 5×6,3×5
+    // Постпечатные операции ордера с комментариями
+    function postpressOpsFor(orderId) {
         const out = [];
-        let prev = '';
-        for (const g of raw) {
-            const key = g.cols + 'x' + g.rows;
-            if (key !== prev) out.push(g);
-            prev = key;
+        for (const tr of document.querySelectorAll('.Order' + orderId + ' tr[class*="PostpressPrice"]')) {
+            const name = ((tr.querySelector('td') || {}).textContent || '').replace(/\s+/g, ' ').trim();
+            const params = ((tr.querySelector('td.Instruction') || {}).textContent || '').replace(/\s+/g, ' ').trim();
+            if (name) out.push(params ? { name, params } : { name });
         }
         return out;
     }
 
-    // Заказ из НЕСКОЛЬКИХ ордеров: по блоку SchemaContent на ордер + свой печатный
-    // лист. Возвращает [] для одиночного заказа.
+    // Все доп. поля по ордеру в один объект
+    function orderExtras(orderId, prod) {
+        const o = {};
+        if (!orderId) return o;
+        const po = prod && prod.Orders && prod.Orders[orderId];
+        if (po && po.Postpress) o.postpress = String(po.Postpress).trim();
+        const tech = techLabelFor(orderId);
+        if (tech) o.tech = tech;
+        const ops = postpressOpsFor(orderId);
+        if (ops.length) o.postpress_ops = ops;
+        return o;
+    }
+
+    // Заказ из НЕСКОЛЬКИХ ордеров (с джойном по OrderId)
     function detectOrders() {
         const nodes = schemaNodes();
         if (nodes.length < 2) return [];
@@ -401,6 +444,7 @@
         const cols = allColors();
         const grids = allGrids();
         const commonGrid = detectGrid();
+        const prod = readProduct();
 
         const arr = nodes.map((node, i) => {
             const r = parseSchemaNode(node);
@@ -415,10 +459,12 @@
             const g = gridFromRoot(node.closest('.formblock'))
                    || ((grids.length === nodes.length) ? grids[i] : commonGrid);
             if (g) { o.grid_cols = g.cols; o.grid_rows = g.rows; }
+
+            // 🔥 доп. данные по ордеру — джойн по OrderId
+            Object.assign(o, orderExtras(orderIdOfNode(node), prod));
             return o;
         });
 
-        // ЧИСЛО ВИДОВ ПО КАЖДОМУ ОРДЕРУ — КОНСЕРВАТИВНО
         const bodyVidy = allVidy();
         const cleanMatch = bodyVidy.length === arr.length;
         const diag = [];
@@ -430,7 +476,6 @@
                 o.vidy = parseInt(v.vidy, 10);
                 if (v.per_vid) o.per_vid = parseInt(v.per_vid, 10);
             }
-            // РАЗМЕР ИЗДЕЛИЯ (обрез) по ордеру
             if (cleanMatch && bodyVidy[i].tw > 0 && bodyVidy[i].th > 0) {
                 o.tw = bodyVidy[i].tw;
                 o.th = bodyVidy[i].th;
@@ -470,211 +515,57 @@
         return grids[0] || null;
     }
 
-    // ─────────────────────────────────────────────
-    // 🔥 Парсинг постпечаток, тиража и тиражей по ордерам
-    // ─────────────────────────────────────────────
-    function parseGlobalPostpress() {
-        const globalOps = [];
-        const orderBlocks = Array.from(document.querySelectorAll('.formblock')).filter(b => b.className.match(/Order\d+/) && b.offsetParent !== null);
-        if (!orderBlocks.length) return globalOps;
-        let next = orderBlocks[orderBlocks.length - 1].nextElementSibling;
-        while (next) {
-            const table = next.tagName === 'TABLE' ? next : next.querySelector('table.table-condensed');
-            if (table) {
-                table.querySelectorAll('tr[class^="PostpressPrice"]').forEach(row => {
-                    const b = row.querySelector('b');
-                    if (b) { const v = clean(b.textContent); if (v && !globalOps.includes(v)) globalOps.push(v); }
-                });
-                if (globalOps.length) break;
-            }
-            next = next.nextElementSibling;
+    function gridFromRoot(root) {
+        if (!root) return null;
+        for (const tbl of root.querySelectorAll('table.pages')) {
+            const g = gridFromTable(tbl);
+            if (g) return g;
         }
-        return globalOps;
+        return null;
     }
 
-    function parseLocalPostpress() {
-        const orders = [];
-        document.querySelectorAll('.formblock').forEach(block => {
-            const match = block.className.match(/Order(\d+)/);
-            if (!match || block.offsetParent === null) return;
-            const orderId = match[1];
-            const nameEl = block.querySelector('.OrderName');
-            const orderName = nameEl ? (nameEl.value || clean(nameEl.textContent)) : 'Без названия';
-            const localPP = [];
-            block.querySelectorAll('table.table-condensed tr[class^="PostpressPrice"], table.inner tr[class^="PostpressPrice"]').forEach(row => {
-                const b = row.querySelector('b');
-                if (b) { const v = clean(b.textContent); if (v) localPP.push(v); }
-            });
-            orders.push({ id: orderId, name: orderName, postpress: localPP });
-        });
-        return orders;
+    function gridFromTable(tbl) {
+        const rows = tbl && tbl.rows;
+        if (!rows || rows.length === 0) return null;
+        const c0 = rows[0].cells.length;
+        if (c0 === 0) return null;
+        for (const row of rows) if (row.cells.length !== c0) return null;
+        return (c0 * rows.length >= 2) ? { cols: c0, rows: rows.length } : null;
     }
 
-    function parseTirazh() {
-        const el = document.querySelector('#Tirazh');
-        if (!el) return null;
-        const num = parseInt(String(el.value || el.textContent).replace(/\s/g, ''), 10);
-        return isNaN(num) ? null : num;
-    }
-
-    function parseOrderSums() {
-        const orderSums = [];
-        document.querySelectorAll('.formblock').forEach(block => {
-            const match = block.className.match(/Order(\d+)/);
-            if (!match || block.offsetParent === null) return;
-
-            const orderId = match[1];
-            const nameEl = block.querySelector('.OrderName');
-            const orderName = nameEl ? (nameEl.value || clean(nameEl.textContent)) : 'Без названия';
-
-            let sum = null;
-            let vidy = null;
-            let perVid = null;
-
-            const h4s = block.querySelectorAll('h4');
-            for (const h4 of h4s) {
-                const text = clean(h4.textContent);
-                const m = text.match(/(\d+)\s*вид[а-яё]*\s*по\s*(\d+)\s*шт/i);
-                if (m) {
-                    vidy = parseInt(m[1], 10);
-                    perVid = parseInt(m[2], 10);
-                    sum = vidy * perVid;
-                    break;
-                }
-                const m2 = text.match(/(\d+)\s*шт/i);
-                if (m2) {
-                    vidy = 1;
-                    perVid = parseInt(m2[1], 10);
-                    sum = perVid;
-                    break;
-                }
-            }
-
-            orderSums.push({ id: orderId, name: orderName, sum, vidy, perVid });
-        });
-        return orderSums;
+    function allGrids() {
+        const raw = [];
+        for (const tbl of document.querySelectorAll('table.pages')) {
+            const g = gridFromTable(tbl);
+            if (g) raw.push(g);
+        }
+        // Дедупликация: 5×6,5×6,5×6,5×6,3×5 → 5×6,3×5
+        const out = [];
+        let prev = '';
+        for (const g of raw) {
+            const key = g.cols + 'x' + g.rows;
+            if (key !== prev) out.push(g);
+            prev = key;
+        }
+        return out;
     }
 
     // ─────────────────────────────────────────────
-    // 🔥 Проверка условий появления кнопки
+    // 🔥 УПРОЩЁННАЯ проверка условий показа кнопки
     // ─────────────────────────────────────────────
-    function getOrderLabel(block) {
-        const h4 = block.querySelector('h4');
-        if (!h4) return null;
-        const span = h4.querySelector('span.label');
-        if (!span) return null;
-        return clean(span.textContent);
-    }
-
     function checkConditions() {
-        const results = {
-            c1_localPostpress: { passed: false, detail: '' },
-            c2_globalPostpress: { passed: false, detail: '' },
-            c3_tirazhMatch: { passed: false, detail: '' },
-            c4_statusIcon: { passed: false, detail: '' },
-            c5_orderLabel: { passed: false, detail: '' },
-            allPassed: false
-        };
-
-        const tirazh = parseTirazh();
-        const orderSums = parseOrderSums();
-        const globalPP = parseGlobalPostpress();
-        const localPP = parseLocalPostpress();
-        const totalByOrders = orderSums.reduce((sum, o) => sum + (o.sum || 0), 0);
-
-        const orderBlocks = Array.from(document.querySelectorAll('.formblock'))
-            .filter(b => b.className.match(/Order\d+/) && b.offsetParent !== null);
-
-        let c1Passed = true;
-        let c1Detail = '';
-        if (localPP.length === 0) {
-            c1Passed = false;
-            c1Detail = 'Локальные постпечатки не найдены';
-        } else {
-            const badOrders = [];
-            for (const order of localPP) {
-                if (order.postpress.length === 0) continue;
-                const hasOnlyAllowed = order.postpress.length === 1 && order.postpress[0] === ALLOWED_POSTPRESS;
-                if (!hasOnlyAllowed) {
-                    badOrders.push(`#${order.id} "${order.name}": [${order.postpress.join(', ')}]`);
-                }
-            }
-            if (badOrders.length > 0) {
-                c1Passed = false;
-                c1Detail = `Запрещённые постпечатки: ${badOrders.join('; ')}`;
-            } else {
-                c1Passed = true;
-                c1Detail = 'Все ордеры: только резка или пусто';
-            }
-        }
-        results.c1_localPostpress = { passed: c1Passed, detail: c1Detail };
-
-        const c2Passed = globalPP.length === 0;
-        results.c2_globalPostpress = {
-            passed: c2Passed,
-            detail: c2Passed ? 'Глобальные постпечатки отсутствуют' : `Найдены: [${globalPP.join(', ')}]`
-        };
-
-        let c3Passed = false;
-        let c3Detail = '';
-        if (tirazh === null) {
-            c3Detail = 'Тираж (#Tirazh) не найден';
-        } else if (orderSums.length === 0) {
-            c3Detail = 'Ордеры не найдены';
-        } else {
-            c3Passed = tirazh === totalByOrders;
-            c3Detail = `Тираж=${tirazh}, сумма по ордерам=${totalByOrders}`;
-        }
-        results.c3_tirazhMatch = { passed: c3Passed, detail: c3Detail };
-
-        const statusImg = document.querySelector('#Top > form > div > div > div > span:nth-child(2) > span.StatusIcon > img');
-        let c4Passed = false;
-        let c4Detail = '';
+        const statusImg = document.querySelector(STATUS_IMG_SELECTOR);
         if (!statusImg) {
-            c4Detail = 'Элемент статуса не найден в DOM';
-        } else {
-            const src = statusImg.getAttribute('src') || '';
-            c4Passed = src.includes(STATUS_IMG_PATH);
-            c4Detail = c4Passed ? `Статус OK (${src})` : `Статус не тот: ${src || '(пусто)'}`;
+            return { allPassed: false, detail: 'Элемент статуса не найден в DOM' };
         }
-        results.c4_statusIcon = { passed: c4Passed, detail: c4Detail };
 
-        let c5Passed = false;
-        let c5Detail = '';
-        if (orderBlocks.length === 0) {
-            c5Detail = 'Ордеры (.formblock.Order*) не найдены';
-        } else {
-            const badLabels = [];
-            const goodLabels = [];
-            for (const block of orderBlocks) {
-                const match = block.className.match(/Order(\d+)/);
-                const orderId = match ? match[1] : '?';
-                const nameEl = block.querySelector('.OrderName');
-                const orderName = nameEl ? (nameEl.value || clean(nameEl.textContent)) : 'Без названия';
+        const src = statusImg.getAttribute('src') || '';
+        const passed = src.includes(STATUS_IMG_PATH);
 
-                const label = getOrderLabel(block);
-                if (!label) {
-                    badLabels.push(`#${orderId} "${orderName}": span.label не найден`);
-                } else if (!ALLOWED_LABELS.includes(label)) {
-                    badLabels.push(`#${orderId} "${orderName}": "${label}"`);
-                } else {
-                    goodLabels.push(`#${orderId} "${orderName}": "${label}"`);
-                }
-            }
-
-            if (badLabels.length > 0) {
-                c5Passed = false;
-                c5Detail = `Несоответствие: ${badLabels.join('; ')}`;
-            } else {
-                c5Passed = true;
-                c5Detail = `Все ордеры OK: ${goodLabels.map(l => l.split(': ')[1]).join(', ')}`;
-            }
-        }
-        results.c5_orderLabel = { passed: c5Passed, detail: c5Detail };
-
-        results.allPassed = c1Passed && c2Passed && c3Passed && c4Passed && c5Passed;
-
-        return results;
+        return {
+            allPassed: passed,
+            detail: passed ? `Статус OK (${src})` : `Статус не тот: ${src || '(пусто)'}`
+        };
     }
 
     // ─────────────────────────────────────────────
@@ -713,7 +604,7 @@
     }
 
     // ─────────────────────────────────────────────
-    // 🔥 Открытие инструмента препресса (с обновлёнными логами)
+    // 🔥 Открытие инструмента препресса (с расширенным payload)
     // ─────────────────────────────────────────────
     function openTool() {
         const order = detectOrder();
@@ -747,7 +638,6 @@
         const grid = detectGrid();
         if (grid) { payload.grid_cols = grid.cols; payload.grid_rows = grid.rows; }
 
-        // 🔥 НОВЫЕ ЛОГИ: grid и количество ордеров
         log('grid:', grid ? (grid.cols + '×' + grid.rows) : 'не определён (расходится/нет) — сервер посчитает сам');
 
         const orders = detectOrders();
@@ -755,6 +645,36 @@
 
         log('ордеров:', orders.length >= 2 ? orders.length : 1,
             orders.length >= 2 ? orders : '(одиночный — плоские поля)');
+
+        // 🔥 ДОП. ДАННЫЕ ЗАКАЗА (из объекта Product + DOM)
+        const prod = readProduct();
+        if (prod) {
+            if (prod.Tirazh != null && !isNaN(parseInt(prod.Tirazh, 10)))
+                payload.tirazh = parseInt(prod.Tirazh, 10);
+            if (prod.Postpress) payload.postpress_common = String(prod.Postpress).trim();
+        }
+        const pinfo = productInfo();
+        if (pinfo) payload.info = pinfo;
+
+        // Для одиночного заказа доп. данные кладём плоско в payload
+        if (orders.length < 2) {
+            const fnode = (schemaNodes()[0]) || null;
+            let oid = fnode ? orderIdOfNode(fnode) : null;
+            if (!oid && prod && prod.Orders) {
+                const k = Object.keys(prod.Orders);
+                if (k.length === 1) oid = k[0];
+            }
+            Object.assign(payload, orderExtras(oid, prod));
+        }
+
+        log('доп. данные:', {
+            tirazh: payload.tirazh,
+            postpress_common: payload.postpress_common,
+            info: payload.info,
+            postpress: payload.postpress,
+            tech: payload.tech,
+            postpress_ops: payload.postpress_ops
+        });
 
         log('отправляю JSON в', TOOL_URL + '/api/job_info', payload);
 
@@ -773,16 +693,18 @@
         }
 
         let url = `${TOOL_URL}/?order=${order}`;
-        ['sw','sh','fw','fh','tw','th','vidy','per_vid','bleed','kpl','grid_cols','grid_rows'].forEach(k => {
+        const NUM = ['sw', 'sh', 'fw', 'fh', 'tw', 'th', 'vidy', 'per_vid', 'bleed', 'kpl',
+                     'grid_cols', 'grid_rows', 'tirazh'];
+        for (const k of NUM) {
             if (payload[k] != null) url += `&${k}=${encodeURIComponent(payload[k])}`;
-        });
+        }
         if (payload.colors) url += `&colors=${encodeURIComponent(payload.colors)}`;
         url += '&from_info=1';
         openModal(url);
     }
 
     // ─────────────────────────────────────────────
-    // 🔥 Кнопка (с проверкой условий)
+    // 🔥 Кнопка (с упрощённой проверкой условий)
     // ─────────────────────────────────────────────
     function findUploadAnchor() {
         for (const el of document.querySelectorAll('h1,h2,h3,h4,h5,legend,label,th,td,div,span,b,strong,p,a')) {
@@ -811,12 +733,13 @@
 
         const box = head.closest('form') || head.parentElement;
 
+        // 🔥 УПРОЩЁННАЯ ПРОВЕРКА — только statusIcon
         const conditions = checkConditions();
 
         if (!conditions.allPassed) {
             if (existing) {
                 existing.remove();
-                log('🔴 Кнопка скрыта (условия не выполнены)');
+                log('🔴 Кнопка скрыта:', conditions.detail);
             }
             return;
         }
@@ -835,7 +758,7 @@
 
         b.onclick = (e) => { e.preventDefault(); e.stopPropagation(); openTool(); };
         box.insertAdjacentElement('beforebegin', b);
-        log('🟢 Кнопка показана (все условия выполнены)');
+        log('🟢 Кнопка показана:', conditions.detail);
     }
 
     // ─────────────────────────────────────────────
@@ -895,6 +818,7 @@
         }
 
         lastParsedOrderId = null;
+        _apProdCache = undefined;
         if (window.__apOrder) delete window.__apOrder;
     }
 
