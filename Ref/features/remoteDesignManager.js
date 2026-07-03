@@ -13,7 +13,7 @@
     
     const SELECTORS = {
         productId: config?.selectors?.productId || '#ProductId',
-        userName: config?.selectors?.userName || 'body > ul > div > li:nth-child(1) > a.topmenu-a',
+        userName: config?.selectors?.userName || 'body > ul > div > li.topmenu-li.ax-topmenu-user > a',
         productName: config?.selectors?.productName || '#Top > form > div > div > div > input.ProductName.form-control',
         designList: config?.selectors?.designList || '#DesignList',
         designIdChosen: config?.selectors?.designIdChosen || '#DesignId_chosen > div > ul',
