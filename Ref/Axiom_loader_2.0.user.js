@@ -1,7 +1,11 @@
 // ==UserScript==
 // @name         Axiom_loader_2.0
 // @namespace    http://tampermonkey.net/
+<<<<<<< Updated upstream
 // @version      4.5
+=======
+// @version      4.2
+>>>>>>> Stashed changes
 // @updateURL    https://github.com/Xemul032/Axiom/raw/refs/heads/main/Ref/Axiom_loader_2.0.user.js
 // @downloadURL  https://github.com/Xemul032/Axiom/raw/refs/heads/main/Ref/Axiom_loader_2.0.user.js
 // @match        https://cplink.simprint.pro/*
