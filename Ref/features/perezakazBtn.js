@@ -317,7 +317,7 @@
     // ─────────────────────────────────────────────
     function handleButtonClick() {
         const textFromDoc = getText("#Doc > div.form-group > div > div > span:nth-child(1)");
-        const menuItemText = getText("body > ul > div > li:nth-child(1) > a");
+        const menuItemText = getText("body > ul > div > li.topmenu-li.ax-topmenu-user > a");
         const contractorText = getText("#Contractor_chosen > a > span");
 
         if (!textFromDoc || !menuItemText || !contractorText) {
