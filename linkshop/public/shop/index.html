@@ -1,0 +1,135 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>LinkShop — Магазин</title>
+  <link rel="stylesheet" href="shop.css">
+</head>
+<body>
+
+<div id="errorScreen" class="center-screen hidden">
+  <div class="msg-box">
+    <div class="icon">⚠️</div>
+    <h2 id="errorTitle">Ошибка</h2>
+    <p id="errorText">Неизвестная ошибка</p>
+  </div>
+</div>
+
+<div id="loadingScreen" class="center-screen">
+  <div class="spinner"></div>
+  <p>Загрузка...</p>
+</div>
+
+<!-- PIN экран -->
+<div id="pinScreen" class="center-screen hidden">
+  <div class="pin-box">
+    <div class="pin-logo">
+      <img src="https://raw.githubusercontent.com/Xemul032/AmoCRM/refs/heads/main/link_logo_wt.svg" alt="Линк Маркет" style="width:48px;height:48px;filter:invert(34%) sepia(97%) saturate(1200%) hue-rotate(178deg) brightness(96%) contrast(101%)">
+      Линк Маркет
+    </div>
+    <p class="pin-hint">Введите ваш 4-значный PIN-код</p>
+    <div class="pin-inputs" id="pinInputs">
+      <input class="pin-digit" type="text" maxlength="1" inputmode="numeric" pattern="[0-9]">
+      <input class="pin-digit" type="text" maxlength="1" inputmode="numeric" pattern="[0-9]">
+      <input class="pin-digit" type="text" maxlength="1" inputmode="numeric" pattern="[0-9]">
+      <input class="pin-digit" type="text" maxlength="1" inputmode="numeric" pattern="[0-9]">
+    </div>
+    <div id="pinError" class="pin-error"></div>
+  </div>
+</div>
+
+<div id="shopApp" class="hidden">
+
+  <header class="shop-header">
+    <div class="user-left">
+      <span id="userName" class="user-name"></span>
+      <span class="dept-badge" id="userDept"></span>
+    </div>
+    <div class="header-right">
+      <a id="salaryBtn" class="salary-btn hidden" href="#" target="_blank" rel="noopener" aria-label="Папка с зарплатой">
+        ₽
+      </a>
+      <div class="balance-pill">
+        <span>💰</span>
+        <span id="userBalance">0</span>
+      </div>
+      <button class="orders-btn" id="ordersBtn" onclick="toggleOrders()" aria-label="Мои заказы">
+        <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24">
+          <path fill="currentColor" d="M14.692 5.694c.368-.205.365-.469-.009-.664C13.367 4.343 12.708 4 12 4s-1.367.343-2.683 1.03l-2 1.044c-1.614.842-2.42 1.263-2.869 2.02C4 8.85 4 9.79 4 11.673v1.652c0 1.883 0 2.824.448 3.58s1.255 1.178 2.869 2.02l2 1.044C10.633 20.657 11.292 21 12 21s1.367-.343 2.683-1.03l2-1.044c1.614-.842 2.42-1.263 2.869-2.02.448-.756.448-1.697.448-3.58v-1.652c0-1.883 0-2.824-.448-3.58-.329-.556-.851-.93-1.744-1.423-.367-.203-.389-.204-.763.004L11 10c-.344.19-.739.394-.91.77-.09.197-.09.375-.09.73V14a1 1 0 0 1-2 0v-4a1 1 0 0 1 .514-.874z"/>
+        </svg>
+        <span class="orders-badge hidden" id="ordersBadge"></span>
+      </button>
+      <button class="bell-btn" id="bellBtn" onclick="toggleNotifications()" aria-label="Уведомления">
+        <svg class="bell-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/>
+          <path d="M13.73 21a2 2 0 0 1-3.46 0"/>
+        </svg>
+        <span class="bell-badge hidden" id="bellBadge"></span>
+      </button>
+    </div>
+  </header>
+
+  <!-- Панель уведомлений -->
+  <div id="notifPanel" class="notif-panel hidden">
+    <div class="notif-header">
+      <span class="notif-title">История баланса</span>
+      <button class="notif-close" onclick="closeNotifications()" aria-label="Закрыть">✕</button>
+    </div>
+    <div id="notifList" class="notif-list">
+      <div class="notif-empty">Загрузка...</div>
+    </div>
+    <div id="notifFooter" class="notif-footer hidden">
+      <button class="notif-load-more" id="notifLoadMore" onclick="loadMoreNotifications()">Загрузить следующие записи</button>
+    </div>
+  </div>
+  <div id="notifOverlay" class="notif-overlay hidden" onclick="closeNotifications()"></div>
+
+  <!-- Панель заказов -->
+  <div id="ordersPanel" class="notif-panel hidden">
+    <div class="notif-header">
+      <span class="notif-title">Мои заказы</span>
+      <button class="notif-close" onclick="closeOrders()" aria-label="Закрыть">✕</button>
+    </div>
+    <div id="ordersList" class="notif-list">
+      <div class="notif-empty">Загрузка...</div>
+    </div>
+  </div>
+  <div id="ordersOverlay" class="notif-overlay hidden" onclick="closeOrders()"></div>
+
+  <main class="shop-main">
+    <div id="shopNotice" class="notice hidden"></div>
+    <div id="productsGrid" class="products-grid"></div>
+    <div id="emptyState" class="empty-state hidden">
+      <p>😔 Товаров пока нет</p>
+    </div>
+  </main>
+
+  <!-- Модалка подтверждения покупки -->
+  <div id="buyModal" class="modal-overlay hidden">
+    <div class="modal">
+      <h3>Подтвердить покупку</h3>
+      <img id="modalImg" src="" alt="">
+      <p class="modal-name" id="modalName"></p>
+      <p class="modal-price">Стоимость: <b id="modalPrice"></b></p>
+      <p class="modal-balance">Ваш баланс: <b id="modalBalance"></b></p>
+      <p class="modal-after">После покупки: <b id="modalAfter"></b></p>
+      <div id="modalUserTextField" class="hidden">
+        <textarea id="modalUserText" class="modal-user-text"
+          placeholder="" rows="3" maxlength="500"></textarea>
+      </div>
+      <div class="modal-actions">
+        <button onclick="confirmBuy()">Купить</button>
+        <button class="btn-cancel" onclick="closeModal()">Отмена</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Тост-уведомление -->
+  <div id="toast" class="toast hidden"></div>
+
+</div>
+
+<script src="shop.js"></script>
+</body>
+</html>
