@@ -1,0 +1,21 @@
+# Зависимости
+node_modules/
+
+# База данных (содержит пользовательские данные)
+data/
+
+# Логи
+*.log
+npm-debug.log*
+
+# Переменные окружения
+.env
+.env.local
+
+# OS
+.DS_Store
+Thumbs.db
+
+# IDE
+.vscode/
+.idea/
