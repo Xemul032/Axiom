@@ -1,4 +1,4 @@
-//Версия1
+//Версия2
 
 (function(config, GM, utils) {
     'use strict';
@@ -11,7 +11,7 @@
     const PAY_ICON_SRC = '/axiom/img/payschema/payschema-1.png';
     const SUMMARY_TABLE_SELECTOR = '#Summary > table > tbody > tr > td:nth-child(2) > table > tbody > tr.TimeFilesInfo > td.right > button';
     const PRODUCT_ID_SELECTOR = '#ProductId';
-    const USERNAME_SELECTOR = 'body > ul > div > li:nth-child(1) > a';
+    const USERNAME_SELECTOR = 'body > ul > div > li.topmenu-li.ax-topmenu-user > a';
     const WORK_WITH_FILES_BTN_SELECTOR = '#workWithFilesBtn';
     const LOADING_INDICATOR_SELECTOR = '#DocLoadingIndicator';
 
