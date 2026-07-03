@@ -1,4 +1,4 @@
-// autoPrepress1.js — модуль кнопки «Автопрепресс» для Аксиомы
+// autoPrepress2.js — модуль кнопки «Автопрепресс» для Аксиомы
 // Загружается динамически из config.json через Axiom Status Indicator
 // Возвращает API управления: { init, cleanup, toggle, isActive, openTool }
 // ⚠️ ВСЕ НАСТРОЙКИ (URL, селекторы) — ВНУТРИ КОДА, не в конфиге!
@@ -11,7 +11,7 @@
 
     // URL инструмента препресса
     const TOOL_URL = 'http://192.168.1.61:5000';
-    const AP_VER = '3.8';
+    const AP_VER = '4.2';
 
     // 🔥 Уникальный префикс для изоляции стилей и ID
     const UNIQUE_PREFIX = config?.uniquePrefix || 'auto-prepress-';
@@ -37,7 +37,7 @@
     let hookInterval = null;
     let lastParsedOrderId = null;
 
-    // 🔥 Кэш объекта Product (сбрасывается при смене заказа)
+    // 🔥 Кэш объекта Product (сбрасывается при смене заказа и при каждом клике)
     let _apProdCache = undefined;
 
     // 🔥 Сохраняем оригинальные функции window для восстановления при cleanup
@@ -348,34 +348,70 @@
     }
 
     // ─────────────────────────────────────────────
-    // 🔥 НОВЫЕ ФУНКЦИИ ПАРСИНГА (из юзерскрипта v3.8)
+    // 🔥 🔥 НОВЫЕ ФУНКЦИИ ПАРСИНГА (из юзерскрипта v4.2)
     // ─────────────────────────────────────────────
 
-    // Чтение объекта Product из инлайн-скрипта страницы
-    function readProduct() {
-        if (_apProdCache !== undefined) return _apProdCache;
-        _apProdCache = null;
+    // 🔥 ВСЕ кандидаты Product на странице: живой window.Product + КАЖДОЕ
+    // вхождение «Product = {…}» в инлайн-скриптах. SPA-Аксиома копит скрипты
+    // старых форм в DOM — «первый попавшийся» приносил Product ПРЕДЫДУЩЕГО
+    // заказа (стейл-алерты 745014/745813/761157). Порядок = порядок в DOM.
+    function _productCandidates() {
+        const out = [];
         try {
             const w = (typeof unsafeWindow !== 'undefined') ? unsafeWindow : window;
-            if (w && w.Product && w.Product.Orders) { _apProdCache = w.Product; return _apProdCache; }
+            if (w && w.Product && w.Product.Orders) out.push({ src: 'live', prod: w.Product });
         } catch (e) {}
         try {
             for (const s of document.querySelectorAll('script')) {
                 const t = s.textContent || '';
-                const i = t.indexOf('Product = {');
-                if (i < 0) continue;
-                let depth = 0, start = t.indexOf('{', i), end = -1;
-                for (let j = start; j < t.length; j++) {
-                    const ch = t[j];
-                    if (ch === '{') depth++;
-                    else if (ch === '}') { depth--; if (depth === 0) { end = j; break; } }
+                let i = t.indexOf('Product = {');
+                while (i >= 0) {
+                    let depth = 0, start = t.indexOf('{', i), end = -1;
+                    for (let j = start; j < t.length; j++) {
+                        const ch = t[j];
+                        if (ch === '{') depth++;
+                        else if (ch === '}') { depth--; if (depth === 0) { end = j; break; } }
+                    }
+                    if (end < 0) break;
+                    try {
+                        const p = (new Function('return (' + t.slice(start, end + 1) + ')'))();
+                        if (p && p.Orders) out.push({ src: 'script', prod: p });
+                    } catch (e) {}
+                    i = t.indexOf('Product = {', end + 1);
                 }
-                if (end < 0) continue;
-                const lit = t.slice(start, end + 1);
-                _apProdCache = (new Function('return (' + lit + ')'))();
-                if (_apProdCache && _apProdCache.Orders) return _apProdCache;
             }
-        } catch (e) { warn('не разобрал Product из скрипта:', e); }
+        } catch (e) { warn('не разобрал Product из скриптов:', e); }
+        return out;
+    }
+
+    // 🔥 ID всех ВИДИМЫХ кнопок схем (SchemaButton<OrderId>) — используются
+    // для проверки согласованности Product с текущей формой.
+    function _visibleBtnIds() {
+        return [...document.querySelectorAll('[id^="SchemaButton"]')]
+            .filter(el => el.offsetParent !== null)
+            .map(el => (el.id.match(/^SchemaButton(\d+)$/) || [])[1])
+            .filter(Boolean);
+    }
+
+    // 🔥 Чтение Product с САМОВОССТАНОВЛЕНИЕМ (v4.2): выбираем кандидата,
+    // согласованного с текущей формой (его ордера пересекаются с видимыми
+    // кнопками схем). Согласованных несколько → последний по DOM (новее).
+    // Ни одного → как раньше (первый) — тогда отправку остановит стейл-гард.
+    function readProduct() {
+        if (_apProdCache !== undefined) return _apProdCache;
+        const cands = _productCandidates();
+        const btnIds = _visibleBtnIds();
+        const fits = p => Object.keys(p.Orders || {}).some(id => btnIds.includes(String(id)));
+        let pick = null;
+        if (btnIds.length) {
+            const ok = cands.filter(c => fits(c.prod));
+            if (ok.length) pick = ok[ok.length - 1];
+        }
+        if (!pick && cands.length) pick = cands[0];
+        _apProdCache = pick ? pick.prod : null;
+        log('Product: кандидатов', cands.length,
+            '| выбран:', pick ? pick.src : 'нет',
+            '| согласован с формой:', !!(pick && btnIds.length && fits(pick.prod)));
         return _apProdCache;
     }
 
@@ -408,15 +444,97 @@
         return null;
     }
 
+    // 🔥 Хелпер: парсинг одной строки постпечатных операций
+    function _ppRow(tr) {
+        const name = ((tr.querySelector('td') || {}).textContent || '').replace(/\s+/g, ' ').trim();
+        const params = ((tr.querySelector('td.Instruction') || {}).textContent || '').replace(/\s+/g, ' ').trim();
+        return name ? (params ? { name, params } : { name }) : null;
+    }
+
     // Постпечатные операции ордера с комментариями
     function postpressOpsFor(orderId) {
         const out = [];
         for (const tr of document.querySelectorAll('.Order' + orderId + ' tr[class*="PostpressPrice"]')) {
-            const name = ((tr.querySelector('td') || {}).textContent || '').replace(/\s+/g, ' ').trim();
-            const params = ((tr.querySelector('td.Instruction') || {}).textContent || '').replace(/\s+/g, ' ').trim();
-            if (name) out.push(params ? { name, params } : { name });
+            const row = _ppRow(tr);
+            if (row) out.push(row);
         }
         return out;
+    }
+
+    // 🔥 НОВАЯ (v3.9): проверка, находится ли элемент внутри блока .Order<N>
+    function _inOrderBlock(el) {
+        for (let n = el; n; n = n.parentElement) {
+            if (n.classList) {
+                for (const c of n.classList) if (/^Order\d+$/.test(c)) return true;
+            }
+        }
+        return false;
+    }
+
+    // 🔥 НОВАЯ (v3.9): ОБЩИЕ постпечатные операции заказа (блок ПОД ордерами) —
+    // строки PostpressPrice ВНЕ блоков .Order<OrderId>. До v3.9 они уходили
+    // только нераспарсенной строкой Product.Postpress (postpress_common), и
+    // Фаза C сверяла их эвристикой вычёркивания; структурный список даёт
+    // точную сверку (дыра заказа 385906: «Скрепка (Автомат/Полуавтомат)»
+    // была общей операцией).
+    function postpressOpsCommon() {
+        const out = [];
+        for (const tr of document.querySelectorAll('tr[class*="PostpressPrice"]')) {
+            if (_inOrderBlock(tr)) continue;
+            const row = _ppRow(tr);
+            if (row) out.push(row);
+        }
+        return out;
+    }
+
+    // 🔥 НОВАЯ (v3.9): бейдж «Повтор заказа №N» — Аксиома сама помечает
+    // повторные заказы в шапке. Считываем номер СТАРОГО заказа, чтобы окно
+    // сервиса предзаполнило поле «Повтор заказа». Берём только видимые узлы.
+    function detectRepeatOf() {
+        for (const el of document.querySelectorAll('span, div, label, b, small, td')) {
+            if (el.children.length) continue;
+            if (el.offsetParent === null) continue;
+            const m = (el.textContent || '').match(/Повтор\s+заказа\s*№?\s*(\d{4,})/i);
+            if (m) return m[1];
+        }
+        return null;
+    }
+
+    // 🔥 НОВАЯ (v3.9): ГАРД ОТ СТЕЙЛА. Аксиома — SPA и при переключении заказов
+    // иногда оставляет в DOM данные ПРЕДЫДУЩЕГО (попапы схем SchemaContent,
+    // объект Product) — тогда геометрия чужого заказа уходила под текущим
+    // номером, и «Листовая А3» смонтировалась визитками. Проверка: ордера,
+    // на которые ссылаются попапы схем и Product, должны существовать среди
+    // ВИДИМЫХ кнопок SchemaButton текущей формы. Расхождение = стейл.
+    function staleReason() {
+        // ПРОВЕРКА НОМЕРА (v4.0, кейс 386557): __apOrder приходит из перехвата
+        // SPA-вызова и обновляется МГНОВЕННО, а barcode — часть DOM формы и
+        // меняется только при её перерисовке. Расходятся → форма целиком от
+        // СТАРОГО заказа (проверка попапов ниже такое не ловит — старые
+        // попапы согласуются со старыми кнопками формы).
+        if (window.__apOrder) {
+            const bcs = [...document.querySelectorAll('img[src*="barcode.php?code="]')];
+            const bc = bcs.find(el => el.offsetParent !== null) || bcs[0];
+            const m = bc && bc.src.match(/code=0*([1-9]\d{4,})/);
+            if (m && m[1] !== String(window.__apOrder))
+                return 'форма показывает заказ ' + m[1] + ', а открыт ' + window.__apOrder;
+        }
+        const btnIds = [...document.querySelectorAll('[id^="SchemaButton"]')]
+            .filter(el => el.offsetParent !== null)
+            .map(el => (el.id.match(/^SchemaButton(\d+)$/) || [])[1])
+            .filter(Boolean);
+        if (!btnIds.length) return null;
+        // критерий КОНСЕРВАТИВНЫЙ (ложный блок хуже пропуска — сервер прикрывает
+        // предохранителем по бланку): стейл = НИ ОДНОГО общего ордера с формой.
+        const overlap = ids => ids.some(id => btnIds.includes(id));
+        const schemaIds = schemaNodes().map(orderIdOfNode).filter(Boolean);
+        if (schemaIds.length && !overlap(schemaIds))
+            return 'схемы ордеров ' + schemaIds.join(',') + ' не из этой формы (' + btnIds.join(',') + ')';
+        const prod = readProduct();
+        const prodIds = (prod && prod.Orders) ? Object.keys(prod.Orders).map(String) : [];
+        if (prodIds.length && !overlap(prodIds))
+            return 'объект Product от ордеров ' + prodIds.join(',') + ' не из этой формы (' + btnIds.join(',') + ')';
+        return null;
     }
 
     // Все доп. поля по ордеру в один объект
@@ -604,7 +722,8 @@
     }
 
     // ─────────────────────────────────────────────
-    // 🔥 Открытие инструмента препресса (с расширенным payload)
+    // 🔥 🔥 ОБНОВЛЕНА (v4.2): открытие инструмента препресса с расширенным
+    // payload + стейл-гард + сброс кэша Product перед каждым кликом
     // ─────────────────────────────────────────────
     function openTool() {
         const order = detectOrder();
@@ -619,11 +738,36 @@
             return;
         }
 
+        // 🔥 каждый клик выбирает Product заново (страница могла перерисоваться
+        // после прошлого клика; выбор согласованного кандидата — в readProduct)
+        _apProdCache = undefined;
+
+        // 🔥 стейл-гард (v3.9, v4.0): данные другого заказа остались в DOM →
+        // ничего не шлём, менеджер обновляет страницу (серверный предохранитель
+        // по бланку Аксиомы прикрывает вторым эшелоном, но лучше не отправлять
+        // мусор вовсе)
+        const stale = staleReason();
+        if (stale) {
+            // техническая причина (внутренние ID ордеров) — только в лог,
+            // менеджеру они ни о чём не говорят
+            warn('СТЕЙЛ:', stale);
+            if (api?.showCenterMessage) {
+                api.showCenterMessage({
+                    message: 'Аксиома ещё показывает данные другого заказа.<br><br>Обновите страницу (F5) и нажмите кнопку ещё раз.',
+                    buttonText: 'ОК',
+                    duration: 5000
+                });
+            }
+            return;
+        }
+
         const text = getInfoText();
         const schema = readSchema();
         const sheet = detectSheet();
         const trim = detectTrim();
         const vid = detectVidy(text);
+        // вылет: приоритет — из попапа (точное значение Аксиомы).
+        // ВАЖНО: 0 — легитимное значение («Вылеты 0 мм» = монтаж встык, заказ 365275).
         const bleed = (schema && schema.bleed != null) ? schema.bleed : detectBleed(text);
 
         const payload = { order: String(order) };
@@ -646,13 +790,26 @@
         log('ордеров:', orders.length >= 2 ? orders.length : 1,
             orders.length >= 2 ? orders : '(одиночный — плоские поля)');
 
-        // 🔥 ДОП. ДАННЫЕ ЗАКАЗА (из объекта Product + DOM)
+        // 🔥 ДОП. ДАННЫЕ ЗАКАЗА (из объекта Product + DOM). Тираж и общая
+        // постпечать — уровень ЗАКАЗА (шлём всегда). Инфо/постпечать/техпроцесс
+        // ордера: для многоордерного они уже в orders[], для одиночного кладём
+        // плоско.
         const prod = readProduct();
         if (prod) {
             if (prod.Tirazh != null && !isNaN(parseInt(prod.Tirazh, 10)))
                 payload.tirazh = parseInt(prod.Tirazh, 10);
             if (prod.Postpress) payload.postpress_common = String(prod.Postpress).trim();
         }
+
+        // 🔥 ОБЩИЕ операции структурно (v3.9) — точная сверка Фазы C вместо
+        // эвристики вычёркивания
+        const commonOps = postpressOpsCommon();
+        if (commonOps.length) payload.postpress_common_ops = commonOps;
+
+        // 🔥 бейдж «Повтор заказа №N» → окно предзаполнит поле повтора (v3.9)
+        const repeatOf = detectRepeatOf();
+        if (repeatOf && repeatOf !== String(order)) payload.repeat_of = parseInt(repeatOf, 10);
+
         const pinfo = productInfo();
         if (pinfo) payload.info = pinfo;
 
@@ -670,6 +827,8 @@
         log('доп. данные:', {
             tirazh: payload.tirazh,
             postpress_common: payload.postpress_common,
+            postpress_common_ops: payload.postpress_common_ops,
+            repeat_of: payload.repeat_of,
             info: payload.info,
             postpress: payload.postpress,
             tech: payload.tech,
@@ -692,14 +851,23 @@
             warn('GM.xmlhttpRequest не передан в модуль');
         }
 
+        // URL-фолбэк: order + ЧИСЛОВЫЕ поля (client/name НЕ кладём — их
+        // безопасно несёт JSON; в URL кириллица/кавычки ломаются). Если JSON
+        // не сохранится — окно возьмёт лист/обрез/виды отсюда, без них прогон
+        // бы упал (нужен fw/fh).
         let url = `${TOOL_URL}/?order=${order}`;
         const NUM = ['sw', 'sh', 'fw', 'fh', 'tw', 'th', 'vidy', 'per_vid', 'bleed', 'kpl',
-                     'grid_cols', 'grid_rows', 'tirazh'];
+                     'grid_cols', 'grid_rows', 'tirazh', 'repeat_of'];
         for (const k of NUM) {
             if (payload[k] != null) url += `&${k}=${encodeURIComponent(payload[k])}`;
         }
+        // цветность («4+4»/«4+0») — encodeURIComponent, т.к. «+» в URL = пробел.
         if (payload.colors) url += `&colors=${encodeURIComponent(payload.colors)}`;
+        // shared_back («чужой оборот») НЕ шлём: исключён из контракта и из-за
+        // него 4+4 тихо уходил в 4+0 (заказ 384397). Оборотность теперь несёт
+        // colors.
         url += '&from_info=1';
+
         openModal(url);
     }
 
