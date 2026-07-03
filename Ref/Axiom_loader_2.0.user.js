@@ -1,7 +1,9 @@
 // ==UserScript==
 // @name         Axiom_loader_2.0
 // @namespace    http://tampermonkey.net/
-// @version      4.2
+// @version      4.5
+// @updateURL    https://github.com/Xemul032/Axiom/raw/refs/heads/main/Ref/Axiom_loader_2.0.user.js
+// @downloadURL  https://github.com/Xemul032/Axiom/raw/refs/heads/main/Ref/Axiom_loader_2.0.user.js
 // @match        https://cplink.simprint.pro/*
 // @icon         https://cplink.simprint.pro/axiom/img/icon/icon32.png
 // @grant        GM_xmlhttpRequest
@@ -10,6 +12,7 @@
 // @grant        GM_addStyle
 // @connect      raw.githubusercontent.com
 // @connect      script.google.com
+// @connect      api.telegram.org
 // @connect      *
 // @connect      sheets.googleapis.com
 // @connect      docs.google.com
