@@ -2,7 +2,7 @@
 // @name         Axiom_loader_2.0
 // @namespace    http://tampermonkey.net/
 <<<<<<< Updated upstream
-// @version      4.5
+// @version      4.6
 =======
 // @version      4.2
 >>>>>>> Stashed changes
@@ -42,7 +42,7 @@
     var CONFIG_URL = 'https://raw.githubusercontent.com/Xemul032/Axiom/refs/heads/main/Ref/config.json';
     var CACHE_KEY  = 'axiom_status_config_v3';
     var CONFIG_HASH_KEY = 'axiom_config_hash_v3';
-    var TARGET_SEL = 'body > ul > div > li:nth-child(2)';
+    var TARGET_SEL = 'body > ul > div > li:nth-child(3)';
     var TABLE_SEL = 'body > table';
     var DEFAULT_STATE = { enabled: true, checkIntervalSec: 1800 };
 
