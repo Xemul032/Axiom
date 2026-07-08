@@ -1,0 +1,523 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Монтаж — Админ-панель</title>
+  <link rel="stylesheet" href="admin.css">
+</head>
+<body>
+
+<!-- ── Логин ─────────────────────────────────────────────────────────────── -->
+<div id="loginScreen" class="login-screen">
+  <div class="login-card">
+    <div class="login-logo">🔧 Монтаж</div>
+    <h2>Вход в панель</h2>
+    <div class="field-group">
+      <input type="text"     id="loginUser" class="input" placeholder="Логин" autocomplete="username">
+    </div>
+    <div class="field-group">
+      <input type="password" id="loginPass" class="input" placeholder="Пароль" autocomplete="current-password">
+    </div>
+    <div id="loginError" class="error-msg" style="display:none"></div>
+    <button class="btn btn-primary w100" id="btnLogin">Войти</button>
+  </div>
+</div>
+
+<!-- ── Основной интерфейс ─────────────────────────────────────────────────── -->
+<div id="mainApp" style="display:none">
+  <aside class="sidebar">
+    <div class="sidebar-logo">🔧 Монтаж</div>
+    <nav class="sidebar-nav">
+      <a href="#" class="nav-item active" data-tab="calendar">📅 Календарь</a>
+      <a href="#" class="nav-item" data-tab="requests">📋 Заявки</a>
+      <a href="#" class="nav-item" data-tab="work-types">🛠 Виды работ</a>
+      <a href="#" class="nav-item" data-tab="limits">⚙️ Лимиты</a>
+      <a href="#" class="nav-item" data-tab="blocked">🚫 Блокировки</a>
+      <a href="#" class="nav-item" data-tab="settings">🔔 Telegram</a>
+      <a href="#" class="nav-item" data-tab="stats">📊 Статистика</a>
+      <a href="#" class="nav-item" data-tab="bot-users">👤 Пользователи бота</a>
+      <a href="#" class="nav-item nav-item-super" data-tab="admin-users" style="display:none">👥 Доступы</a>
+    </nav>
+    <button class="btn-logout" id="btnLogout">Выйти</button>
+  </aside>
+
+  <main class="main-content">
+
+    <!-- ── Календарь ──────────────────────────────────────────────────────── -->
+    <section id="tab-calendar" class="tab-content active">
+      <div class="page-header">
+        <h1>Календарь заявок</h1>
+        <div class="cal-nav">
+          <button class="btn btn-outline-sm" id="calPrev">◀</button>
+          <span id="calTitle" class="cal-title"></span>
+          <button class="btn btn-outline-sm" id="calNext">▶</button>
+        </div>
+      </div>
+      <div id="calGrid" class="cal-grid"></div>
+      <!-- Детальная панель дня -->
+      <div id="dayPanel" class="day-panel" style="display:none">
+        <div class="day-panel-header">
+          <span id="dayPanelTitle"></span>
+          <button class="btn btn-sm btn-danger" id="btnBlockDay">🚫 Закрыть день</button>
+          <button class="btn btn-sm btn-primary" id="btnUnblockDay" style="display:none">✅ Открыть день</button>
+          <button class="btn btn-sm btn-outline-sm" id="dayPanelClose">✕</button>
+        </div>
+        <div id="dayPanelList"></div>
+      </div>
+    </section>
+
+    <!-- ── Список заявок ───────────────────────────────────────────────────── -->
+    <section id="tab-requests" class="tab-content">
+      <div class="page-header">
+        <h1>Заявки</h1>
+        <button class="btn btn-primary btn-sm" id="btnCreateRequest">+ Создать заявку</button>
+        <div class="filters">
+          <input type="text"   id="filterSearch" class="input input-sm" placeholder="Поиск…">
+          <select id="filterStatus" class="input input-sm">
+            <option value="">Все статусы</option>
+            <option value="new">Новые</option>
+            <option value="in_progress">В работе</option>
+            <option value="done">Выполнены</option>
+            <option value="cancelled">Отменены</option>
+          </select>
+          <select id="filterType" class="input input-sm">
+            <option value="">Все типы</option>
+            <option value="montage">Монтаж</option>
+            <option value="measurement">Замер</option>
+          </select>
+          <input type="date" id="filterDate" class="input input-sm">
+          <button class="btn btn-primary btn-sm" id="btnFilterApply">Найти</button>
+          <button class="btn btn-outline-sm" id="btnFilterReset">Сбросить</button>
+        </div>
+      </div>
+      <div class="table-wrap">
+        <table class="data-table" id="requestsTable">
+          <thead>
+            <tr>
+              <th>#</th>
+              <th>Заказ</th>
+              <th>Менеджер</th>
+              <th>Тип</th>
+              <th>Дата</th>
+              <th>Место</th>
+              <th>Что монтируем</th>
+              <th>Статус</th>
+              <th>Действия</th>
+            </tr>
+          </thead>
+          <tbody id="requestsBody"></tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- ── Виды работ ──────────────────────────────────────────────────────── -->
+    <section id="tab-work-types" class="tab-content">
+      <div class="page-header">
+        <h1>Виды работ</h1>
+        <button class="btn btn-primary btn-sm" id="btnAddWorkType">+ Добавить</button>
+      </div>
+      <div class="table-wrap">
+        <table class="data-table">
+          <thead><tr><th>#</th><th>Название</th><th>Порядок</th><th>Активен</th><th>Действия</th></tr></thead>
+          <tbody id="workTypesBody"></tbody>
+        </table>
+      </div>
+      <!-- Форма добавления/редактирования -->
+      <div id="workTypeForm" class="card mt16" style="display:none">
+        <h3 id="workTypeFormTitle">Добавить вид работ</h3>
+        <div class="form-row">
+          <div class="field-group">
+            <label class="field-label">Название</label>
+            <input type="text" id="wtName" class="input" placeholder="Название вида работ">
+          </div>
+          <div class="field-group">
+            <label class="field-label">Порядок сортировки</label>
+            <input type="number" id="wtOrder" class="input" value="0" min="0">
+          </div>
+        </div>
+        <div class="btn-row">
+          <button class="btn btn-primary" id="btnSaveWorkType">Сохранить</button>
+          <button class="btn btn-outline-sm" id="btnCancelWorkType">Отмена</button>
+        </div>
+      </div>
+    </section>
+
+    <!-- ── Лимиты ──────────────────────────────────────────────────────────── -->
+    <section id="tab-limits" class="tab-content">
+      <div class="page-header"><h1>Лимиты и буферы</h1></div>
+      <div class="card">
+        <div class="form-grid-3">
+          <div class="field-group">
+            <label class="field-label">Монтажей в день</label>
+            <input type="number" id="limMontage" class="input" min="0">
+          </div>
+          <div class="field-group">
+            <label class="field-label">Замеров в день</label>
+            <input type="number" id="limMeasure" class="input" min="0">
+          </div>
+          <div class="field-group">
+            <label class="field-label">Всего заявок в день (сумма)</label>
+            <input type="number" id="limCombined" class="input" min="0">
+          </div>
+          <div class="field-group">
+            <label class="field-label">Буфер монтажа (дней)</label>
+            <p class="field-hint">Минимум дней от сегодня до монтажа</p>
+            <input type="number" id="bufMontage" class="input" min="0">
+          </div>
+          <div class="field-group">
+            <label class="field-label">Буфер замера (дней)</label>
+            <p class="field-hint">Минимум дней от сегодня до замера</p>
+            <input type="number" id="bufMeasure" class="input" min="0">
+          </div>
+        </div>
+        <div class="btn-row mt16">
+          <button class="btn btn-primary" id="btnSaveLimits">Сохранить</button>
+        </div>
+        <div id="limitsMsg" class="success-msg" style="display:none">✅ Сохранено</div>
+      </div>
+    </section>
+
+    <!-- ── Блокировки ──────────────────────────────────────────────────────── -->
+    <section id="tab-blocked" class="tab-content">
+      <div class="page-header"><h1>Заблокированные дни</h1></div>
+      <div class="card mb16">
+        <div class="form-row">
+          <div class="field-group">
+            <label class="field-label">Дата</label>
+            <input type="date" id="newBlockDate" class="input">
+          </div>
+          <div class="field-group" style="flex:2">
+            <label class="field-label">Причина (необязательно)</label>
+            <input type="text" id="newBlockReason" class="input" placeholder="Праздник, техработы…">
+          </div>
+          <div class="field-group" style="align-self:flex-end">
+            <button class="btn btn-danger btn-sm" id="btnAddBlock">Заблокировать</button>
+          </div>
+        </div>
+        <div id="blockMsg" class="error-msg" style="display:none"></div>
+      </div>
+      <div class="table-wrap">
+        <table class="data-table">
+          <thead><tr><th>Дата</th><th>Причина</th><th>Действие</th></tr></thead>
+          <tbody id="blockedBody"></tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- ── Настройки Telegram ─────────────────────────────────────────────── -->
+    <section id="tab-settings" class="tab-content">
+      <div class="page-header"><h1>Настройки Telegram</h1></div>
+
+      <!-- Основной бот (уведомления о заявках) -->
+      <div class="card mb16">
+        <h3 style="margin:0 0 12px;font-size:15px;color:#333">📢 Основной бот — уведомления о заявках</h3>
+        <div class="field-group">
+          <label class="field-label">Bot Token</label>
+          <input type="text" id="tgToken" class="input" placeholder="123456:ABC-DEF…">
+        </div>
+        <div class="field-group">
+          <label class="field-label">Chat ID (несколько — через запятую)</label>
+          <input type="text" id="tgChatIds" class="input" placeholder="-100123456, 987654321">
+          <p class="field-hint">Уведомления о новых и изменённых заявках будут приходить во все указанные чаты</p>
+        </div>
+        <div class="btn-row mt16">
+          <button class="btn btn-primary" id="btnSaveSettings">Сохранить</button>
+          <button class="btn btn-outline-sm" id="btnTestTg">Тест отправки</button>
+        </div>
+        <div id="settingsMsg" class="success-msg" style="display:none">✅ Сохранено</div>
+      </div>
+
+      <!-- Бот уведомлений монтажника (требует изменений) -->
+      <div class="card">
+        <h3 style="margin:0 0 12px;font-size:15px;color:#333">⚠️ Бот уведомлений монтажника — «Требует изменений»</h3>
+        <p class="field-hint" style="margin:0 0 12px">Этот бот отправляет сообщение в группу когда монтажник нажимает «Заявка требует изменений».<br>
+        Формат сообщения: <em>Заказ №{номер} {что монтируем} требует изменений! {комментарий}</em></p>
+        <div class="field-group">
+          <label class="field-label">Bot Token (второй бот)</label>
+          <input type="text" id="tgNotifyToken" class="input" placeholder="123456:XYZ…">
+        </div>
+        <div class="field-group">
+          <label class="field-label">Chat ID группы</label>
+          <input type="text" id="tgNotifyChatId" class="input" placeholder="-100987654321">
+          <p class="field-hint">Один Chat ID группы, куда будут приходить уведомления от монтажников</p>
+        </div>
+        <div class="btn-row mt16">
+          <button class="btn btn-primary" id="btnSaveNotifySettings">Сохранить</button>
+          <button class="btn btn-outline-sm" id="btnTestNotifyTg">Тест отправки</button>
+        </div>
+        <div id="notifySettingsMsg" class="success-msg" style="display:none">✅ Сохранено</div>
+      </div>
+    </section>
+
+    <!-- ── Статистика ─────────────────────────────────────────────────────── -->
+    <section id="tab-stats" class="tab-content">
+      <div class="page-header">
+        <h1>Статистика выездов</h1>
+      </div>
+
+      <!-- Фильтры -->
+      <div class="card mb16">
+        <div class="stats-filters">
+          <div class="field-group">
+            <label class="field-label">Период — с</label>
+            <input type="date" id="statsFrom" class="input">
+          </div>
+          <div class="field-group">
+            <label class="field-label">Период — по</label>
+            <input type="date" id="statsTo" class="input">
+          </div>
+          <div class="field-group">
+            <label class="field-label">Тип выезда</label>
+            <select id="statsType" class="input">
+              <option value="">Все (монтажи + замеры)</option>
+              <option value="montage">Только монтажи</option>
+              <option value="measurement">Только замеры</option>
+            </select>
+          </div>
+          <div class="stats-btns">
+            <button class="btn btn-primary" id="btnStatsLoad">Показать</button>
+            <button class="btn btn-outline-sm" id="btnStatsExcel">⬇ Excel</button>
+          </div>
+        </div>
+        <div id="statsError" class="error-msg mt16" style="display:none"></div>
+      </div>
+
+      <!-- Сводка -->
+      <div id="statsSummary" style="display:none">
+        <div class="stats-cards mb16">
+          <div class="stat-card">
+            <div class="stat-card-value" id="statTotal">0</div>
+            <div class="stat-card-label">Всего заявок</div>
+          </div>
+          <div class="stat-card stat-card-montage">
+            <div class="stat-card-value" id="statMontages">0</div>
+            <div class="stat-card-label">Монтажей</div>
+          </div>
+          <div class="stat-card stat-card-measure">
+            <div class="stat-card-value" id="statMeasures">0</div>
+            <div class="stat-card-label">Замеров</div>
+          </div>
+          <div class="stat-card stat-card-done">
+            <div class="stat-card-value" id="statDone">0</div>
+            <div class="stat-card-label">Выполнено</div>
+          </div>
+          <div class="stat-card stat-card-cancelled">
+            <div class="stat-card-value" id="statCancelled">0</div>
+            <div class="stat-card-label">Отменено</div>
+          </div>
+        </div>
+
+        <!-- Разбивка по видам работ -->
+        <div class="card mb16" id="statsWorkTypeCard">
+          <h3 class="stats-section-title">По видам работ</h3>
+          <div id="statsWorkTypeList" class="stats-bar-list"></div>
+        </div>
+
+        <!-- Таблица -->
+        <div class="table-wrap">
+          <table class="data-table" id="statsTable">
+            <thead>
+              <tr>
+                <th>#</th>
+                <th>Заказ</th>
+                <th>Менеджер</th>
+                <th>Тип</th>
+                <th>Дата</th>
+                <th>Место</th>
+                <th>Что монтируем</th>
+                <th>Адрес</th>
+                <th>Статус</th>
+              </tr>
+            </thead>
+            <tbody id="statsBody"></tbody>
+          </table>
+        </div>
+      </div>
+
+      <div id="statsEmpty" class="stats-empty" style="display:none">
+        📭 Нет данных за выбранный период
+      </div>
+    </section>
+
+    <!-- ── Пользователи бота ──────────────────────────────────────────────── -->
+    <section id="tab-bot-users" class="tab-content">
+      <div class="page-header">
+        <h1>Пользователи бота</h1>
+        <button class="btn btn-outline-sm" id="btnReloadBotUsers">🔄 Обновить</button>
+      </div>
+      <div class="table-wrap">
+        <table class="data-table">
+          <thead>
+            <tr>
+              <th>#</th>
+              <th>Имя</th>
+              <th>Chat ID</th>
+              <th>Дата регистрации</th>
+              <th>Действия</th>
+            </tr>
+          </thead>
+          <tbody id="botUsersBody"></tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- ── Управление администраторами (только суперадмин) ───────────────── -->
+    <section id="tab-admin-users" class="tab-content">
+      <div class="page-header">
+        <h1>Управление доступами</h1>
+        <button class="btn btn-primary btn-sm" id="btnAddAdminUser">+ Добавить пользователя</button>
+      </div>
+
+      <!-- Форма добавления/редактирования -->
+      <div id="adminUserForm" class="card mb16" style="display:none">
+        <h3 id="adminUserFormTitle">Новый пользователь</h3>
+        <div class="form-row">
+          <div class="field-group">
+            <label class="field-label">Логин</label>
+            <input type="text" id="auUsername" class="input" placeholder="Логин">
+          </div>
+          <div class="field-group">
+            <label class="field-label">Пароль</label>
+            <input type="text" id="auPassword" class="input" placeholder="Пароль">
+          </div>
+        </div>
+        <div class="field-group mt16">
+          <label class="field-label">Доступ к разделам</label>
+          <p class="field-hint" style="margin-bottom:10px">Отметьте разделы, которые будут доступны этому пользователю</p>
+          <div class="perm-grid">
+            <label class="perm-item"><input type="checkbox" class="perm-cb" value="calendar"> 📅 Календарь</label>
+            <label class="perm-item"><input type="checkbox" class="perm-cb" value="requests"> 📋 Заявки</label>
+            <label class="perm-item"><input type="checkbox" class="perm-cb" value="work-types"> 🛠 Виды работ</label>
+            <label class="perm-item"><input type="checkbox" class="perm-cb" value="limits"> ⚙️ Лимиты</label>
+            <label class="perm-item"><input type="checkbox" class="perm-cb" value="blocked"> 🚫 Блокировки</label>
+            <label class="perm-item"><input type="checkbox" class="perm-cb" value="settings"> 🔔 Telegram</label>
+            <label class="perm-item"><input type="checkbox" class="perm-cb" value="stats"> 📊 Статистика</label>
+            <label class="perm-item"><input type="checkbox" class="perm-cb" value="bot-users"> 👤 Пользователи бота</label>
+          </div>
+          <label class="perm-item perm-all mt8">
+            <input type="checkbox" id="auPermAll"> Полный доступ ко всем разделам
+          </label>
+        </div>
+        <div id="adminUserFormMsg" class="error-msg mt8" style="display:none"></div>
+        <div class="btn-row mt16">
+          <button class="btn btn-primary" id="btnSaveAdminUser">Сохранить</button>
+          <button class="btn btn-outline-sm" id="btnCancelAdminUser">Отмена</button>
+        </div>
+      </div>
+
+      <!-- Таблица пользователей -->
+      <div class="table-wrap">
+        <table class="data-table">
+          <thead>
+            <tr>
+              <th>#</th>
+              <th>Логин</th>
+              <th>Доступные разделы</th>
+              <th>Действия</th>
+            </tr>
+          </thead>
+          <tbody id="adminUsersBody"></tbody>
+        </table>
+      </div>
+    </section>
+
+  </main>
+</div>
+
+<!-- ── Модальное окно создания заявки (вручную) ──────────────────────────── -->
+<div id="createRequestOverlay" class="modal-overlay" style="display:none">
+  <div class="modal-dialog" style="max-width:580px">
+    <div class="modal-dialog-header">
+      <span>Создать заявку вручную</span>
+      <button class="btn-close-modal" id="createRequestClose">✕</button>
+    </div>
+    <div class="modal-dialog-body">
+      <div class="detail-grid">
+        <div class="detail-item">
+          <label class="field-label">Номер заказа</label>
+          <input type="text" id="crOrderNumber" class="input" placeholder="Например: 12345">
+        </div>
+        <div class="detail-item">
+          <label class="field-label">Менеджер / Имя</label>
+          <input type="text" id="crUserName" class="input" placeholder="ФИО менеджера">
+        </div>
+        <div class="detail-item">
+          <label class="field-label">Вид выезда <span style="color:red">*</span></label>
+          <select id="crVisitType" class="input">
+            <option value="montage">Монтаж</option>
+            <option value="measurement">Замер</option>
+          </select>
+        </div>
+        <div class="detail-item">
+          <label class="field-label">Дата <span style="color:red">*</span></label>
+          <input type="date" id="crVisitDate" class="input">
+        </div>
+        <div class="detail-item">
+          <label class="field-label">Место работ <span style="color:red">*</span></label>
+          <select id="crWorkPlace" class="input">
+            <option value="indoor">В помещении</option>
+            <option value="outdoor">На улице</option>
+          </select>
+        </div>
+        <div class="detail-item">
+          <label class="field-label">Что монтируем <span style="color:red">*</span></label>
+          <select id="crWorkType" class="input">
+            <option value="">— выберите —</option>
+          </select>
+        </div>
+        <div class="detail-item detail-full">
+          <label class="field-label">Адрес <span style="color:red">*</span></label>
+          <input type="text" id="crAddress" class="input" placeholder="Город, улица, дом">
+        </div>
+        <div class="detail-item detail-full">
+          <label class="field-label">Контакты <span style="color:red">*</span></label>
+          <input type="text" id="crContacts" class="input" placeholder="Телефон, имя">
+        </div>
+        <div class="detail-item detail-full">
+          <label class="field-label">Комментарий</label>
+          <textarea id="crComment" class="input" rows="3" placeholder="Дополнительная информация" style="resize:vertical"></textarea>
+        </div>
+        <div class="detail-item detail-full">
+          <label class="field-label">Статус</label>
+          <select id="crStatus" class="input">
+            <option value="new">Новая</option>
+            <option value="in_progress">В работе</option>
+          </select>
+          <p class="field-hint">При статусе «В работе» в Telegram-бот придёт уведомление о новой заявке</p>
+        </div>
+      </div>
+      <div id="createRequestError" class="error-msg mt8" style="display:none"></div>
+    </div>
+    <div class="modal-dialog-footer">
+      <button class="btn btn-primary btn-sm" id="btnCreateRequestSave">Создать заявку</button>
+      <button class="btn btn-outline-sm" id="btnCreateRequestCancel">Отмена</button>
+    </div>
+  </div>
+</div>
+
+<!-- ── Модальное окно просмотра заявки ───────────────────────────────────── -->
+<div id="modalOverlay" class="modal-overlay" style="display:none">
+  <div class="modal-dialog">
+    <div class="modal-dialog-header">
+      <span id="modalTitle">Заявка</span>
+      <button class="btn-close-modal" id="modalClose">✕</button>
+    </div>
+    <div id="modalBody" class="modal-dialog-body"></div>
+    <div class="modal-dialog-footer">
+      <select id="modalStatus" class="input input-sm" style="width:auto">
+        <option value="new">Новая</option>
+        <option value="in_progress">В работе</option>
+        <option value="done">Выполнена</option>
+        <option value="cancelled">Отменена</option>
+      </select>
+      <button class="btn btn-primary btn-sm" id="btnModalSaveStatus">Сохранить статус</button>
+      <button class="btn btn-danger btn-sm" id="btnModalDelete">Удалить</button>
+      <button class="btn btn-outline-sm" id="btnModalCancel">Закрыть</button>
+    </div>
+  </div>
+</div>
+
+<script src="admin.js"></script>
+</body>
+</html>

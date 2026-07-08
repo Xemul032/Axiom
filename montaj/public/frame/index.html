@@ -1,0 +1,208 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Заявка на монтаж</title>
+  <link rel="stylesheet" href="frame.css">
+</head>
+<body>
+  <div class="modal-wrap" id="app">
+
+    <div class="modal-header">
+      <span class="modal-title">Заявка на монтаж</span>
+      <div class="header-actions">
+        <button class="btn-close" id="btnClose" title="Закрыть">✕</button>
+      </div>
+    </div>
+
+    <!-- Шаг 1: форма заявки -->
+    <div id="stepForm">
+      <div class="modal-body two-col">
+
+        <!-- Левая колонка -->
+        <div class="col">
+          <div class="section-label">Основная информация</div>
+
+          <div class="field-group">
+            <label class="field-label">Вид выезда <span class="req">*</span></label>
+            <select id="visitType" class="input">
+              <option value="">Выберите…</option>
+              <option value="montage">Монтаж</option>
+              <option value="measurement">Замер</option>
+            </select>
+          </div>
+
+          <div class="field-group">
+            <label class="field-label">Дата <span class="req">*</span></label>
+            <!-- Скрытый input для хранения значения и валидации -->
+            <input type="hidden" id="visitDate">
+            <!-- Кастомный датапикер -->
+            <div class="datepicker-wrap" id="datepickerWrap">
+              <button type="button" class="datepicker-toggle input" id="datepickerToggle">
+                <span id="datepickerLabel">Выберите дату…</span>
+                <svg class="dp-chevron" width="10" height="6" viewBox="0 0 10 6"><path d="M0 0l5 6 5-6z" fill="#888"/></svg>
+              </button>
+              <div class="datepicker-popup" id="datepickerPopup" style="display:none">
+                <div class="dp-header">
+                  <button type="button" class="dp-nav" id="dpPrev">&#8249;</button>
+                  <span class="dp-month-label" id="dpMonthLabel"></span>
+                  <button type="button" class="dp-nav" id="dpNext">&#8250;</button>
+                </div>
+                <div class="dp-weekdays">
+                  <span>Пн</span><span>Вт</span><span>Ср</span>
+                  <span>Чт</span><span>Пт</span><span>Сб</span><span>Вс</span>
+                </div>
+                <div class="dp-grid" id="dpGrid"></div>
+                <div class="dp-legend">
+                  <span class="dp-legend-item"><span class="dp-dot dp-dot-avail"></span>Полностью свободно</span>
+                  <span class="dp-legend-item"><span class="dp-dot dp-dot-busy"></span>Недоступно</span>
+                  <span class="dp-legend-item"><span class="dp-dot dp-dot-my-req"></span>Имеются завявки</span>
+                </div>
+              </div>
+            </div>
+            <div class="hint" id="dateHint"></div>
+          </div>
+
+          <div class="field-group">
+            <label class="field-label">Тип работ <span class="req">*</span></label>
+            <select id="workPlace" class="input">
+              <option value="">Выберите…</option>
+              <option value="indoor">В помещении</option>
+              <option value="outdoor">На улице</option>
+            </select>
+          </div>
+        </div>
+
+        <!-- Правая колонка -->
+        <div class="col">
+          <div class="section-label">Дополнительно</div>
+
+          <div class="field-group">
+            <label class="field-label">Что монтируем? <span class="req">*</span></label>
+            <select id="workTypeSelect" class="input">
+              <option value="">Выберите…</option>
+            </select>
+            <input type="text" id="workTypeOther" class="input mt4" placeholder="Укажите вид работ…" style="display:none">
+          </div>
+
+          <div class="field-group">
+            <label class="field-label">Адрес <span class="req">*</span></label>
+            <input type="text" id="address" class="input" placeholder="">
+          </div>
+
+          <div class="field-group">
+            <label class="field-label">Контакты <span class="req">*</span></label>
+            <input type="text" id="contacts" class="input" placeholder="">
+          </div>
+
+          <div class="field-group">
+            <label class="field-label">Комментарий</label>
+            <textarea id="comment" class="input textarea" rows="3" placeholder=""></textarea>
+          </div>
+
+          <!-- Дропзона -->
+          <div class="field-group">
+            <div class="dropzone" id="dropzone">
+              <div class="dropzone-inner">
+                <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="#999" stroke-width="1.5"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+                <span>Перетащите файлы сюда</span>
+                <span class="dropzone-sub">или <label class="dropzone-link" for="fileInput">выберите файлы</label></span>
+              </div>
+              <input type="file" id="fileInput" multiple accept=".jpg,.jpeg,.png,.gif,.webp,.pdf,.doc,.docx,.xls,.xlsx,.zip,.rar" style="display:none">
+            </div>
+            <div id="fileList" class="file-list"></div>
+          </div>
+        </div>
+      </div>
+
+      <div id="formError" class="error-msg" style="display:none"></div>
+
+      <div class="modal-footer">
+        <button class="btn btn-success" id="btnSubmit">Отправить</button>
+        <button class="btn btn-danger"  id="btnCancel">Закрыть</button>
+      </div>
+    </div>
+
+    <!-- Шаг 2: дубликат — заявки по этому заказу уже существуют -->
+    <div id="stepDuplicate" style="display:none">
+      <div class="duplicate-screen">
+        <div class="duplicate-icon">⚠</div>
+        <div class="duplicate-title">Заказ уже внесён в график</div>
+        <p class="duplicate-sub">По заказу <strong id="dupOrderNumber"></strong> <span id="dupCountText"></span></p>
+
+        <!-- Список всех заявок — рендерится через JS -->
+        <div id="dupList" class="dup-list"></div>
+
+        <div class="dup-actions">
+          <button class="btn btn-danger"  id="btnDupClose">Закрыть</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Шаг 3: успех -->
+    <div id="stepSuccess" style="display:none">
+      <div class="success-screen">
+        <div class="success-icon">✓</div>
+        <div class="success-title">Заявка отправлена!</div>
+        <div class="success-sub" id="successText"></div>
+        <button class="btn btn-outline" id="btnEdit">Редактировать заявку</button>
+        <button class="btn btn-danger mt8" id="btnNewRequest" style="display:none">Новая заявка</button>
+      </div>
+    </div>
+
+    <!-- Шаг 4: редактирование (уведомление, сама форма — stepForm) -->
+    <div id="stepEdit" style="display:none">
+      <div class="edit-notice">
+        <span>Редактирование заявки <b id="editRequestId"></b></span>
+      </div>
+    </div>
+
+    <!-- Шаг 5: уведомление об изменениях -->
+    <div id="stepNotifyChange" style="display:none">
+      <div class="modal-body">
+        <div class="section-label">Заявка требует изменений</div>
+        <div id="recentRequestsList" class="nc-list"></div>
+        <div id="ncSelectedInfo" class="nc-selected-info" style="display:none"></div>
+        <div id="ncCommentGroup" class="field-group" style="display:none">
+          <label class="field-label">Комментарий</label>
+          <textarea id="ncComment" class="input textarea" rows="3" placeholder="Опишите необходимые изменения…"></textarea>
+        </div>
+        <div id="ncError" class="error-msg" style="display:none"></div>
+        <div id="ncSuccess" class="success-msg" style="display:none">Уведомление отправлено!</div>
+      </div>
+      <div class="modal-footer" id="ncFooter">
+        <button class="btn btn-success" id="btnNcSend" disabled>Отправить</button>
+        <button class="btn btn-outline" id="btnNcCancel">Назад</button>
+      </div>
+    </div>
+
+    <!-- Шаг 6: исключить день из графика -->
+    <div id="stepBlockDay" style="display:none">
+      <div class="modal-body">
+        <div class="section-label">Исключить день из графика</div>
+        <div id="bdDateGroup" class="field-group">
+          <label class="field-label">Дата <span class="req">*</span></label>
+          <input type="text" id="bdDate" class="input" placeholder="дд.мм.гггг" maxlength="10">
+        </div>
+        <div id="bdReasonGroup" class="field-group" style="display:none">
+          <label class="field-label">Причина <span class="req">*</span></label>
+          <textarea id="bdReason" class="input textarea" rows="2" placeholder="Причина блокировки…"></textarea>
+        </div>
+        <div id="bdError" class="error-msg" style="display:none"></div>
+        <div id="bdSuccess" style="display:none">
+          <div class="success-icon">✓</div>
+          <div id="bdSuccessTitle" class="success-title"></div>
+        </div>
+      </div>
+      <div class="modal-footer" id="bdFooter">
+        <button class="btn btn-success" id="btnBdNext">Далее</button>
+        <button class="btn btn-outline" id="btnBdCancel">Назад</button>
+      </div>
+    </div>
+
+  </div>
+
+  <script src="frame.js"></script>
+</body>
+</html>

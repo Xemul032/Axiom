@@ -1,0 +1,672 @@
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+html, body {
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  font-size: 13px;
+  background: transparent;
+  color: #222;
+}
+
+.modal-wrap {
+  background: #fff;
+  border-radius: 8px;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  box-shadow: 0 4px 32px rgba(0,0,0,.18);
+}
+
+/* ── Header ──────────────────────────────────────────────────────────────── */
+.modal-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 18px;
+  background: #1a1a1a;
+  color: #fff;
+}
+.modal-title {
+  font-size: 15px;
+  font-weight: 600;
+  letter-spacing: .3px;
+}
+.btn-close {
+  background: none;
+  border: none;
+  color: #aaa;
+  font-size: 17px;
+  cursor: pointer;
+  line-height: 1;
+  padding: 2px 6px;
+  border-radius: 4px;
+  transition: color .15s, background .15s;
+}
+.btn-close:hover { color: #fff; background: rgba(255,255,255,.1); }
+
+/* ── Body / layout ───────────────────────────────────────────────────────── */
+.modal-body {
+  padding: 16px 18px 8px;
+  overflow-y: visible;
+}
+.two-col {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0 24px;
+}
+@media (max-width: 520px) {
+  .two-col { grid-template-columns: 1fr; }
+}
+
+.section-label {
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: .6px;
+  color: #888;
+  margin-bottom: 10px;
+  padding-bottom: 4px;
+  border-bottom: 1px solid #eee;
+}
+
+/* ── Fields ──────────────────────────────────────────────────────────────── */
+.field-group { margin-bottom: 10px; }
+.field-label {
+  display: block;
+  font-size: 12px;
+  font-weight: 500;
+  color: #555;
+  margin-bottom: 4px;
+}
+.req { color: #e53935; }
+
+.input {
+  width: 100%;
+  padding: 6px 9px;
+  border: 1px solid #d0d0d0;
+  border-radius: 5px;
+  font-size: 13px;
+  color: #222;
+  background: #fafafa;
+  outline: none;
+  transition: border-color .15s, box-shadow .15s;
+  appearance: none;
+}
+.input:focus {
+  border-color: #4caf50;
+  box-shadow: 0 0 0 2px rgba(76,175,80,.15);
+  background: #fff;
+}
+.input.error { border-color: #e53935; }
+select.input { cursor: pointer; background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6'%3E%3Cpath d='M0 0l5 6 5-6z' fill='%23888'/%3E%3C/svg%3E"); background-repeat: no-repeat; background-position: right 8px center; padding-right: 22px; }
+.textarea { resize: vertical; min-height: 64px; line-height: 1.5; }
+.mt4 { margin-top: 4px; }
+
+.hint {
+  font-size: 11px;
+  color: #888;
+  margin-top: 3px;
+  min-height: 14px;
+}
+.hint.warn { color: #f57c00; }
+.hint.ok   { color: #388e3c; }
+
+/* ── Dropzone ─────────────────────────────────────────────────────────────── */
+.dropzone {
+  border: 2px dashed #ccc;
+  border-radius: 6px;
+  padding: 16px 10px;
+  text-align: center;
+  cursor: pointer;
+  transition: border-color .2s, background .2s;
+  background: #fafafa;
+}
+.dropzone.drag-over {
+  border-color: #4caf50;
+  background: #f1f8f1;
+}
+.dropzone-inner {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  color: #888;
+  font-size: 12px;
+  pointer-events: none;
+}
+.dropzone-sub { font-size: 11px; }
+.dropzone-link {
+  color: #4caf50;
+  cursor: pointer;
+  text-decoration: underline;
+  pointer-events: all;
+}
+
+.file-list { margin-top: 6px; display: flex; flex-direction: column; gap: 4px; }
+.file-item {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  background: #f0f4f0;
+  border-radius: 4px;
+  padding: 3px 7px;
+}
+.file-item span { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.file-remove {
+  background: none;
+  border: none;
+  color: #e53935;
+  cursor: pointer;
+  font-size: 14px;
+  line-height: 1;
+  padding: 0 2px;
+}
+
+/* ── Footer / buttons ────────────────────────────────────────────────────── */
+.modal-footer {
+  display: flex;
+  gap: 10px;
+  padding: 10px 18px 14px;
+  border-top: 1px solid #eee;
+}
+.btn {
+  flex: 1;
+  padding: 9px 14px;
+  border: none;
+  border-radius: 5px;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: opacity .15s, transform .1s;
+}
+.btn:active { transform: scale(.97); }
+.btn:disabled { opacity: .5; cursor: not-allowed; }
+.btn-success { background: #4caf50; color: #fff; }
+.btn-success:hover:not(:disabled) { background: #43a047; }
+.btn-danger  { background: #e53935; color: #fff; }
+.btn-danger:hover:not(:disabled)  { background: #c62828; }
+.btn-outline { background: transparent; border: 1px solid #4caf50; color: #4caf50; }
+.btn-outline:hover { background: #f1f8f1; }
+.mt8 { margin-top: 8px; }
+
+/* ── Error ───────────────────────────────────────────────────────────────── */
+.error-msg {
+  margin: 4px 18px 0;
+  padding: 7px 10px;
+  background: #ffebee;
+  border: 1px solid #ef9a9a;
+  border-radius: 4px;
+  color: #c62828;
+  font-size: 12px;
+}
+
+/* ── Success screen ──────────────────────────────────────────────────────── */
+#stepSuccess {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+.success-screen {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 24px 24px;
+  gap: 10px;
+  width: 100%;
+}
+.success-icon {
+  width: 56px; height: 56px;
+  border-radius: 50%;
+  background: #4caf50;
+  color: #fff;
+  font-size: 28px;
+  display: flex; align-items: center; justify-content: center;
+  box-shadow: 0 2px 12px rgba(76,175,80,.3);
+}
+.success-title { font-size: 17px; font-weight: 700; color: #222; }
+.success-sub   { font-size: 13px; color: #666; text-align: center; }
+
+/* ── Datepicker ──────────────────────────────────────────────────────────── */
+.datepicker-wrap {
+  position: relative;
+}
+
+.datepicker-toggle {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  cursor: pointer;
+  text-align: left;
+  gap: 6px;
+}
+.datepicker-toggle span { flex: 1; }
+.dp-chevron { flex-shrink: 0; transition: transform .15s; }
+.datepicker-toggle[aria-expanded="true"] .dp-chevron { transform: rotate(180deg); }
+.datepicker-toggle.dp-disabled,
+.datepicker-toggle:disabled {
+  opacity: .45;
+  cursor: not-allowed;
+  pointer-events: none;
+  background: #f4f4f4;
+}
+
+.datepicker-popup {
+  position: absolute;
+  top: calc(100% + 4px);
+  left: 0;
+  z-index: 200;
+  background: #fff;
+  border: 1px solid #d0d0d0;
+  border-radius: 8px;
+  box-shadow: 0 4px 20px rgba(0,0,0,.12);
+  padding: 10px;
+  width: 260px;
+  user-select: none;
+}
+
+/* Header */
+.dp-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 8px;
+}
+.dp-month-label {
+  font-size: 13px;
+  font-weight: 600;
+  color: #222;
+}
+.dp-nav {
+  background: none;
+  border: none;
+  font-size: 20px;
+  line-height: 1;
+  color: #666;
+  cursor: pointer;
+  padding: 2px 6px;
+  border-radius: 4px;
+  transition: background .12s, color .12s;
+}
+.dp-nav:hover { background: #f0f0f0; color: #222; }
+
+/* Weekday labels */
+.dp-weekdays {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 2px;
+  margin-bottom: 4px;
+}
+.dp-weekdays span {
+  text-align: center;
+  font-size: 10px;
+  font-weight: 600;
+  color: #aaa;
+  text-transform: uppercase;
+  padding: 2px 0;
+}
+
+/* Day grid */
+.dp-grid {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 2px;
+}
+
+.dp-day {
+  aspect-ratio: 1;
+  border: none;
+  background: none;
+  border-radius: 5px;
+  font-size: 12px;
+  font-weight: 500;
+  color: #333;
+  cursor: pointer;
+  transition: background .1s, color .1s;
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.dp-empty { pointer-events: none; }
+
+/* Прошедшие даты */
+.dp-past {
+  color: #ccc;
+  cursor: default;
+}
+
+/* Тип не выбран — нейтральные */
+.dp-no-type {
+  color: #999;
+}
+.dp-no-type:hover {
+  background: #f5f5f5;
+}
+
+/* Доступные даты — зелёная подсветка */
+.dp-avail {
+  background: #e8f5e9;
+  color: #2e7d32;
+  font-weight: 600;
+}
+.dp-avail:hover {
+  background: #4caf50;
+  color: #fff;
+}
+
+/* Последнее место — жёлтая подсветка */
+.dp-avail.dp-avail-low {
+  background: #fff8e1;
+  color: #e65100;
+}
+.dp-avail.dp-avail-low:hover {
+  background: #ff9800;
+  color: #fff;
+}
+
+/* Недоступные (занятые/заблокированные) */
+.dp-unavail {
+  color: #ccc;
+  cursor: default;
+  text-decoration: line-through;
+}
+
+/* Выбранная дата */
+.dp-selected {
+  background: #4caf50 !important;
+  color: #fff !important;
+  box-shadow: 0 1px 6px rgba(76,175,80,.4);
+}
+
+/* Сегодня */
+.dp-today:not(.dp-selected)::after {
+  content: '';
+  position: absolute;
+  bottom: 3px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 4px;
+  height: 4px;
+  border-radius: 50%;
+  background: #4caf50;
+}
+.dp-past.dp-today::after { background: #ccc; }
+
+/* Дни, на которых есть активные заявки (любого пользователя) — оранжевая подсветка */
+.dp-has-my-req {
+  border-radius: 5px;
+}
+/* Когда день доступен И есть заявки — оранжевый фон */
+.dp-avail.dp-has-my-req {
+  background: #fff3e0;
+  color: #b84c00;
+  font-weight: 700;
+}
+.dp-avail.dp-has-my-req:hover {
+  background: #e67e22;
+  color: #fff;
+}
+/* Когда день недоступен, но там есть своя заявка — всё равно показываем оранжевым */
+.dp-unavail.dp-has-my-req {
+  color: #c05c00;
+  text-decoration: none;
+}
+/* Тип не выбран, но есть своя заявка */
+.dp-no-type.dp-has-my-req {
+  color: #c05c00;
+}
+
+/* Легенда */
+.dp-legend {
+  display: flex;
+  gap: 12px;
+  margin-top: 8px;
+  padding-top: 8px;
+  border-top: 1px solid #f0f0f0;
+  flex-wrap: wrap;
+}
+.dp-legend-item {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 10px;
+  color: #888;
+}
+.dp-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 3px;
+  flex-shrink: 0;
+}
+.dp-dot-avail   { background: #4caf50; }
+.dp-dot-busy    { background: #ccc; }
+.dp-dot-my-req  { background: #e67e22; }
+
+/* ── Edit notice ──────────────────────────────────────────────────────────── */
+.edit-notice {
+  padding: 7px 18px;
+  background: #fff3e0;
+  border-bottom: 1px solid #ffe0b2;
+  font-size: 12px;
+  color: #e65100;
+}
+
+/* ── Duplicate screen ─────────────────────────────────────────────────────── */
+#stepDuplicate {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+}
+.duplicate-screen {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 20px 24px;
+  gap: 10px;
+}
+
+.duplicate-icon {
+  width: 56px; height: 56px;
+  border-radius: 50%;
+  background: #fff3e0;
+  color: #e65100;
+  font-size: 28px;
+  display: flex; align-items: center; justify-content: center;
+  box-shadow: 0 2px 12px rgba(230,81,0,.18);
+  flex-shrink: 0;
+}
+
+.duplicate-title {
+  font-size: 17px;
+  font-weight: 700;
+  color: #222;
+}
+
+.duplicate-sub {
+  font-size: 13px;
+  color: #555;
+  text-align: center;
+  margin: 0;
+}
+
+/* Карточка с данными существующей заявки */
+.dup-card {
+  width: 100%;
+  max-width: 420px;
+  border: 1px solid #e0e0e0;
+  border-radius: 7px;
+  overflow: hidden;
+  font-size: 13px;
+  margin-top: 4px;
+}
+
+.dup-row {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  padding: 6px 12px;
+  border-bottom: 1px solid #f0f0f0;
+}
+.dup-row:last-child { border-bottom: none; }
+.dup-row:nth-child(odd) { background: #fafafa; }
+
+.dup-label {
+  font-size: 11px;
+  font-weight: 600;
+  color: #888;
+  text-transform: uppercase;
+  letter-spacing: .4px;
+  min-width: 110px;
+  flex-shrink: 0;
+}
+
+/* Бейдж статуса */
+.dup-status {
+  display: inline-block;
+  padding: 2px 8px;
+  border-radius: 10px;
+  font-size: 11px;
+  font-weight: 600;
+}
+.dup-status--new         { background: #e3f2fd; color: #1565c0; }
+.dup-status--in_progress { background: #fff8e1; color: #e65100; }
+.dup-status--done        { background: #e8f5e9; color: #2e7d32; }
+.dup-status--cancelled   { background: #fce4ec; color: #b71c1c; }
+
+/* Список карточек заявок */
+.dup-list {
+  width: 100%;
+  max-width: 480px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  max-height: 52vh;
+  overflow-y: auto;
+  padding-right: 2px;
+}
+
+/* Шапка карточки: номер + статус */
+.dup-card-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 7px 12px;
+  background: #f5f5f5;
+  border-bottom: 1px solid #e0e0e0;
+}
+.dup-card-id {
+  font-size: 13px;
+  font-weight: 700;
+  color: #333;
+}
+
+/* Кнопка редактирования внутри карточки */
+.dup-edit-btn {
+  display: block;
+  width: calc(100% - 24px);
+  margin: 8px 12px;
+  flex: none;
+}
+
+/* Заблокированная кнопка редактирования (не владелец) */
+.dup-edit-btn--locked {
+  border-color: #bbb;
+  color: #999;
+  cursor: not-allowed;
+}
+.dup-edit-btn--locked:hover {
+  background: transparent;
+}
+.btn-sm {
+  padding: 5px 10px;
+  font-size: 12px;
+}
+
+/* Кнопки */
+.dup-actions {
+  display: flex;
+  gap: 10px;
+  width: 100%;
+  max-width: 480px;
+  margin-top: 6px;
+}
+.dup-actions .btn { flex: 1; }
+
+/* ── Header actions (новые кнопки в шапке) ───────────────────────────────── */
+.header-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.btn-warn {
+  background: #e67e22;
+  color: #fff;
+  border: none;
+}
+.btn-warn:hover { background: #d35400; }
+
+/* ── "Заявка требует изменений" ──────────────────────────────────────────── */
+.recent-requests-list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  max-height: 220px;
+  overflow-y: auto;
+  margin-top: 6px;
+}
+
+.nc-request-item {
+  padding: 10px 12px;
+  border: 1.5px solid #e0e0e0;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: border-color .15s, background .15s;
+  user-select: none;
+}
+.nc-request-item:hover { border-color: #4a9eff; background: #f0f7ff; }
+.nc-request-item.selected { border-color: #2563eb; background: #eff6ff; }
+
+.nc-req-main {
+  font-weight: 600;
+  font-size: 13px;
+  color: #1a1a1a;
+}
+.nc-req-sub {
+  font-size: 11px;
+  color: #666;
+  margin-top: 2px;
+}
+
+.nc-selected-info {
+  margin-top: 8px;
+  padding: 8px 10px;
+  background: #eff6ff;
+  border-radius: 5px;
+  font-size: 12px;
+  color: #1d4ed8;
+  font-weight: 500;
+}
+
+.nc-loading,
+.nc-empty {
+  padding: 14px 0;
+  text-align: center;
+  color: #888;
+  font-size: 12px;
+}
+
+/* ── "Исключить день из графика" ─────────────────────────────────────────── */
+.block-day-instruction {
+  padding: 10px 12px;
+  background: #fffbeb;
+  border: 1px solid #fde68a;
+  border-radius: 6px;
+  font-size: 12px;
+  color: #78350f;
+  margin-bottom: 14px;
+  line-height: 1.5;
+}
