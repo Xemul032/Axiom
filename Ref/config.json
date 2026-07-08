@@ -18,6 +18,12 @@
       "runAt": "document-idle",
       "config": {}
     }, 
+   "montagesNew": {
+      "enabled": true,
+      "url": "https://raw.githubusercontent.com/Xemul032/Axiom/refs/heads/main/Ref/features/montagesNew.js",
+      "runAt": "document-idle",
+      "config": {}
+    },     
    "linkShop": {
       "enabled": true,
       "url": "https://raw.githubusercontent.com/Xemul032/Axiom/refs/heads/main/Ref/features/linkShop.js",
